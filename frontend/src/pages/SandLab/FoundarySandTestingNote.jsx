@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from 'react-router-dom';
 import { Save, RefreshCw, FileText, Loader2, RotateCcw } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
+import { DisaDropdown } from '../../Components/Buttons';
 import '../../styles/PageStyles/Sandlab/FoundarySandTestingNote.css';
 
 const initialFormData = {
@@ -503,6 +504,17 @@ export default function FoundrySandTestingNote() {
     }
   };
 
+  // Load current date data on mount - auto-set to today
+  useEffect(() => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const d = String(today.getDate()).padStart(2, '0');
+    const currentDate = `${y}-${m}-${d}`;
+    setPrimaryData(prev => ({ ...prev, date: currentDate }));
+    checkExistingData(currentDate);
+  }, []);
+
   // Check for data when date changes - checks all sections
   useEffect(() => {
     if (primaryData.date) {
@@ -676,8 +688,8 @@ export default function FoundrySandTestingNote() {
 
   // Handle primary data submission - only send fields that have data
   const handlePrimarySubmit = async () => {
-    if (!primaryData.date || !primaryData.shift || !primaryData.sandPlant) {
-      alert('Please fill in Date, Shift, and Sand Plant fields');
+    if (!primaryData.date || !primaryData.shift) {
+      alert('Please fill in Date and Shift fields');
       return;
     }
 
@@ -985,24 +997,21 @@ export default function FoundrySandTestingNote() {
             Foundry Sand Testing Note
           </h2>
         </div>
+        <div style={{ 
+          fontSize: '1.1rem', 
+          fontWeight: '600', 
+          color: '#1e293b',
+          backgroundColor: '#f1f5f9',
+          padding: '0.5rem 1rem',
+          borderRadius: '8px',
+          border: '2px solid #cbd5e1'
+        }}>
+          DATE: {primaryData.date ? new Date(primaryData.date).toLocaleDateString('en-GB') : '-'}
+        </div>
       </div>
 
-      {/* Primary Section */}
-      <div className="foundry-section">
-        <h3 className="foundry-section-title primary-data-title">Primary Data :</h3>
-        <div className="foundry-form-grid">
-          <div className="foundry-form-group">
-            <label>Date *</label>
-            <CustomDatePicker
-              value={primaryData.date}
-              onChange={(e) => {
-                const dateValue = e?.target?.value || e || '';
-                handlePrimaryChange("date", dateValue);
-              }}
-              name="date"
-              disabled={checkingData}
-            />
-          </div>
+      {/* Primary Fields */}
+      <div className="foundry-form-grid" style={{ marginBottom: '1.5rem' }}>
         <div className="foundry-form-group">
           <label>Shift *</label>
           <select
@@ -1045,18 +1054,13 @@ export default function FoundrySandTestingNote() {
         </div>
         <div className="foundry-form-group">
           <label>Sand Plant *</label>
-          <input
-            type="text"
-            placeholder="e.g. DISA"
+          <DisaDropdown
             value={primaryData.sandPlant}
             onChange={(e) => handlePrimaryChange("sandPlant", e.target.value)}
+            name="sandPlant"
             onKeyDown={(e) => handleKeyDown(e, primarySubmitRef, primaryFirstInputRef)}
             disabled={isFieldLocked('primary', 'sandPlant') || checkingData}
-            readOnly={isFieldLocked('primary', 'sandPlant')}
-            style={{
-              backgroundColor: (isFieldLocked('primary', 'sandPlant') || checkingData) ? '#f1f5f9' : '#ffffff',
-              cursor: (isFieldLocked('primary', 'sandPlant') || checkingData) ? 'not-allowed' : 'text'
-            }}
+            className={isFieldLocked('primary', 'sandPlant') || checkingData ? 'locked-field' : ''}
           />
         </div>
         <div className="foundry-form-group">
@@ -1092,20 +1096,19 @@ export default function FoundrySandTestingNote() {
           />
         </div>
       </div>
-      <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+      <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
         <button
           ref={primarySubmitRef}
           type="button"
           onClick={handlePrimarySubmit}
           onKeyDown={(e) => handleSubmitButtonKeyDown(e, handlePrimarySubmit)}
-          disabled={loadingStates.primary || checkingData || !primaryData.date || !primaryData.shift || !primaryData.sandPlant}
+          disabled={loadingStates.primary || checkingData || !primaryData.date || !primaryData.shift}
           className="foundry-submit-btn"
           title="Save Primary Data"
         >
           {loadingStates.primary ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
           {loadingStates.primary ? 'Saving...' : 'Save Primary'}
         </button>
-      </div>
       </div>
 
       {/* Clay Parameters */}

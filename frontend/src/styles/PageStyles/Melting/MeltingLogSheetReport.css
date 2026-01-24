@@ -224,3 +224,56 @@
   justify-content: center;
   gap: 8px;
 }
+
+/* Filter Section Styles */
+.melting-log-filter-container {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.melting-log-filter-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.melting-log-filter-group label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #334155;
+  margin-bottom: 0.25rem;
+}
+
+.melting-log-filter-group input {
+  width: 160px;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
+}
+
+.melting-log-filter-container > div:has(button) {
+  display: inline-block;
+}
+
+.melting-log-filter-container button {
+  margin-bottom: 0;
+  min-height: 38px;
+}
+
+@media (max-width: 768px) {
+  .melting-log-filter-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .melting-log-filter-group {
+    width: 100%;
+  }
+  
+  .melting-log-filter-container button {
+    width: 100%;
+  }
+}

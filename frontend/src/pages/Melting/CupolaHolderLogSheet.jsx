@@ -1,16 +1,34 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Save, Loader2, RotateCcw } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
+import { TimeInput } from '../../Components/Buttons';
 import '../../styles/PageStyles/Melting/CupolaHolderLogSheet.css';
 
 const CupolaHolderLogSheet = () => {
-  // Primary Data
+  // Helper function to get current date in YYYY-MM-DD format
+  const getCurrentDate = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Primary Data (without heatNo)
   const [primaryData, setPrimaryData] = useState({
-    date: '',
+    date: getCurrentDate(),
     shift: '',
-    holderNumber: '',
-    heatNo: ''
+    holderNumber: ''
   });
+
+  const [primaryLoading, setPrimaryLoading] = useState(false);
+  const [primaryId, setPrimaryId] = useState(null);
+  const [fetchingPrimary, setFetchingPrimary] = useState(false);
+  const [primaryLocks, setPrimaryLocks] = useState({});
+
+  // Auto-incremented Heat No
+  const [heatNo, setHeatNo] = useState(1);
+  const [fetchingHeatNo, setFetchingHeatNo] = useState(false);
 
   // Table Data
   const [table1, setTable1] = useState({
@@ -24,8 +42,10 @@ const CupolaHolderLogSheet = () => {
   });
 
   const [table2, setTable2] = useState({
-    actualTime: '',
-    tappingTime: '',
+    actualTimeHour: '',
+    actualTimeMinute: '',
+    tappingTimeHour: '',
+    tappingTimeMinute: '',
     tappingTemp: '',
     metalKg: ''
   });
@@ -42,119 +62,161 @@ const CupolaHolderLogSheet = () => {
     remarks: ''
   });
 
-  // Combined formData for backward compatibility with existing logic
-  const formData = {
-    ...primaryData,
-    ...table1,
-    ...table2,
-    ...table3,
-    ...table4
-  };
+  // Refs for time inputs
+  const actualTimeHourRef = useRef(null);
+  const actualTimeMinuteRef = useRef(null);
+  const tappingTimeHourRef = useRef(null);
+  const tappingTimeMinuteRef = useRef(null);
+
+  // Validation states (null = neutral, true = valid/green, false = invalid/red)
+  // Primary validations
+  const [shiftValid, setShiftValid] = useState(null);
+  const [holderNumberValid, setHolderNumberValid] = useState(null);
+
+  // Table 1 validations
+  const [cpcValid, setCpcValid] = useState(null);
+  const [mFeSlValid, setMFeSlValid] = useState(null);
+  const [feMnValid, setFeMnValid] = useState(null);
+  const [sicValid, setSicValid] = useState(null);
+  const [pureMgValid, setPureMgValid] = useState(null);
+  const [cuValid, setCuValid] = useState(null);
+  const [feCrValid, setFeCrValid] = useState(null);
+
+  // Table 2 validations
+  const [actualTimeValid, setActualTimeValid] = useState(null);
+  const [tappingTimeValid, setTappingTimeValid] = useState(null);
+  const [tappingTempValid, setTappingTempValid] = useState(null);
+  const [metalKgValid, setMetalKgValid] = useState(null);
+
+  // Table 3 validations
+  const [disaLineValid, setDisaLineValid] = useState(null);
+  const [indFurValid, setIndFurValid] = useState(null);
+  const [bailNoValid, setBailNoValid] = useState(null);
+  const [tapValid, setTapValid] = useState(null);
+  const [kwValid, setKwValid] = useState(null);
+
+  // Table 4 validations
+  const [remarksValid, setRemarksValid] = useState(null);
 
   const [submitLoading, setSubmitLoading] = useState(false);
-  const [primaryLoading, setPrimaryLoading] = useState(false);
-  const [primaryId, setPrimaryId] = useState(null);
-  const [fetchingPrimary, setFetchingPrimary] = useState(false);
-  const [primaryLocks, setPrimaryLocks] = useState({});
 
-  // Check if there's data for the specific date+shift combination and lock shift dropdown
-  const checkAndLockByDateAndShift = async (date, shift) => {
-    if (!date || !shift) {
-      // If date or shift is not set, unlock shift (unless primaryId exists)
-      if (!primaryId) {
-        setPrimaryLocks(prev => {
-          const newLocks = { ...prev };
-          delete newLocks.shift;
-          return newLocks;
-        });
-      }
-      return;
+  // Helper function to get validation class
+  const getValidationClass = (validationState) => {
+    if (validationState === null) return '';
+    return validationState ? 'valid-input' : 'invalid-input';
+  };
+
+  // Fetch primary data and heat no automatically on mount
+  useEffect(() => {
+    const currentDate = getCurrentDate();
+    if (currentDate) {
+      fetchPrimaryData(currentDate);
     }
-    
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Fetch heat no when date, shift, or holderNumber changes
+  useEffect(() => {
+    if (primaryData.date) {
+      fetchNextHeatNo(primaryData.date);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [primaryData.date, primaryData.shift, primaryData.holderNumber]);
+
+  const fetchNextHeatNo = async (date) => {
     try {
+      setFetchingHeatNo(true);
       const dateStr = date instanceof Date ? date.toISOString().split('T')[0] : date;
       const response = await fetch(`http://localhost:5000/api/v1/cupola-logs/filter?startDate=${dateStr}&endDate=${dateStr}`, {
         method: 'GET',
         credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
+        headers: { 'Content-Type': 'application/json' }
       });
       const data = await response.json();
       
-      if (data.success && data.data && data.data.length > 0) {
-        // Check if any entry has the same date AND shift
-        const hasDataForShift = data.data.some(entry => {
-          const entryShift = entry.shift;
-          return entryShift === shift;
-        });
-        
-        if (hasDataForShift) {
-          // Data exists for this date+shift combination, lock shift dropdown
-          setPrimaryLocks(prev => ({
-            ...prev,
-            shift: true
-          }));
-        } else {
-          // No data for this date+shift combination, unlock shift (unless primaryId exists)
-          if (!primaryId) {
-            setPrimaryLocks(prev => {
-              const newLocks = { ...prev };
-              delete newLocks.shift;
-              return newLocks;
-            });
-          }
-        }
+      if (data.success && data.data) {
+        // Count entries for this date to determine next heat no
+        const entriesCount = data.data.length;
+        setHeatNo(entriesCount + 1);
       } else {
-        // No data for this date, unlock shift (unless primaryId exists)
-        if (!primaryId) {
-          setPrimaryLocks(prev => {
-            const newLocks = { ...prev };
-            delete newLocks.shift;
-            return newLocks;
-          });
-        }
+        setHeatNo(1);
       }
     } catch (error) {
-      console.error('Error checking existing data for date and shift:', error);
+      console.error('Error fetching heat number:', error);
+      setHeatNo(1);
+    } finally {
+      setFetchingHeatNo(false);
     }
   };
 
-  // Check for existing data when date or shift changes
-  useEffect(() => {
-    if (primaryData.date && primaryData.shift) {
-      checkAndLockByDateAndShift(primaryData.date, primaryData.shift);
-    } else if (!primaryData.date || !primaryData.shift) {
-      // Clear shift lock when date or shift is cleared (unless primaryId exists)
-      if (!primaryId) {
-        setPrimaryLocks(prev => {
-          const newLocks = { ...prev };
-          delete newLocks.shift;
-          return newLocks;
+  const fetchPrimaryData = async (date) => {
+    if (!date) return;
+    
+    setFetchingPrimary(true);
+    try {
+      const dateStr = date instanceof Date ? date.toISOString().split('T')[0] : date;
+      const res = await fetch(`http://localhost:5000/api/v1/cupola-logs/filter?startDate=${dateStr}&endDate=${dateStr}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const response = await res.json();
+      
+      if (response.success && response.data && response.data.length > 0) {
+        // Get the first entry for this date
+        const data = response.data[0];
+        
+        // Populate form with fetched data
+        setPrimaryData({
+          date: data.date ? new Date(data.date).toISOString().split('T')[0] : date,
+          shift: data.shift || '',
+          holderNumber: data.holderNumber || ''
         });
+        setPrimaryId(data._id);
+        
+        // Lock only fields that have values
+        const locks = {};
+        if (data.shift !== undefined && data.shift !== null && data.shift !== '') {
+          locks.shift = true;
+        }
+        if (data.holderNumber !== undefined && data.holderNumber !== null && data.holderNumber !== '') {
+          locks.holderNumber = true;
+        }
+        setPrimaryLocks(locks);
+      } else {
+        // No data found for this date, reset
+        setPrimaryId(null);
+        setPrimaryLocks({});
       }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [primaryData.date, primaryData.shift]);
-
-  // Fetch primary data when date, shift, or holderNumber changes
-  useEffect(() => {
-    if (primaryData.date && primaryData.shift && primaryData.holderNumber) {
-      const dateStr = primaryData.date instanceof Date 
-        ? primaryData.date.toISOString().split('T')[0] 
-        : primaryData.date;
-      fetchPrimaryData(dateStr, primaryData.shift, primaryData.holderNumber);
-    } else if (!primaryData.date || !primaryData.shift || !primaryData.holderNumber) {
-      // Clear primary ID and locks when primary fields are cleared
+    } catch (error) {
+      console.error('Error fetching primary data:', error);
       setPrimaryId(null);
+      setPrimaryLocks({});
+    } finally {
+      setFetchingPrimary(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [primaryData.date, primaryData.shift, primaryData.holderNumber]);
+  };
 
   const handlePrimaryChange = (field, value) => {
     // Prevent changes to locked fields (except date)
     if (field !== 'date' && isPrimaryFieldLocked(field)) {
       return;
+    }
+
+    // Validation logic for primary fields
+    if (field === 'shift') {
+      if (value.trim() === '') {
+        setShiftValid(null);
+      } else {
+        setShiftValid(value.trim().length > 0);
+      }
+    }
+    if (field === 'holderNumber') {
+      if (value.trim() === '') {
+        setHolderNumberValid(null);
+      } else {
+        setHolderNumberValid(value.trim().length > 0);
+      }
     }
     
     setPrimaryData(prev => ({
@@ -165,216 +227,346 @@ const CupolaHolderLogSheet = () => {
     // When date changes, automatically fetch existing data
     if (field === 'date' && value) {
       const dateStr = value instanceof Date ? value.toISOString().split('T')[0] : value;
-      // Fetch will be triggered by useEffect
+      fetchPrimaryData(dateStr);
     } else if (field === 'date' && !value) {
-      // Clear primary ID and locks when date is cleared
+      // Clear primary ID, locks, and validation states when date is cleared
       setPrimaryId(null);
       setPrimaryLocks({});
+      setShiftValid(null);
+      setHolderNumberValid(null);
     }
   };
 
   const handleTableChange = (tableNum, field, value) => {
+    // Validation logic for Table 1
+    if (tableNum === 1) {
+      const validations = {
+        cpc: setCpcValid,
+        mFeSl: setMFeSlValid,
+        feMn: setFeMnValid,
+        sic: setSicValid,
+        pureMg: setPureMgValid,
+        cu: setCuValid,
+        feCr: setFeCrValid
+      };
+      
+      if (validations[field]) {
+        if (value.trim() === '') {
+          validations[field](null);
+        } else {
+          validations[field](!isNaN(value) && parseFloat(value) >= 0);
+        }
+      }
+    }
+
+    // Validation logic for Table 2
+    if (tableNum === 2) {
+      if (field.includes('actualTime')) {
+        const updatedData = {...table2, [field]: value};
+        const hasTime = updatedData.actualTimeHour && updatedData.actualTimeMinute;
+        const allEmpty = !updatedData.actualTimeHour && !updatedData.actualTimeMinute;
+        
+        if (allEmpty) {
+          setActualTimeValid(null);
+        } else if (hasTime) {
+          setActualTimeValid(true);
+        } else {
+          setActualTimeValid(false);
+        }
+      }
+      if (field.includes('tappingTime')) {
+        const updatedData = {...table2, [field]: value};
+        const hasTime = updatedData.tappingTimeHour && updatedData.tappingTimeMinute;
+        const allEmpty = !updatedData.tappingTimeHour && !updatedData.tappingTimeMinute;
+        
+        if (allEmpty) {
+          setTappingTimeValid(null);
+        } else if (hasTime) {
+          setTappingTimeValid(true);
+        } else {
+          setTappingTimeValid(false);
+        }
+      }
+      if (field === 'tappingTemp') {
+        if (value.trim() === '') {
+          setTappingTempValid(null);
+        } else {
+          setTappingTempValid(!isNaN(value) && parseFloat(value) >= 0);
+        }
+      }
+      if (field === 'metalKg') {
+        if (value.trim() === '') {
+          setMetalKgValid(null);
+        } else {
+          setMetalKgValid(!isNaN(value) && parseFloat(value) >= 0);
+        }
+      }
+    }
+
+    // Validation logic for Table 3
+    if (tableNum === 3) {
+      if (field === 'disaLine') {
+        if (value.trim() === '') {
+          setDisaLineValid(null);
+        } else {
+          setDisaLineValid(value.trim().length > 0);
+        }
+      }
+      if (field === 'indFur') {
+        if (value.trim() === '') {
+          setIndFurValid(null);
+        } else {
+          setIndFurValid(value.trim().length > 0);
+        }
+      }
+      if (field === 'bailNo') {
+        if (value.trim() === '') {
+          setBailNoValid(null);
+        } else {
+          setBailNoValid(value.trim().length > 0);
+        }
+      }
+      if (field === 'tap') {
+        if (value.trim() === '') {
+          setTapValid(null);
+        } else {
+          setTapValid(value.trim().length > 0);
+        }
+      }
+      if (field === 'kw') {
+        if (value.trim() === '') {
+          setKwValid(null);
+        } else {
+          setKwValid(!isNaN(value) && parseFloat(value) >= 0);
+        }
+      }
+    }
+
+    // Validation logic for Table 4
+    if (tableNum === 4) {
+      if (field === 'remarks') {
+        if (value.trim() === '') {
+          setRemarksValid(null);
+        } else {
+          setRemarksValid(value.trim().length > 0);
+        }
+      }
+    }
+
     const setters = {
       1: setTable1,
       2: setTable2,
       3: setTable3,
       4: setTable4
     };
-    
     setters[tableNum](prev => ({
       ...prev,
       [field]: value
     }));
   };
 
-  const fetchPrimaryData = async (date, shift, holderNumber) => {
-    if (!date || !shift || !holderNumber) return;
-    
-    setFetchingPrimary(true);
-    try {
-      // Format date for API (YYYY-MM-DD)
-      const dateStr = date instanceof Date ? date.toISOString().split('T')[0] : date;
-      const encodedShift = encodeURIComponent(shift);
-      const encodedHolder = encodeURIComponent(holderNumber);
-      const resp = await fetch(`http://localhost:5000/api/v1/cupola-logs/primary/${dateStr}/${encodedShift}/${encodedHolder}`, {
-        method: 'GET',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      const response = await resp.json();
-      
-      if (response.success && response.data) {
-        // Populate primary data with fetched data
-        setPrimaryData({
-          date: response.data.date ? new Date(response.data.date).toISOString().split('T')[0] : date,
-          shift: response.data.shift || shift,
-          holderNumber: response.data.holderNumber || holderNumber,
-          heatNo: response.data.heatNo || ''
-        });
-        setPrimaryId(response.data._id);
-        
-        // Lock all primary fields except date when data exists (date should remain changeable)
-        // Since entry exists, lock shift and holderNumber (they are required fields)
-        const locks = {};
-        locks.shift = true; // Always lock shift when data exists
-        locks.holderNumber = true; // Always lock holderNumber when data exists
-        // Lock heatNo if it has a value
-        if (response.data.heatNo !== undefined && response.data.heatNo !== null && response.data.heatNo !== '') {
-          locks.heatNo = true;
-        }
-        setPrimaryLocks(locks);
-      } else {
-        // No data found, reset
-        setPrimaryId(null);
-        setPrimaryLocks({});
-      }
-    } catch (error) {
-      console.error('Error fetching primary data:', error);
-      // If error, assume no data exists
-      setPrimaryId(null);
-      setPrimaryLocks({});
-    } finally {
-      setFetchingPrimary(false);
-    }
-  };
-
-  // Helper function to check if a primary field is locked
-  const isPrimaryFieldLocked = (field) => {
-    return primaryLocks[field] === true;
-  };
-
-  const resetPrimaryData = () => {
-    if (!window.confirm('Are you sure you want to reset Primary data?')) return;
-    setPrimaryData({
-      date: '',
-      shift: '',
-      holderNumber: '',
-      heatNo: ''
-    });
-    setPrimaryId(null);
-    setPrimaryLocks({});
-  };
-
-  const handleEnterFocusNext = (e) => {
-    if (e.key !== 'Enter') return;
-
-    const target = e.target;
-    if (!(target && (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA'))) return;
-
-    const value = target.value != null ? String(target.value).trim() : '';
-    if (value === '') return; // Only move when current field has a value
-
-    e.preventDefault();
-    const focusables = Array.from(document.querySelectorAll('input, select, textarea'))
-      .filter(el => !el.disabled && el.type !== 'hidden' && el.offsetParent !== null);
-    const idx = focusables.indexOf(document.activeElement);
-    if (idx > -1 && idx < focusables.length - 1) {
-      focusables[idx + 1].focus();
-    }
-  };
-
   const handlePrimarySubmit = async () => {
     // Validate required fields
-    if (!primaryData.date || !primaryData.shift || !primaryData.holderNumber) {
-      alert('Please fill in Date, Shift, and Holder Number');
+    if (!primaryData.date) {
+      alert('Please fill in Date');
+      return;
+    }
+    if (!primaryData.shift) {
+      setShiftValid(false);
+      alert('Please fill in Shift');
+      return;
+    }
+    if (!primaryData.holderNumber) {
+      setHolderNumberValid(false);
+      alert('Please fill in Holder Number');
       return;
     }
 
-    // Save primary data to database
+    // Check if primary data already exists for this date (prevent duplicates)
+    if (primaryId) {
+      alert('Primary data already exists for this date. Only one entry per day is allowed.');
+      return;
+    }
+
     setPrimaryLoading(true);
     try {
-      const payload = {
-        primaryData: {
-          date: primaryData.date,
-          shift: primaryData.shift,
-          holderNumber: primaryData.holderNumber,
-          heatNo: primaryData.heatNo
-        }
-      };
-      console.log('Submitting primary data:', payload);
-      
-      const resp = await fetch('http://localhost:5000/api/v1/cupola-logs/primary', {
+      const res = await fetch('http://localhost:5000/api/v1/cupola-logs/primary', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+          primaryData: primaryData
+        })
       });
-      const response = await resp.json();
+      const response = await res.json();
       
       if (response.success) {
         setPrimaryId(response.data._id);
-        // Update primary data with response data to ensure consistency
         setPrimaryData(prev => ({
           ...prev,
-          date: response.data.date ? new Date(response.data.date).toISOString().split('T')[0] : prev.date,
-          shift: response.data.shift || prev.shift,
-          holderNumber: response.data.holderNumber || prev.holderNumber,
-          heatNo: response.data.heatNo || prev.heatNo
+          date: response.data.date ? new Date(response.data.date).toISOString().split('T')[0] : prev.date
         }));
         
-        // After saving, check if data exists for this date+shift combination and lock shift accordingly
-        // This will lock shift only if data exists for that specific date+shift combination
-        await checkAndLockByDateAndShift(primaryData.date, primaryData.shift);
-        
-        // Lock all primary fields except date after saving
-        // Shift lock is determined by checkAndLockByDateAndShift based on whether data exists for date+shift
-        // Always lock holderNumber since it's a required field
+        // Lock fields that have values after saving
         const locks = {};
-        locks.shift = true; // Lock shift after saving
-        locks.holderNumber = true; // Always lock holderNumber after saving
-        // Lock heatNo if it has a value
-        if (primaryData.heatNo !== undefined && primaryData.heatNo !== null && primaryData.heatNo !== '') {
-          locks.heatNo = true;
-        }
+        if (primaryData.shift !== undefined && primaryData.shift !== null && primaryData.shift !== '') locks.shift = true;
+        if (primaryData.holderNumber !== undefined && primaryData.holderNumber !== null && primaryData.holderNumber !== '') locks.holderNumber = true;
         setPrimaryLocks(locks);
-        
-        alert('Primary data saved successfully.');
       } else {
-        alert('Error: ' + (response.message || 'Unknown error'));
-        console.error('Backend error response:', JSON.stringify(response, null, 2));
+        alert('Error: ' + response.message);
       }
     } catch (error) {
       console.error('Error saving primary data:', error);
-      alert('Failed to save primary data: ' + error.message);
+      alert('Failed to save primary data. Please try again.');
     } finally {
       setPrimaryLoading(false);
     }
   };
 
+
+
+  const isPrimaryFieldLocked = (field) => {
+    return primaryLocks[field] === true;
+  };
+
   const handleAllTablesSubmit = async () => {
-    // Ensure primary data exists (date is required)
-    if (!primaryData.date) {
-      alert('Please enter a date first.');
+    // Validate all table fields
+    let hasErrors = false;
+
+    // Validate Table 1 fields
+    if (!table1.cpc || table1.cpc.trim() === '') {
+      setCpcValid(false);
+      hasErrors = true;
+    }
+    if (!table1.mFeSl || table1.mFeSl.trim() === '') {
+      setMFeSlValid(false);
+      hasErrors = true;
+    }
+    if (!table1.feMn || table1.feMn.trim() === '') {
+      setFeMnValid(false);
+      hasErrors = true;
+    }
+    if (!table1.sic || table1.sic.trim() === '') {
+      setSicValid(false);
+      hasErrors = true;
+    }
+    if (!table1.pureMg || table1.pureMg.trim() === '') {
+      setPureMgValid(false);
+      hasErrors = true;
+    }
+    if (!table1.cu || table1.cu.trim() === '') {
+      setCuValid(false);
+      hasErrors = true;
+    }
+    if (!table1.feCr || table1.feCr.trim() === '') {
+      setFeCrValid(false);
+      hasErrors = true;
+    }
+
+    // Validate Table 2 fields
+    if (!table2.actualTimeHour || !table2.actualTimeMinute) {
+      setActualTimeValid(false);
+      hasErrors = true;
+    }
+    if (!table2.tappingTimeHour || !table2.tappingTimeMinute) {
+      setTappingTimeValid(false);
+      hasErrors = true;
+    }
+    if (!table2.tappingTemp || table2.tappingTemp.trim() === '') {
+      setTappingTempValid(false);
+      hasErrors = true;
+    }
+    if (!table2.metalKg || table2.metalKg.trim() === '') {
+      setMetalKgValid(false);
+      hasErrors = true;
+    }
+
+    // Validate Table 3 fields
+    if (!table3.disaLine || table3.disaLine.trim() === '') {
+      setDisaLineValid(false);
+      hasErrors = true;
+    }
+    if (!table3.indFur || table3.indFur.trim() === '') {
+      setIndFurValid(false);
+      hasErrors = true;
+    }
+    if (!table3.bailNo || table3.bailNo.trim() === '') {
+      setBailNoValid(false);
+      hasErrors = true;
+    }
+    if (!table3.tap || table3.tap.trim() === '') {
+      setTapValid(false);
+      hasErrors = true;
+    }
+    if (!table3.kw || table3.kw.trim() === '') {
+      setKwValid(false);
+      hasErrors = true;
+    }
+
+    // Validate Table 4 fields
+    if (!table4.remarks || table4.remarks.trim() === '') {
+      setRemarksValid(false);
+      hasErrors = true;
+    }
+
+    if (hasErrors) {
       return;
     }
 
+    setSubmitLoading(true);
     try {
-      setSubmitLoading(true);
-      
-      // Combine all data (primary + tables)
-      const allData = {
-        ...primaryData,
-        ...table1,
-        ...table2,
-        ...table3,
-        ...table4
+      const formattedData = {
+        date: primaryData.date,
+        shift: primaryData.shift,
+        holderNumber: primaryData.holderNumber,
+        heatNo: `Heat No ${heatNo}`,
+        additions: {
+          cpc: parseFloat(table1.cpc),
+          FeSl: parseFloat(table1.mFeSl),
+          feMn: parseFloat(table1.feMn),
+          sic: parseFloat(table1.sic),
+          pureMg: parseFloat(table1.pureMg),
+          cu: parseFloat(table1.cu),
+          feCr: parseFloat(table1.feCr)
+        },
+        tapping: {
+          time: {
+            actualTime: `${table2.actualTimeHour}:${table2.actualTimeMinute}`,
+            tappingTime: `${table2.tappingTimeHour}:${table2.tappingTimeMinute}`
+          },
+          tempC: parseFloat(table2.tappingTemp),
+          metalKgs: parseFloat(table2.metalKg)
+        },
+        pouring: {
+          disaLine: table3.disaLine,
+          indFur: table3.indFur,
+          bailNo: table3.bailNo
+        },
+        electrical: {
+          tap: table3.tap,
+          kw: parseFloat(table3.kw)
+        },
+        remarks: table4.remarks
       };
-      
-      // Send all data (primary + other fields) combined to backend
-      // Backend will find existing document by date+shift+holderNumber and update it, or create new one
+
       const response = await fetch('http://localhost:5000/api/v1/cupola-logs', {
         method: 'POST',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(allData)
+        credentials: 'include',
+        body: JSON.stringify(formattedData)
       });
-      const data = await response.json();
-      if (data.success) {
-        alert('All tables saved successfully!');
+
+      const result = await response.json();
+      
+      if (result.success) {
+        // Refresh heat no
+        fetchNextHeatNo(primaryData.date);
+        // Reset tables
+        handleAllTablesReset();
+      } else {
+        alert('Error: ' + result.message);
       }
     } catch (error) {
       console.error('Error saving cupola holder log:', error);
@@ -385,7 +577,6 @@ const CupolaHolderLogSheet = () => {
   };
 
   const handleAllTablesReset = () => {
-    if (!window.confirm('Are you sure you want to reset all table entries?')) return;
     setTable1({
       cpc: '',
       mFeSl: '',
@@ -396,8 +587,10 @@ const CupolaHolderLogSheet = () => {
       feCr: ''
     });
     setTable2({
-      actualTime: '',
-      tappingTime: '',
+      actualTimeHour: '',
+      actualTimeMinute: '',
+      tappingTimeHour: '',
+      tappingTimeMinute: '',
       tappingTemp: '',
       metalKg: ''
     });
@@ -411,17 +604,60 @@ const CupolaHolderLogSheet = () => {
     setTable4({
       remarks: ''
     });
+
+    // Reset all validation states
+    setCpcValid(null);
+    setMFeSlValid(null);
+    setFeMnValid(null);
+    setSicValid(null);
+    setPureMgValid(null);
+    setCuValid(null);
+    setFeCrValid(null);
+    setActualTimeValid(null);
+    setTappingTimeValid(null);
+    setTappingTempValid(null);
+    setMetalKgValid(null);
+    setDisaLineValid(null);
+    setIndFurValid(null);
+    setBailNoValid(null);
+    setTapValid(null);
+    setKwValid(null);
+    setRemarksValid(null);
+  };
+
+  const handleEnterFocusNext = (e) => {
+    if (e.key !== 'Enter') return;
+    const target = e.target;
+    if (!(target && (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA'))) return;
+    
+    const form = target.form;
+    if (!form) return;
+    
+    const elements = Array.from(form.elements).filter(el => 
+      (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA') && 
+      !el.disabled && 
+      !el.readOnly &&
+      el.type !== 'hidden'
+    );
+    
+    const currentIndex = elements.indexOf(target);
+    if (currentIndex > -1 && currentIndex < elements.length - 1) {
+      elements[currentIndex + 1].focus();
+      e.preventDefault();
+    }
   };
 
   return (
     <div className="page-wrapper" onKeyDown={handleEnterFocusNext}>
-
       <div className="cupola-holder-header">
         <div className="cupola-holder-header-text">
           <h2>
             <Save size={28} style={{ color: '#5B9AA9' }} />
             Cupola Holder Log Sheet - Entry Form
           </h2>
+        </div>
+        <div aria-label="Date" style={{ fontWeight: 600, color: '#25424c' }}>
+          DATE : {primaryData.date ? new Date(primaryData.date).toLocaleDateString('en-GB') : '-'}
         </div>
       </div>
 
@@ -431,35 +667,13 @@ const CupolaHolderLogSheet = () => {
         
         <div className="cupola-holder-form-grid cupola-holder-table2-grid">
           <div className="cupola-holder-form-group">
-            <label>Date *</label>
-            <CustomDatePicker
-              value={primaryData.date}
-              onChange={(e) => handlePrimaryChange('date', e.target.value)}
-              name="date"
-              disabled={fetchingPrimary}
-            />
-            {fetchingPrimary && <span style={{ fontSize: '12px', color: '#666', marginLeft: '8px' }}>Loading...</span>}
-          </div>
-
-          <div className="cupola-holder-form-group">
             <label>Shift *</label>
             <select
               name="shift"
               value={primaryData.shift}
               onChange={(e) => handlePrimaryChange('shift', e.target.value)}
-              onMouseDown={(e) => {
-                if (isPrimaryFieldLocked('shift') || fetchingPrimary) {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }
-              }}
-              onClick={(e) => {
-                if (isPrimaryFieldLocked('shift') || fetchingPrimary) {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }
-              }}
               disabled={isPrimaryFieldLocked('shift') || fetchingPrimary}
+              className={getValidationClass(shiftValid)}
               style={{
                 width: '100%',
                 padding: '0.625rem 0.875rem',
@@ -469,8 +683,7 @@ const CupolaHolderLogSheet = () => {
                 backgroundColor: isPrimaryFieldLocked('shift') ? '#f1f5f9' : '#ffffff',
                 color: isPrimaryFieldLocked('shift') ? '#64748b' : '#1e293b',
                 cursor: isPrimaryFieldLocked('shift') ? 'not-allowed' : 'pointer',
-                opacity: isPrimaryFieldLocked('shift') ? 0.8 : 1,
-                pointerEvents: isPrimaryFieldLocked('shift') ? 'none' : 'auto'
+                opacity: isPrimaryFieldLocked('shift') ? 0.8 : 1
               }}
             >
               <option value="">Select Shift</option>
@@ -490,6 +703,7 @@ const CupolaHolderLogSheet = () => {
               placeholder="e.g: H001"
               disabled={isPrimaryFieldLocked('holderNumber') || fetchingPrimary}
               readOnly={isPrimaryFieldLocked('holderNumber')}
+              className={getValidationClass(holderNumberValid)}
               style={{
                 backgroundColor: isPrimaryFieldLocked('holderNumber') ? '#f1f5f9' : '#ffffff',
                 cursor: isPrimaryFieldLocked('holderNumber') ? 'not-allowed' : 'text'
@@ -497,43 +711,16 @@ const CupolaHolderLogSheet = () => {
             />
           </div>
 
-          <div className="cupola-holder-form-group">
-            <label>Heat No</label>
-            <input
-              type="text"
-              name="heatNo"
-              value={primaryData.heatNo}
-              onChange={(e) => handlePrimaryChange('heatNo', e.target.value)}
-              placeholder="e.g: H2024-001"
-              disabled={isPrimaryFieldLocked('heatNo')}
-              readOnly={isPrimaryFieldLocked('heatNo')}
-              style={{
-                backgroundColor: isPrimaryFieldLocked('heatNo') ? '#f1f5f9' : '#ffffff',
-                cursor: isPrimaryFieldLocked('heatNo') ? 'not-allowed' : 'text'
-              }}
-            />
-          </div>
-
-          {/* Empty placeholder to make 5 fields in the row */}
           <div className="cupola-holder-form-group" />
         </div>
 
-        <div className="cupola-holder-submit-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <button
-            className="cupola-holder-reset-btn"
-            type="button"
-            onClick={resetPrimaryData}
-            disabled={primaryLoading || fetchingPrimary}
-          >
-            <RotateCcw size={16} />
-            Reset Primary
-          </button>
-
+        <div className="cupola-holder-submit-container" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
           <button
             className="cupola-holder-submit-btn"
             type="button"
             onClick={handlePrimarySubmit}
-            disabled={primaryLoading || fetchingPrimary || (!primaryData.date || !primaryData.shift || !primaryData.holderNumber)}
+            disabled={primaryLoading || fetchingPrimary || (!primaryData.date || !primaryData.shift || !primaryData.holderNumber) || primaryId}
+            title={primaryId ? 'Primary data already exists for today' : 'Save Primary Data'}
           >
             {primaryLoading ? (
               <>
@@ -543,7 +730,7 @@ const CupolaHolderLogSheet = () => {
             ) : (
               <>
                 <Save size={18} />
-                Save Changes
+                Save Primary Data
               </>
             )}
           </button>
@@ -551,9 +738,16 @@ const CupolaHolderLogSheet = () => {
         <div style={{ gridColumn: '1 / -1', height: '1px', backgroundColor: '#e2e8f0', margin: '1.5rem 0' }}></div>
       </div>
 
+      {/* Heat No Display */}
+      <div style={{ marginBottom: '2rem', padding: '1rem', backgroundColor: '#f0f9ff', borderRadius: '8px', border: '2px solid #0ea5e9', maxWidth: '200px' }}>
+        <div style={{ fontSize: '1.125rem', fontWeight: 600, color: '#0c4a6e' }}>
+          Current Heat No: <span style={{ color: '#0ea5e9' }}> {heatNo}</span>
+        </div>
+      </div>
+
       {/* Table 1 */}
       <div>
-        <h3 className="section-header">Table 1</h3>
+        <h3 className="section-header">Table 1 - Additions</h3>
         
         <div className="cupola-holder-form-grid">
           <div className="cupola-holder-form-group">
@@ -564,6 +758,7 @@ const CupolaHolderLogSheet = () => {
               onChange={(e) => handleTableChange(1, 'cpc', e.target.value)}
               step="0.1"
               placeholder="0"
+              className={getValidationClass(cpcValid)}
             />
           </div>
 
@@ -575,6 +770,7 @@ const CupolaHolderLogSheet = () => {
               onChange={(e) => handleTableChange(1, 'mFeSl', e.target.value)}
               step="0.1"
               placeholder="0"
+              className={getValidationClass(mFeSlValid)}
             />
           </div>
 
@@ -586,17 +782,19 @@ const CupolaHolderLogSheet = () => {
               onChange={(e) => handleTableChange(1, 'feMn', e.target.value)}
               step="0.1"
               placeholder="0"
+              className={getValidationClass(feMnValid)}
             />
           </div>
 
           <div className="cupola-holder-form-group">
-            <label>Sic</label>
+            <label>SIC</label>
             <input
               type="number"
               value={table1.sic || ''}
               onChange={(e) => handleTableChange(1, 'sic', e.target.value)}
               step="0.1"
               placeholder="0"
+              className={getValidationClass(sicValid)}
             />
           </div>
 
@@ -606,8 +804,9 @@ const CupolaHolderLogSheet = () => {
               type="number"
               value={table1.pureMg || ''}
               onChange={(e) => handleTableChange(1, 'pureMg', e.target.value)}
-              step="0.01"
+              step="0.1"
               placeholder="0"
+              className={getValidationClass(pureMgValid)}
             />
           </div>
 
@@ -617,8 +816,9 @@ const CupolaHolderLogSheet = () => {
               type="number"
               value={table1.cu || ''}
               onChange={(e) => handleTableChange(1, 'cu', e.target.value)}
-              step="0.01"
+              step="0.1"
               placeholder="0"
+              className={getValidationClass(cuValid)}
             />
           </div>
 
@@ -630,6 +830,7 @@ const CupolaHolderLogSheet = () => {
               onChange={(e) => handleTableChange(1, 'feCr', e.target.value)}
               step="0.1"
               placeholder="0"
+              className={getValidationClass(feCrValid)}
             />
           </div>
         </div>
@@ -638,49 +839,61 @@ const CupolaHolderLogSheet = () => {
 
       {/* Table 2 */}
       <div>
-        <h3 className="section-header">Table 2</h3>
+        <h3 className="section-header">Table 2 - Tapping</h3>
         
-        <div className="cupola-holder-form-grid cupola-holder-table2-grid">
+        <div className="cupola-holder-form-grid">
           <div className="cupola-holder-form-group">
             <label>Actual Time</label>
-            <input
-              type="time"
-              value={table2.actualTime || ''}
-              onChange={(e) => handleTableChange(2, 'actualTime', e.target.value)}
+            <TimeInput
+              hourRef={actualTimeHourRef}
+              minuteRef={actualTimeMinuteRef}
+              hourName="actualTimeHour"
+              minuteName="actualTimeMinute"
+              hourValue={table2.actualTimeHour}
+              minuteValue={table2.actualTimeMinute}
+              onChange={(e) => handleTableChange(2, e.target.name, e.target.value)}
+              validationState={actualTimeValid}
             />
           </div>
 
           <div className="cupola-holder-form-group">
             <label>Tapping Time</label>
-            <input
-              type="time"
-              value={table2.tappingTime || ''}
-              onChange={(e) => handleTableChange(2, 'tappingTime', e.target.value)}
+            <TimeInput
+              hourRef={tappingTimeHourRef}
+              minuteRef={tappingTimeMinuteRef}
+              hourName="tappingTimeHour"
+              minuteName="tappingTimeMinute"
+              hourValue={table2.tappingTimeHour}
+              minuteValue={table2.tappingTimeMinute}
+              onChange={(e) => handleTableChange(2, e.target.name, e.target.value)}
+              validationState={tappingTimeValid}
             />
           </div>
 
           <div className="cupola-holder-form-group">
-            <label>Temp (°C)</label>
+            <label>Temp C</label>
             <input
               type="number"
               value={table2.tappingTemp || ''}
               onChange={(e) => handleTableChange(2, 'tappingTemp', e.target.value)}
+              step="0.1"
               placeholder="e.g: 1500"
+              className={getValidationClass(tappingTempValid)}
             />
           </div>
 
           <div className="cupola-holder-form-group">
-            <label>Metal (KG)</label>
+            <label>Metal Kg</label>
             <input
               type="number"
               value={table2.metalKg || ''}
               onChange={(e) => handleTableChange(2, 'metalKg', e.target.value)}
               step="0.1"
               placeholder="e.g: 2000"
+              className={getValidationClass(metalKgValid)}
             />
           </div>
 
-          {/* Empty placeholder to make 5 fields in the row */}
           <div className="cupola-holder-form-group" />
         </div>
         <div style={{ gridColumn: '1 / -1', height: '1px', backgroundColor: '#e2e8f0', margin: '1.5rem 0' }}></div>
@@ -688,7 +901,7 @@ const CupolaHolderLogSheet = () => {
 
       {/* Table 3 */}
       <div>
-        <h3 className="section-header">Table 3</h3>
+        <h3 className="section-header">Table 3 - Pouring & Electrical</h3>
         
         <div className="cupola-holder-form-grid">
           <div className="cupola-holder-form-group">
@@ -698,6 +911,7 @@ const CupolaHolderLogSheet = () => {
               value={table3.disaLine || ''}
               onChange={(e) => handleTableChange(3, 'disaLine', e.target.value)}
               placeholder="e.g: DISA-1"
+              className={getValidationClass(disaLineValid)}
             />
           </div>
 
@@ -708,6 +922,7 @@ const CupolaHolderLogSheet = () => {
               value={table3.indFur || ''}
               onChange={(e) => handleTableChange(3, 'indFur', e.target.value)}
               placeholder="e.g: IND-FUR-1"
+              className={getValidationClass(indFurValid)}
             />
           </div>
 
@@ -718,6 +933,7 @@ const CupolaHolderLogSheet = () => {
               value={table3.bailNo || ''}
               onChange={(e) => handleTableChange(3, 'bailNo', e.target.value)}
               placeholder="e.g: BAIL-001"
+              className={getValidationClass(bailNoValid)}
             />
           </div>
 
@@ -728,6 +944,7 @@ const CupolaHolderLogSheet = () => {
               value={table3.tap || ''}
               onChange={(e) => handleTableChange(3, 'tap', e.target.value)}
               placeholder="Enter TAP value"
+              className={getValidationClass(tapValid)}
             />
           </div>
 
@@ -739,6 +956,7 @@ const CupolaHolderLogSheet = () => {
               onChange={(e) => handleTableChange(3, 'kw', e.target.value)}
               step="0.1"
               placeholder="e.g: 2500"
+              className={getValidationClass(kwValid)}
             />
           </div>
         </div>
@@ -747,7 +965,7 @@ const CupolaHolderLogSheet = () => {
 
       {/* Table 4 */}
       <div>
-        <h3 className="section-header">Table 4</h3>
+        <h3 className="section-header">Table 4 - Remarks</h3>
         
         <div className="cupola-holder-form-grid">
           <div className="cupola-holder-form-group" style={{ gridColumn: '1 / -1' }}>
@@ -758,6 +976,7 @@ const CupolaHolderLogSheet = () => {
               onChange={(e) => handleTableChange(4, 'remarks', e.target.value)}
               placeholder="Enter any additional notes or observations..."
               maxLength={80}
+              className={getValidationClass(remarksValid)}
               style={{
                 width: '100%',
                 maxWidth: '500px',
@@ -803,5 +1022,3 @@ const CupolaHolderLogSheet = () => {
 };
 
 export default CupolaHolderLogSheet;
-
-

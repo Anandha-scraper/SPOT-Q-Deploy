@@ -111,23 +111,25 @@ export const MinusButton = ({ onClick, disabled = false, title = "Remove entry" 
 
 // Submit , Reset , Lock Primary Buttons
 
-export const SubmitButton = ({ onClick, disabled = false, children, type = 'button' }) => (
+export const SubmitButton = forwardRef(({ onClick, disabled = false, children, type = 'button' }, ref) => (
   <div className="submit-button-wrapper">
-    <button onClick={onClick} type={type} disabled={disabled} title={children || 'Submit'}>
+    <button ref={ref} onClick={onClick} type={type} disabled={disabled} title={children || 'Submit'}>
       <Save size={18} />
       {children || 'Submit'}
     </button>
   </div>
-);
+));
+SubmitButton.displayName = 'SubmitButton';
 
-export const ResetButton = ({ onClick, disabled = false, children }) => (
+export const ResetButton = forwardRef(({ onClick, disabled = false, children }, ref) => (
   <div className="reset-button-wrapper">
-    <button onClick={onClick} type="button" disabled={disabled} title={children || 'Reset'}>
+    <button ref={ref} onClick={onClick} type="button" disabled={disabled} title={children || 'Reset'}>
       <RefreshCw size={18} />
       {children || 'Reset'}
     </button>
   </div>
-);
+));
+ResetButton.displayName = 'ResetButton';
 
 export const LockPrimaryButton = ({ onClick, disabled = false, isLocked = false }) => (
   <div className="lock-primary-button-wrapper">
@@ -147,7 +149,9 @@ export const TimeInput = forwardRef(({
   hourValue, 
   minuteValue, 
   onChange, 
-  onKeyDown, 
+  onKeyDown,
+  onHourKeyDown,
+  onMinuteKeyDown,
   validationState = null 
 }, ref) => {
   const validHours = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
@@ -183,13 +187,15 @@ export const TimeInput = forwardRef(({
           ? '2px solid #10b981' 
           : '2px solid #ef4444',
         borderRadius: '8px',
-        padding: '0.375rem 0.5rem',
+        padding: '0 0.875rem',
         display: 'inline-flex',
         alignItems: 'center',
-        width: 'fit-content'
+        width: 'fit-content',
+        height: '42px',
+        boxSizing: 'border-box'
       }}
     >
-      <div className="time-inputs-group">
+      <div className="time-inputs-group" style={{ display: 'flex', alignItems: 'center', gap: '4px', height: '100%' }}>
         <input 
           ref={hourRef}
           type="text" 
@@ -202,11 +208,21 @@ export const TimeInput = forwardRef(({
               e.target.value = e.target.value.slice(0, 2);
             }
           }}
-          onKeyDown={onKeyDown}
+          onKeyDown={onHourKeyDown || onKeyDown}
           placeholder="HH" 
-          style={{ width: '60px', border: 'none', outline: 'none' }}
+          min="1" 
+          max="12"
+          style={{ 
+            width: '45px', 
+            border: 'none', 
+            outline: 'none', 
+            fontSize: '0.875rem',
+            padding: '0',
+            textAlign: 'center',
+            height: '100%'
+          }}
         />
-        <span>:</span>
+        <span style={{ fontSize: '0.875rem', fontWeight: '500' }}>:</span>
         <input 
           ref={minuteRef}
           type="text" 
@@ -219,9 +235,19 @@ export const TimeInput = forwardRef(({
               e.target.value = e.target.value.slice(0, 2);
             }
           }}
-          onKeyDown={onKeyDown}
+          onKeyDown={onMinuteKeyDown || onKeyDown}
           placeholder="MM" 
-          style={{ width: '60px', border: 'none', outline: 'none' }}
+          min="0" 
+          max="59"
+          style={{ 
+            width: '45px', 
+            border: 'none', 
+            outline: 'none', 
+            fontSize: '0.875rem',
+            padding: '0',
+            textAlign: 'center',
+            height: '100%'
+          }}
         />
       </div>
     </div>
@@ -279,13 +305,15 @@ export const TimeRangeInput = forwardRef(({
           ? '2px solid #10b981' 
           : '2px solid #ef4444',
         borderRadius: '8px',
-        padding: '0.375rem 0.5rem',
+        padding: '0 0.875rem',
         display: 'inline-flex',
         alignItems: 'center',
-        width: 'fit-content'
+        width: 'fit-content',
+        height: '42px',
+        boxSizing: 'border-box'
       }}
     >
-      <div className="time-inputs-group">
+      <div className="time-inputs-group" style={{ display: 'flex', alignItems: 'center', gap: '4px', height: '100%' }}>
         <input 
           ref={startHourRef}
           type="text" 
@@ -300,9 +328,19 @@ export const TimeRangeInput = forwardRef(({
           }}
           onKeyDown={onKeyDown}
           placeholder="HH" 
-          style={{ width: '60px', border: 'none', outline: 'none' }}
+          min="1" 
+          max="12"
+          style={{ 
+            width: '45px', 
+            border: 'none', 
+            outline: 'none', 
+            fontSize: '0.875rem',
+            padding: '0',
+            textAlign: 'center',
+            height: '100%'
+          }}
         />
-        <span>:</span>
+        <span style={{ fontSize: '0.875rem', fontWeight: '500' }}>:</span>
         <input 
           ref={startMinuteRef}
           type="text" 
@@ -317,11 +355,21 @@ export const TimeRangeInput = forwardRef(({
           }}
           onKeyDown={onKeyDown}
           placeholder="MM" 
-          style={{ width: '60px', border: 'none', outline: 'none' }}
+          min="0" 
+          max="59"
+          style={{ 
+            width: '45px', 
+            border: 'none', 
+            outline: 'none', 
+            fontSize: '0.875rem',
+            padding: '0',
+            textAlign: 'center',
+            height: '100%'
+          }}
         />
       </div>
-      <span className="time-separator">-</span>
-      <div className="time-inputs-group">
+      <span className="time-separator" style={{ fontSize: '0.875rem', margin: '0 0.5rem', fontWeight: '500' }}>-</span>
+      <div className="time-inputs-group" style={{ display: 'flex', alignItems: 'center', gap: '4px', height: '100%' }}>
         <input 
           ref={endHourRef}
           type="text" 
@@ -336,9 +384,19 @@ export const TimeRangeInput = forwardRef(({
           }}
           onKeyDown={onKeyDown}
           placeholder="HH" 
-          style={{ width: '60px', border: 'none', outline: 'none' }}
+          min="1" 
+          max="12"
+          style={{ 
+            width: '45px', 
+            border: 'none', 
+            outline: 'none', 
+            fontSize: '0.875rem',
+            padding: '0',
+            textAlign: 'center',
+            height: '100%'
+          }}
         />
-        <span>:</span>
+        <span style={{ fontSize: '0.875rem', fontWeight: '500' }}>:</span>
         <input 
           ref={endMinuteRef}
           type="text" 
@@ -353,7 +411,17 @@ export const TimeRangeInput = forwardRef(({
           }}
           onKeyDown={onKeyDown}
           placeholder="MM" 
-          style={{ width: '60px', border: 'none', outline: 'none' }}
+          min="0" 
+          max="59"
+          style={{ 
+            width: '45px', 
+            border: 'none', 
+            outline: 'none', 
+            fontSize: '0.875rem',
+            padding: '0',
+            textAlign: 'center',
+            height: '100%'
+          }}
         />
       </div>
     </div>

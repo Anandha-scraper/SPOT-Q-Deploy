@@ -1,29 +1,37 @@
 import React, { useEffect, useState } from 'react';
 import { BookOpenCheck } from 'lucide-react';
-import { FilterButton, ClearButton } from '../../Components/Buttons';
+import { FilterButton, ClearButton, EditButton, DeleteButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
+import Table from '../../Components/Table';
 import '../../styles/PageStyles/Melting/CupolaHolderLogSheetReport.css';
 
 const CupolaHolderLogSheetReport = () => {
-  const [fromDate, setFromDate] = useState(null);
-  const [toDate, setToDate] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [entries, setEntries] = useState([]);
   const [show, setShow] = useState({ table1: false, table2: false, table3: false, remarks: false });
+  
+  // Filter states
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
-  const handleFilter = async () => {
-    if (!fromDate) return;
+  // Load current data on mount
+  useEffect(() => {
+    loadCurrentData();
+  }, []);
+
+  const loadCurrentData = async () => {
+    const today = new Date();
+    const currentDate = today.toISOString().split('T')[0];
+    
     setLoading(true);
     setError('');
     try {
-      const start = fromDate;
-      const end = toDate || fromDate;
-      const response = await fetch(`/v1/cupola-holder-logs?startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}`, {
+      const response = await fetch(`http://localhost:5000/api/v1/cupola-logs/filter?startDate=${currentDate}&endDate=${currentDate}`, {
         method: 'GET',
+        credentials: 'include',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+          'Content-Type': 'application/json'
         }
       });
       const data = await response.json();
@@ -34,7 +42,46 @@ const CupolaHolderLogSheetReport = () => {
           const db = new Date(b.date || b.createdAt || 0).getTime();
           return db - da;
         });
-        setEntries(sorted.slice(0, 5));
+        setEntries(sorted);
+      } else {
+        setEntries([]);
+      }
+    } catch (e) {
+      setError(e.message || 'Failed to fetch current data');
+      setEntries([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadFilteredData = async () => {
+    if (!startDate) {
+      alert('Please select at least a start date');
+      return;
+    }
+    
+    // Use endDate if provided, otherwise use startDate for single day filter
+    const filterEndDate = endDate || startDate;
+    
+    setLoading(true);
+    setError('');
+    try {
+      const response = await fetch(`http://localhost:5000/api/v1/cupola-logs/filter?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(filterEndDate)}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      const data = await response.json();
+      if (data?.success) {
+        const list = Array.isArray(data.data) ? data.data : [];
+        const sorted = [...list].sort((a, b) => {
+          const da = new Date(a.date || a.createdAt || 0).getTime();
+          const db = new Date(b.date || b.createdAt || 0).getTime();
+          return db - da;
+        });
+        setEntries(sorted);
       } else {
         setEntries([]);
       }
@@ -46,50 +93,12 @@ const CupolaHolderLogSheetReport = () => {
     }
   };
 
-  const loadRecent = async () => {
-    try {
-      const today = new Date();
-      const end = today.toISOString().split('T')[0];
-      const past = new Date(today);
-      past.setDate(past.getDate() - 60);
-      const start = past.toISOString().split('T')[0];
-      const response = await fetch(`/v1/cupola-holder-logs?startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
-        }
-      });
-      const res = await response.json();
-      if (res?.success && Array.isArray(res.data)) {
-        const sorted = [...res.data].sort((a, b) => {
-          const da = new Date(a.date || a.createdAt || 0).getTime();
-          const db = new Date(b.date || b.createdAt || 0).getTime();
-          return db - da;
-        });
-        setEntries(sorted.slice(0, 5));
-      } else {
-        setEntries([]);
-      }
-    } catch (e) {
-      setEntries([]);
-    }
-  };
-
-  const handleClearFilter = () => {
-    setFromDate(null);
-    setToDate(null);
+  const clearFilters = () => {
+    setStartDate('');
+    setEndDate('');
     setError('');
-    loadRecent();
+    loadCurrentData(); // Reload current data when filters are cleared
   };
-
-  useEffect(() => {
-    setEntries([]);
-  }, [fromDate, toDate]);
-
-  useEffect(() => {
-    loadRecent();
-  }, []);
 
   const toggle = (key) => setShow((prev) => ({ ...prev, [key]: !prev[key] }));
 
@@ -195,137 +204,97 @@ const CupolaHolderLogSheetReport = () => {
     if (!d) return '';
     const date = new Date(d);
     if (Number.isNaN(date.getTime())) return String(d);
-    return date.toISOString().split('T')[0];
+    return date.toLocaleDateString('en-GB');
   };
 
-
-  const PrimaryTable = ({ list, show }) => {
-    const getRemarkText = (r) => (r?.remarks || r?.remark || r?.notes || r?.note || '');
-    const renderRemarkCell = (row) => {
-      const value = getRemarkText(row);
-      if (!value) return '-';
-      const short = value.length > 6 ? value.slice(0, 5) + '..' : value;
-      return (
-        <span
-          onClick={() => setRemarkModal({ open: true, text: value })}
-          title={value}
-          style={{ cursor: 'pointer', color: '#0ea5e9', textDecoration: 'underline dotted' }}
-        >
-          {short}
-        </span>
-      );
-    };
-
+  const buildColumns = () => {
     const columns = [
-      { key: 'date', label: 'Date', get: (r) => formatDate(r.date) },
-      { key: 'shift', label: 'Shift', get: (r) => r.shift || '-' },
-      { key: 'holderNumber', label: 'Holder No', get: (r) => r.holderNumber || r.holderno || '-' },
-      { key: 'heatNo', label: 'Heat No', get: (r) => r.heatNo || '-' },
+      { key: 'date', label: 'Date', width: '100px', render: (r) => formatDate(r.date) },
+      { key: 'shift', label: 'Shift', width: '80px', render: (r) => r.shift || '-' },
+      { key: 'holderNumber', label: 'Holder No', width: '100px', render: (r) => r.holderNumber || r.holderno || '-' },
+      { key: 'heatNo', label: 'Heat No', width: '90px', render: (r) => r.heatNo || '-' },
     ];
 
     if (show.table1) {
       columns.push(
-        { key: 'cpc', label: 'CPC', get: (r) => r.cpc ?? '-' },
-        { key: 'mFeSl', label: 'Fe Sl', get: (r) => r.mFeSl ?? r.FeSl ?? '-' },
-        { key: 'feMn', label: 'Fe Mn', get: (r) => r.feMn ?? '-' },
-        { key: 'sic', label: 'Sic', get: (r) => r.sic ?? '-' },
-        { key: 'pureMg', label: 'Pure Mg', get: (r) => r.pureMg ?? '-' },
-        { key: 'cu', label: 'Cu', get: (r) => r.cu ?? '-' },
-        { key: 'feCr', label: 'Fe Cr', get: (r) => r.feCr ?? '-' },
+        { key: 'cpc', label: 'CPC', width: '80px', render: (r) => r.cpc ?? '-' },
+        { key: 'mFeSl', label: 'Fe Sl', width: '80px', render: (r) => r.mFeSl ?? r.FeSl ?? '-' },
+        { key: 'feMn', label: 'Fe Mn', width: '80px', render: (r) => r.feMn ?? '-' },
+        { key: 'sic', label: 'Sic', width: '80px', render: (r) => r.sic ?? '-' },
+        { key: 'pureMg', label: 'Pure Mg', width: '90px', render: (r) => r.pureMg ?? '-' },
+        { key: 'cu', label: 'Cu', width: '70px', render: (r) => r.cu ?? '-' },
+        { key: 'feCr', label: 'Fe Cr', width: '80px', render: (r) => r.feCr ?? '-' },
       );
     }
 
     if (show.table2) {
       columns.push(
-        { key: 'actualTime', label: 'Actual Time', get: (r) => r.actualTime ?? r?.tapping?.time?.actualTime ?? '-' },
-        { key: 'tappingTime', label: 'Tapping Time', get: (r) => r.tappingTime ?? r?.tapping?.time?.tappingTime ?? '-' },
-        { key: 'tappingTemp', label: 'Temp (°C)', get: (r) => r.tappingTemp ?? r?.tapping?.tempC ?? '-' },
-        { key: 'metalKg', label: 'Metal (KG)', get: (r) => r.metalKg ?? r?.tapping?.metalKgs ?? '-' },
+        { key: 'actualTime', label: 'Actual Time', width: '110px', render: (r) => r.actualTime ?? r?.tapping?.time?.actualTime ?? '-' },
+        { key: 'tappingTime', label: 'Tapping Time', width: '110px', render: (r) => r.tappingTime ?? r?.tapping?.time?.tappingTime ?? '-' },
+        { key: 'tappingTemp', label: 'Temp (°C)', width: '90px', render: (r) => r.tappingTemp ?? r?.tapping?.tempC ?? '-' },
+        { key: 'metalKg', label: 'Metal (KG)', width: '100px', render: (r) => r.metalKg ?? r?.tapping?.metalKgs ?? '-' },
       );
     }
 
     if (show.table3) {
       columns.push(
-        { key: 'disaLine', label: 'DISA LINE', get: (r) => r.disaLine ?? r?.pouring?.disaLine ?? '-' },
-        { key: 'indFur', label: 'IND FUR', get: (r) => r.indFur ?? r?.pouring?.indFur ?? '-' },
-        { key: 'bailNo', label: 'BAIL NO', get: (r) => r.bailNo ?? r?.pouring?.bailNo ?? '-' },
-        { key: 'tap', label: 'TAP', get: (r) => r.tap ?? r?.electrical?.tap ?? '-' },
-        { key: 'kw', label: 'KW', get: (r) => r.kw ?? r?.electrical?.kw ?? '-' },
+        { key: 'disaLine', label: 'DISA LINE', width: '100px', render: (r) => r.disaLine ?? r?.pouring?.disaLine ?? '-' },
+        { key: 'indFur', label: 'IND FUR', width: '90px', render: (r) => r.indFur ?? r?.pouring?.indFur ?? '-' },
+        { key: 'bailNo', label: 'BAIL NO', width: '90px', render: (r) => r.bailNo ?? r?.pouring?.bailNo ?? '-' },
+        { key: 'tap', label: 'TAP', width: '80px', render: (r) => r.tap ?? r?.electrical?.tap ?? '-' },
+        { key: 'kw', label: 'KW', width: '70px', render: (r) => r.kw ?? r?.electrical?.kw ?? '-' },
       );
     }
 
     if (show.remarks) {
-      columns.push({ key: 'remarks', label: 'Remarks', get: (r) => renderRemarkCell(r) });
+      columns.push({
+        key: 'remarks',
+        label: 'Remarks',
+        width: '120px',
+        render: (r) => {
+          const value = r?.remarks || r?.remark || r?.notes || r?.note || '';
+          if (!value) return '-';
+          const short = value.length > 6 ? value.slice(0, 5) + '..' : value;
+          return (
+            <span
+              onClick={() => setRemarkModal({ open: true, text: value })}
+              title={value}
+              style={{ cursor: 'pointer', color: '#0ea5e9', textDecoration: 'underline dotted' }}
+            >
+              {short}</span>
+          );
+        }
+      });
     }
+
+    return columns;
+  };
+
+  const renderActions = (row) => (
+    <>
+      <EditButton onClick={() => requestEdit(row)} />
+      <DeleteButton onClick={() => requestDelete(row)} />
+    </>
+  );
+
+  const PrimaryTable = ({ list, show }) => {
+    const columns = buildColumns();
 
     return (
       <div className="chr-primary-table-wrap">
-        <div className="chr-section-title">Primary Data</div>
-        <div className="chr-table-scroll">
-          <table className="chr-primary-table">
-            <thead>
-              <tr>
-                {columns.map((c) => (
-                  <th key={c.key}>{c.label}</th>
-                ))}
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.map((row) => (
-                <tr key={`primary-${row._id}`}>
-                  {columns.map((c) => (
-                    <td key={`${row._id}-${c.key}`}>{c.get(row)}</td>
-                  ))}
-                  <td>
-                    <div className="chr-actions">
-                      <button onClick={() => requestEdit(row)} style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #cbd5e1', background: '#f8fafc', cursor: 'pointer' }}>Edit</button>
-                      <button onClick={() => requestDelete(row)} style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #fecaca', background: '#fee2e2', color: '#b91c1c', cursor: 'pointer' }}>Delete</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <div className="chr-section-title">Cupola Holder Log Sheet Report</div>
+        <Table
+          columns={columns}
+          data={list}
+          renderActions={renderActions}
+          noDataMessage="No records found for the selected date range."
+          minWidth={1600}
+          striped={true}
+          headerGradient={true}
+        />
       </div>
     );
   };
-
-  const Table1 = ({ item }) => (
-    <div className="chr-grid">
-      <div><span>CPC</span><b>{item.cpc ?? '-'}</b></div>
-      <div><span>Fe Sl</span><b>{item.mFeSl ?? item.FeSl ?? '-'}</b></div>
-      <div><span>Fe Mn</span><b>{item.feMn ?? '-'}</b></div>
-      <div><span>Sic</span><b>{item.sic ?? '-'}</b></div>
-      <div><span>Pure Mg</span><b>{item.pureMg ?? '-'}</b></div>
-      <div><span>Cu</span><b>{item.cu ?? '-'}</b></div>
-      <div><span>Fe Cr</span><b>{item.feCr ?? '-'}</b></div>
-    </div>
-  );
-
-  const Table2 = ({ item }) => (
-    <div className="chr-grid">
-      <div><span>Actual Time</span><b>{item.actualTime ?? item?.tapping?.time?.actualTime ?? '-'}</b></div>
-      <div><span>Tapping Time</span><b>{item.tappingTime ?? item?.tapping?.time?.tappingTime ?? '-'}</b></div>
-      <div><span>Temp (°C)</span><b>{item.tappingTemp ?? item?.tapping?.tempC ?? '-'}</b></div>
-      <div><span>Metal (KG)</span><b>{item.metalKg ?? item?.tapping?.metalKgs ?? '-'}</b></div>
-    </div>
-  );
-
-  const Table3 = ({ item }) => (
-    <div className="chr-grid">
-      <div><span>DISA LINE</span><b>{item.disaLine ?? item?.pouring?.disaLine ?? '-'}</b></div>
-      <div><span>IND FUR</span><b>{item.indFur ?? item?.pouring?.indFur ?? '-'}</b></div>
-      <div><span>BAIL NO</span><b>{item.bailNo ?? item?.pouring?.bailNo ?? '-'}</b></div>
-      <div><span>TAP</span><b>{item.tap ?? item?.electrical?.tap ?? '-'}</b></div>
-      <div><span>KW</span><b>{item.kw ?? item?.electrical?.kw ?? '-'}</b></div>
-    </div>
-  );
-
-  const Remarks = ({ item }) => (
-    <div className="chr-remarks">{item?.remarks || item?.remark || item?.notes || item?.note || '-'}</div>
-  );
 
   return (
     <div className="page-wrapper">
@@ -338,30 +307,31 @@ const CupolaHolderLogSheetReport = () => {
         </div>
       </div>
 
+      {/* Filter Section */}
       <div className="cupola-holder-filter-container">
         <div className="cupola-holder-filter-group">
           <label>Start Date</label>
           <CustomDatePicker
-            value={fromDate}
-            onChange={(e) => setFromDate(e.target.value)}
-            placeholder="Select start date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
           />
         </div>
         <div className="cupola-holder-filter-group">
           <label>End Date</label>
           <CustomDatePicker
-            value={toDate}
-            onChange={(e) => setToDate(e.target.value)}
-            placeholder="Select end date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
           />
         </div>
-        <FilterButton onClick={handleFilter} disabled={!fromDate || loading}>
+        <FilterButton onClick={loadFilteredData} disabled={loading}>
           {loading ? 'Loading...' : 'Filter'}
         </FilterButton>
-        <ClearButton onClick={handleClearFilter} disabled={!fromDate && !toDate}>
+        <ClearButton onClick={clearFilters}>
           Clear
         </ClearButton>
       </div>
+
+      {/* Show/Hide Sections */}
 
       <div className="chr-checklist-container">
         <div className="chr-checklist-title">Checklist</div>
@@ -387,15 +357,12 @@ const CupolaHolderLogSheetReport = () => {
 
       <PrimaryTable list={entries} show={show} />
 
+      {/* Error Display */}
       {error && (
         <div className="chr-error">{error}</div>
       )}
 
-      <div className="chr-results">
-        {entries.length === 0 && !loading && (
-          <div className="chr-empty">No records found for the selected date range.</div>
-        )}
-      </div>
+      {/* Delete Confirmation Modal */}
 
       {confirm.open && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>

@@ -6,21 +6,67 @@ import Table from '../../Components/Table';
 import '../../styles/PageStyles/Melting/MeltingLogSheetReport.css';
 
 const MeltingLogSheetReport = () => {
-  const [fromDate, setFromDate] = useState(null);
-  const [toDate, setToDate] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [entries, setEntries] = useState([]);
   const [show, setShow] = useState({ table0: true, table1: true, table2: true, table3: true, table4: true, table5: true });
+  
+  // Filter states
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
-  const handleFilter = async () => {
-    if (!fromDate) return;
+  // Load current data on mount
+  useEffect(() => {
+    loadCurrentData();
+  }, []);
+
+  const loadCurrentData = async () => {
+    const today = new Date();
+    const currentDate = today.toISOString().split('T')[0];
+    
     setLoading(true);
     setError('');
     try {
-      const start = fromDate;
-      const end = toDate || fromDate;
-      const response = await fetch(`http://localhost:5000/api/v1/melting-logs/filter?startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}`, {
+      const response = await fetch(`http://localhost:5000/api/v1/melting-logs/filter?startDate=${currentDate}&endDate=${currentDate}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      const data = await response.json();
+      if (data?.success) {
+        const list = Array.isArray(data.data) ? data.data : [];
+        const sorted = [...list].sort((a, b) => {
+          const da = new Date(a.date || a.createdAt || 0).getTime();
+          const db = new Date(b.date || b.createdAt || 0).getTime();
+          return db - da;
+        });
+        setEntries(sorted);
+      } else {
+        setEntries([]);
+      }
+    } catch (e) {
+      setError(e.message || 'Failed to fetch current data');
+      setEntries([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadFilteredData = async () => {
+    if (!startDate) {
+      alert('Please select at least a start date');
+      return;
+    }
+    
+    // Use endDate if provided, otherwise use startDate for single day filter
+    const filterEndDate = endDate || startDate;
+    
+    setLoading(true);
+    setError('');
+    try {
+      const response = await fetch(`http://localhost:5000/api/v1/melting-logs/filter?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(filterEndDate)}`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -47,79 +93,12 @@ const MeltingLogSheetReport = () => {
     }
   };
 
-  const handleClearFilter = () => {
-    setFromDate(null);
-    setToDate(null);
+  const clearFilters = () => {
+    setStartDate('');
+    setEndDate('');
     setError('');
-    // Load recent entries to show initial view
-    const loadRecent = async () => {
-      try {
-        const today = new Date();
-        const end = today.toISOString().split('T')[0];
-        const past = new Date(today);
-        past.setDate(past.getDate() - 60);
-        const start = past.toISOString().split('T')[0];
-        const response = await fetch(`http://localhost:5000/api/v1/melting-logs/filter?startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}`, {
-          method: 'GET',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
-        const res = await response.json();
-        if (res?.success && Array.isArray(res.data)) {
-          const sorted = [...res.data].sort((a, b) => {
-            const da = new Date(a.date || a.createdAt || 0).getTime();
-            const db = new Date(b.date || b.createdAt || 0).getTime();
-            return db - da;
-          });
-          setEntries(sorted);
-        } else {
-          setEntries([]);
-        }
-      } catch (e) {
-        setEntries([]);
-      }
-    };
-    loadRecent();
+    loadCurrentData(); // Reload current data when filters are cleared
   };
-
-  useEffect(() => {
-    setEntries([]);
-  }, [fromDate, toDate]);
-
-  useEffect(() => {
-    const loadRecent = async () => {
-      try {
-        const today = new Date();
-        const end = today.toISOString().split('T')[0];
-        const past = new Date(today);
-        past.setDate(past.getDate() - 60);
-        const start = past.toISOString().split('T')[0];
-        const response = await fetch(`http://localhost:5000/api/v1/melting-logs/filter?startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}`, {
-          method: 'GET',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
-        const res = await response.json();
-        if (res?.success && Array.isArray(res.data)) {
-          const sorted = [...res.data].sort((a, b) => {
-            const da = new Date(a.date || a.createdAt || 0).getTime();
-            const db = new Date(b.date || b.createdAt || 0).getTime();
-            return db - da;
-          });
-          setEntries(sorted);
-        } else {
-          setEntries([]);
-        }
-      } catch (e) {
-        setEntries([]);
-      }
-    };
-    loadRecent();
-  }, []);
 
   const toggle = (key) => setShow((prev) => ({ ...prev, [key]: !prev[key] }));
 
@@ -261,7 +240,9 @@ const MeltingLogSheetReport = () => {
       console.log('Response from server:', res); // Debug log
       if (res?.success) {
         // Reload the data to get the correct values from backend
-        handleFilter();
+        if (startDate && endDate) {
+          loadFilteredData();
+        }
         setEditModal({ open: false, row: null });
         setSaveConfirm({ open: false });
       } else {
@@ -279,135 +260,122 @@ const MeltingLogSheetReport = () => {
     if (!d) return '';
     const date = new Date(d);
     if (Number.isNaN(date.getTime())) return String(d);
-    return date.toISOString().split('T')[0];
+    return date.toLocaleDateString('en-GB');
   };
 
-  const PrimaryTable = ({ list, show }) => {
+  const buildColumns = () => {
     const columns = [
-      { key: 'date', label: 'Date', render: (r) => formatDate(r.date) },
-      { key: 'shift', label: 'Shift', render: (r) => r.shift || '-' },
-      { key: 'furnaceNo', label: 'Furnace No', render: (r) => r.furnaceNo || '-' },
-      { key: 'panel', label: 'Panel', render: (r) => r.panel || '-' },
+      { key: 'date', label: 'Date', width: '100px', render: (r) => formatDate(r.date) },
+      { key: 'shift', label: 'Shift', width: '80px', render: (r) => r.shift || '-' },
+      { key: 'furnaceNo', label: 'Furnace No', width: '100px', render: (r) => r.furnaceNo || '-' },
+      { key: 'panel', label: 'Panel', width: '80px', render: (r) => r.panel || '-' },
     ];
 
     if (show.table0) {
       columns.push(
-        { key: 'finalKWHr', label: 'Final KW/Hr', get: (r) => r.finalKWHr ?? '-' },
-        { key: 'initialKWHr', label: 'Initial KW/Hr', get: (r) => r.initialKWHr ?? '-' },
-        { key: 'totalUnits', label: 'Total Units', get: (r) => r.totalUnits ?? '-' },
-        { key: 'cumulativeUnits', label: 'Cumulative Units', get: (r) => r.cumulativeUnits ?? '-' },
-        { key: 'cumulativeLiquidMetal', label: 'Cumulative Liquid Metal (kgs)', get: (r) => r.cumulativeLiquidMetal ?? '-' }
+        { key: 'finalKWHr', label: 'Final KW/Hr', width: '100px', render: (r) => r.finalKWHr ?? '-' },
+        { key: 'initialKWHr', label: 'Initial KW/Hr', width: '100px', render: (r) => r.initialKWHr ?? '-' },
+        { key: 'totalUnits', label: 'Total Units', width: '100px', render: (r) => r.totalUnits ?? '-' },
+        { key: 'cumulativeUnits', label: 'Cumulative Units', width: '130px', render: (r) => r.cumulativeUnits ?? '-' },
+        { key: 'cumulativeLiquidMetal', label: 'Cumulative Liquid Metal (kgs)', width: '180px', render: (r) => r.cumulativeLiquidMetal ?? '-' }
       );
     }
 
     if (show.table1) {
       columns.push(
-        { key: 'heatNo', label: 'Heat No', get: (r) => r.heatNo ?? '-' },
-        { key: 'grade', label: 'Grade', get: (r) => r.grade ?? '-' },
-        { key: 'chargingTime', label: 'Time', get: (r) => r.chargingTime ?? '-' },
-        { key: 'liquidMetalHolder', label: 'Holder (kgs)', get: (r) => r.liquidMetalHolder ?? '-' },
-        { key: 'liquidMetalPressPour', label: 'Liquid Metal (kgs)', get: (r) => r.liquidMetalPressPour ?? '-' },
-        { key: 'sgMsSteel', label: 'SG-MS Steel', get: (r) => r.sgMsSteel ?? '-' },
-        { key: 'greyMsSteel', label: 'MS Steel (100% Grey)', get: (r) => r.greyMsSteel ?? '-' },
-        { key: 'returnsSg', label: 'Pig Iron (100% SG)', get: (r) => r.returnsSg ?? '-' },
-        { key: 'pigIron', label: 'Pig Iron', get: (r) => r.pigIron ?? '-' },
-        { key: 'borings', label: 'Borings', get: (r) => r.borings ?? '-' },
-        { key: 'gl', label: 'GL', get: (r) => r.gl ?? '-' },
-        { key: 'ifBath', label: 'If Bath', get: (r) => r.ifBath ?? '-' },
-        { key: 'finalBath', label: 'Final (Kgs)', get: (r) => r.finalBath ?? '-' }
+        { key: 'heatNo', label: 'Heat No', width: '80px', render: (r) => r.heatNo ?? '-' },
+        { key: 'grade', label: 'Grade', width: '80px', render: (r) => r.grade ?? '-' },
+        { key: 'chargingTime', label: 'Time', width: '80px', render: (r) => r.chargingTime ?? '-' },
+        { key: 'liquidMetalHolder', label: 'Holder (kgs)', width: '110px', render: (r) => r.liquidMetalHolder ?? '-' },
+        { key: 'liquidMetalPressPour', label: 'Liquid Metal (kgs)', width: '130px', render: (r) => r.liquidMetalPressPour ?? '-' },
+        { key: 'sgMsSteel', label: 'SG-MS Steel', width: '110px', render: (r) => r.sgMsSteel ?? '-' },
+        { key: 'greyMsSteel', label: 'MS Steel (100% Grey)', width: '150px', render: (r) => r.greyMsSteel ?? '-' },
+        { key: 'returnsSg', label: 'Pig Iron (100% SG)', width: '140px', render: (r) => r.returnsSg ?? '-' },
+        { key: 'pigIron', label: 'Pig Iron', width: '90px', render: (r) => r.pigIron ?? '-' },
+        { key: 'borings', label: 'Borings', width: '80px', render: (r) => r.borings ?? '-' },
+        { key: 'gl', label: 'GL', width: '70px', render: (r) => r.gl ?? '-' },
+        { key: 'ifBath', label: 'If Bath', width: '80px', render: (r) => r.ifBath ?? '-' },
+        { key: 'finalBath', label: 'Final (Kgs)', width: '100px', render: (r) => r.finalBath ?? '-' }
       );
     }
 
     if (show.table2) {
       columns.push(
-        { key: 'charCoal', label: 'Char Coal', get: (r) => r.charCoal ?? '-' },
-        { key: 'cpcFur', label: 'CPC (Fur)', get: (r) => r.cpcFur ?? '-' },
-        { key: 'cpcLc', label: 'CPC (LC)', get: (r) => r.cpcLc ?? '-' },
-        { key: 'ferrosiliconFur', label: 'Ferro Silicon (Fur)', get: (r) => r.ferrosiliconFur ?? '-' },
-        { key: 'ferrosiliconLc', label: 'Ferro Silicon (LC)', get: (r) => r.ferrosiliconLc ?? '-' },
-        { key: 'ferroManganeseFur', label: 'Fe Mn (Fur)', get: (r) => r.ferroManganeseFur ?? '-' },
-        { key: 'ferroManganeseLc', label: 'Fe Mn (LC)', get: (r) => r.ferroManganeseLc ?? '-' },
-        { key: 'siliconCarbideFur', label: 'SIC', get: (r) => r.siliconCarbideFur ?? '-' },
-        { key: 'pureMg', label: 'Pure Mg', get: (r) => r.pureMg ?? '-' },
-        { key: 'cu', label: 'Cu', get: (r) => r.cu ?? '-' },
-        { key: 'cr', label: 'FE-Cr', get: (r) => r.cr ?? '-' }
+        { key: 'charCoal', label: 'Char Coal', width: '90px', render: (r) => r.charCoal ?? '-' },
+        { key: 'cpcFur', label: 'CPC (Fur)', width: '90px', render: (r) => r.cpcFur ?? '-' },
+        { key: 'cpcLc', label: 'CPC (LC)', width: '90px', render: (r) => r.cpcLc ?? '-' },
+        { key: 'ferrosiliconFur', label: 'Ferro Silicon (Fur)', width: '140px', render: (r) => r.ferrosiliconFur ?? '-' },
+        { key: 'ferrosiliconLc', label: 'Ferro Silicon (LC)', width: '140px', render: (r) => r.ferrosiliconLc ?? '-' },
+        { key: 'ferroManganeseFur', label: 'Fe Mn (Fur)', width: '110px', render: (r) => r.ferroManganeseFur ?? '-' },
+        { key: 'ferroManganeseLc', label: 'Fe Mn (LC)', width: '110px', render: (r) => r.ferroManganeseLc ?? '-' },
+        { key: 'siliconCarbideFur', label: 'SIC', width: '70px', render: (r) => r.siliconCarbideFur ?? '-' },
+        { key: 'pureMg', label: 'Pure Mg', width: '80px', render: (r) => r.pureMg ?? '-' },
+        { key: 'cu', label: 'Cu', width: '70px', render: (r) => r.cu ?? '-' },
+        { key: 'cr', label: 'FE-Cr', width: '70px', render: (r) => r.cr ?? '-' }
       );
     }
 
     if (show.table3) {
       columns.push(
-        { key: 'labCoinTime', label: 'Lab Coin Time', get: (r) => r.labCoinTime ?? '-' },
-        { key: 'labCoinTempC', label: 'Temp (°C)', get: (r) => r.labCoinTempC ?? '-' },
-        { key: 'deslagingTimeFrom', label: 'Deslagging From', get: (r) => r.deslagingTimeFrom ?? '-' },
-        { key: 'deslagingTimeTo', label: 'Deslagging To', get: (r) => r.deslagingTimeTo ?? '-' },
-        { key: 'metalReadyTime', label: 'Metal Ready', get: (r) => r.metalReadyTime ?? '-' },
-        { key: 'waitingForTappingFrom', label: 'Wait for Tapping From', get: (r) => r.waitingForTappingFrom ?? '-' },
-        { key: 'waitingForTappingTo', label: 'Wait for Tapping To', get: (r) => r.waitingForTappingTo ?? '-' },
-        { key: 'reason', label: 'Reason', get: (r) => r.reason ?? '-' }
+        { key: 'labCoinTime', label: 'Lab Coin Time', width: '110px', render: (r) => r.labCoinTime ?? '-' },
+        { key: 'labCoinTempC', label: 'Temp (°C)', width: '90px', render: (r) => r.labCoinTempC ?? '-' },
+        { key: 'deslagingTimeFrom', label: 'Deslagging From', width: '130px', render: (r) => r.deslagingTimeFrom ?? '-' },
+        { key: 'deslagingTimeTo', label: 'Deslagging To', width: '120px', render: (r) => r.deslagingTimeTo ?? '-' },
+        { key: 'metalReadyTime', label: 'Metal Ready', width: '110px', render: (r) => r.metalReadyTime ?? '-' },
+        { key: 'waitingForTappingFrom', label: 'Wait for Tapping From', width: '160px', render: (r) => r.waitingForTappingFrom ?? '-' },
+        { key: 'waitingForTappingTo', label: 'Wait for Tapping To', width: '150px', render: (r) => r.waitingForTappingTo ?? '-' },
+        { key: 'reason', label: 'Reason', width: '100px', render: (r) => r.reason ?? '-' }
       );
     }
 
     if (show.table4) {
       columns.push(
-        { key: 'time', label: 'Time', get: (r) => r.time ?? '-' },
-        { key: 'tempCSg', label: 'Temp °C (Non-SG)', get: (r) => r.tempCSg ?? '-' },
-        { key: 'tempCGrey', label: 'Temp °C (Grey)', get: (r) => r.tempCGrey ?? '-' },
-        { key: 'directFurnace', label: 'Direct Furnace', get: (r) => r.directFurnace ?? '-' },
-        { key: 'holderToFurnace', label: 'Holder → Furnace', get: (r) => r.holderToFurnace ?? '-' },
-        { key: 'furnaceToHolder', label: 'Furnace → Holder', get: (r) => r.furnaceToHolder ?? '-' },
-        { key: 'disaNo', label: 'DISA No', get: (r) => r.disaNo ?? '-' },
-        { key: 'item', label: 'Item', get: (r) => r.item ?? '-' }
+        { key: 'time', label: 'Time', width: '80px', render: (r) => r.time ?? '-' },
+        { key: 'tempCSg', label: 'Temp °C (Non-SG)', width: '130px', render: (r) => r.tempCSg ?? '-' },
+        { key: 'tempCGrey', label: 'Temp °C (Grey)', width: '120px', render: (r) => r.tempCGrey ?? '-' },
+        { key: 'directFurnace', label: 'Direct Furnace', width: '120px', render: (r) => r.directFurnace ?? '-' },
+        { key: 'holderToFurnace', label: 'Holder → Furnace', width: '140px', render: (r) => r.holderToFurnace ?? '-' },
+        { key: 'furnaceToHolder', label: 'Furnace → Holder', width: '140px', render: (r) => r.furnaceToHolder ?? '-' },
+        { key: 'disaNo', label: 'DISA No', width: '90px', render: (r) => r.disaNo ?? '-' },
+        { key: 'item', label: 'Item', width: '90px', render: (r) => r.item ?? '-' }
       );
     }
 
     if (show.table5) {
       columns.push(
-        { key: 'furnace1Kw', label: 'Furnace 1-2-3 kW', get: (r) => r.furnace1Kw ?? '-' },
-        { key: 'furnace1A', label: 'Furnace 1-2-3 A (2000-3500)', get: (r) => r.furnace1A ?? '-' },
-        { key: 'furnace1V', label: 'Furnace 1-2-3 V (500-1000)', get: (r) => r.furnace1V ?? '-' },
-        { key: 'furnace4Hz', label: 'F4 Hz', get: (r) => r.furnace4Hz ?? '-' },
-        { key: 'furnace4Gld', label: 'F4 GLD (0.6000-95.00)', get: (r) => r.furnace4Gld ?? '-' },
-        { key: 'furnace4KwHr', label: 'F4 kW/Hr', get: (r) => r.furnace4KwHr ?? '-' }
+        { key: 'furnace1Kw', label: 'Furnace 1-2-3 kW', width: '140px', render: (r) => r.furnace1Kw ?? '-' },
+        { key: 'furnace1A', label: 'Furnace 1-2-3 A (2000-3500)', width: '200px', render: (r) => r.furnace1A ?? '-' },
+        { key: 'furnace1V', label: 'Furnace 1-2-3 V (500-1000)', width: '200px', render: (r) => r.furnace1V ?? '-' },
+        { key: 'furnace4Hz', label: 'F4 Hz', width: '80px', render: (r) => r.furnace4Hz ?? '-' },
+        { key: 'furnace4Gld', label: 'F4 GLD (0.6000-95.00)', width: '170px', render: (r) => r.furnace4Gld ?? '-' },
+        { key: 'furnace4KwHr', label: 'F4 kW/Hr', width: '100px', render: (r) => r.furnace4KwHr ?? '-' }
       );
     }
 
-    const renderActions = (row) => (
-      <div className="chr-actions">
-        <EditButton onClick={() => requestEdit(row)} />
-        <DeleteButton onClick={() => requestDelete(row)} />
-      </div>
-    );
+    return columns;
+  };
+
+  const renderActions = (row) => (
+    <>
+      <EditButton onClick={() => requestEdit(row)} />
+      <DeleteButton onClick={() => requestDelete(row)} />
+    </>
+  );
+
+  const PrimaryTable = ({ list, show }) => {
+    const columns = buildColumns();
 
     return (
-      <div className="chr-primary-table-wrap">
-        <div className="chr-section-title">Melting Log Sheet Report</div>
-        <div className="chr-table-scroll">
-          <table className="chr-primary-table">
-            <thead>
-              <tr>
-                {columns.map((c) => (
-                  <th key={c.key}>{c.label}</th>
-                ))}
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.map((row) => (
-                <tr key={`primary-${row._id}`}>
-                  {columns.map((c) => (
-                    <td key={`${row._id}-${c.key}`}>{c.get(row)}</td>
-                  ))}
-                  <td>
-                    <div className="chr-actions">
-                      <EditButton onClick={() => requestEdit(row)} />
-                      <DeleteButton onClick={() => requestDelete(row)} />
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <div className="chr-primary-table-wrap"> 
+        <Table
+          columns={columns}
+          data={list}
+          renderActions={renderActions}
+          noDataMessage="No records found for the selected date range."
+          minWidth={2000}
+          striped={true}
+          headerGradient={true}
+        />
       </div>
     );
   };
@@ -423,31 +391,31 @@ const MeltingLogSheetReport = () => {
         </div>
       </div>
 
+      {/* Filter Section */}
       <div className="melting-log-filter-container">
         <div className="melting-log-filter-group">
           <label>Start Date</label>
           <CustomDatePicker
-            value={fromDate}
-            onChange={(e) => setFromDate(e.target.value)}
-            placeholder="Select start date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
           />
         </div>
-        <div className="melting-log-filter-group">
+        <div className="melting-filter-group">
           <label>End Date</label>
           <CustomDatePicker
-            value={toDate}
-            onChange={(e) => setToDate(e.target.value)}
-            placeholder="Select end date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
           />
         </div>
-        <FilterButton onClick={handleFilter} disabled={!fromDate || loading}>
+        <FilterButton onClick={loadFilteredData} disabled={loading}>
           {loading ? 'Loading...' : 'Filter'}
         </FilterButton>
-        <ClearButton onClick={handleClearFilter} disabled={!fromDate && !toDate}>
+        <ClearButton onClick={clearFilters}>
           Clear
         </ClearButton>
       </div>
 
+      {/* Show/Hide Sections */}
       <div className="chr-checklist-container">
         <div className="chr-checklist-title">Show/Hide Sections</div>
         <div className="chr-checklist">
@@ -478,17 +446,16 @@ const MeltingLogSheetReport = () => {
         </div>
       </div>
 
+      {/* Results Table */}
       <PrimaryTable list={entries} show={show} />
 
+      {/* Error Display */}
       {error && (
-        <div className="chr-error">{error}</div>
+        <div className="chr-error">{error}
+        </div>
       )}
 
-      <div className="chr-results">
-        {entries.length === 0 && !loading && (
-          <div className="chr-empty">No records found for the selected date range.</div>
-        )}
-      </div>
+      {/* Delete Confirmation Modal */}
 
       {confirm.open && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>

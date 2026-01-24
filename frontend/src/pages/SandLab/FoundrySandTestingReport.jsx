@@ -1,593 +1,330 @@
-import React, { useEffect, useState } from 'react';
-import { BookOpen } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { BookOpenCheck } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
+import { FilterButton, ClearButton } from '../../Components/Buttons';
+import Table from '../../Components/Table';
 import '../../styles/PageStyles/Sandlab/FoundrySandTestingReport.css';
 
 const FoundrySandTestingReport = () => {
   const [selectedDate, setSelectedDate] = useState('');
-  const [records, setRecords] = useState([]);
-  const [displayRecords, setDisplayRecords] = useState([]);
+  const [reportData, setReportData] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
-  const [deleting, setDeleting] = useState({});
-
-  const showToast = (message, type = 'success', duration = 2000) => {
-    setToast({ show: true, message, type });
-    window.clearTimeout(showToast._t);
-    showToast._t = window.setTimeout(() => setToast({ show: false, message: '', type }), duration);
+  // Helper function to get current date in YYYY-MM-DD format
+  const getCurrentDate = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
-  useEffect(() => {
-    fetchAllRecords();
-  }, []);
-
-  useEffect(() => {
-    refetchByDateOrRange();
-  }, [selectedDate]);
-
-  const fetchAllRecords = async () => {
+  // Function to fetch data from API
+  const fetchData = async (date = null) => {
     try {
-      const res = await fetch('http://localhost:5000/api/v1/foundry-sand-testing-notes', {
+      setLoading(true);
+      const targetDate = date || getCurrentDate();
+      const response = await fetch(`http://localhost:5000/api/v1/foundry-sand-testing-notes/date/${targetDate}`, {
         credentials: 'include'
       });
-      if (res.ok) {
-        const data = await res.json();
-        setRecords(Array.isArray(data) ? data : []);
+      
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (Array.isArray(data) && data.length > 0) {
+        setReportData(data);
+      } else {
+        setReportData([]);
       }
     } catch (error) {
-      console.error('Error fetching records:', error);
-    }
-  };
-
-  const refetchByDateOrRange = async () => {
-    const sel = normalizeDateYMD(selectedDate);
-    if (!sel) {
-      setDisplayRecords([]);
-      return;
-    }
-    try {
-      const url = `http://localhost:5000/api/v1/foundry-sand-testing-notes/date/${sel}`;
-      const res = await fetch(url, { credentials: 'include' });
-      if (res.ok) {
-        const data = await res.json();
-        setDisplayRecords(Array.isArray(data) ? data : []);
-      } else {
-        setDisplayRecords([]);
-      }
-    } catch (e) {
-      console.error('Refetch error:', e);
-      setDisplayRecords([]);
-    }
-  };
-
-  const getAt = (obj, path) => {
-    if (!obj || !path) return '';
-    const parts = path.split('.');
-    let cur = obj;
-    for (let p of parts) {
-      cur = cur?.[p];
-      if (cur == null) return '';
-    }
-    return cur == null ? '' : cur;
-  };
-
-  const normalizeDateYMD = (d) => {
-    if (!d) return '';
-    const dt = new Date(d);
-    if (Number.isNaN(dt.getTime())) return '';
-    const y = dt.getFullYear();
-    const m = String(dt.getMonth() + 1).padStart(2, '0');
-    const day = String(dt.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  };
-
-  const formatDateDMY = (d) => {
-    const ymd = normalizeDateYMD(d);
-    if (!ymd) return '';
-    const [y, m, day] = ymd.split('-');
-    return `${day}-${m}-${y}`;
-  };
-
-  const handleDeleteRecord = async (rec) => {
-    const id = rec?._id || rec?.id;
-    if (!id) return;
-    if (!window.confirm("Are you sure you want to delete this record? This cannot be undone.")) return;
-    
-    setDeleting(prev => ({ ...prev, [id]: true }));
-    try {
-      const res = await fetch(`http://localhost:5000/api/v1/foundry-sand-testing-notes/${id}`, {
-        method: 'DELETE',
-        credentials: 'include'
-      });
-      if (res.ok) {
-        showToast('Record deleted successfully', 'success');
-        await refetchByDateOrRange();
-      } else {
-        showToast('Failed to delete record', 'error');
-      }
-    } catch (e) {
-      console.error('Delete error:', e);
-      showToast('Error deleting record', 'error');
+      console.error('Error fetching data:', error);
+      setReportData([]);
     } finally {
-      setDeleting(prev => ({ ...prev, [id]: false }));
+      setLoading(false);
     }
   };
 
-  // Render Table 1: Primary Information
-  const renderTable1 = () => {
-    if (displayRecords.length === 0) {
-      return (
-        <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden', marginTop: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8fafc', padding: '8px 12px', borderBottom: '1px solid #e5e7eb' }}>
-            <div style={{ fontWeight: 600 }}>Table 1 - Primary Information</div>
-          </div>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={{ padding: '8px 10px', textAlign: 'left', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>Date</th>
-                  <th style={{ padding: '8px 10px', textAlign: 'left', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>Shift</th>
-                  <th style={{ padding: '8px 10px', textAlign: 'left', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>Sand Plant</th>
-                  <th style={{ padding: '8px 10px', textAlign: 'left', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>Compactibility Setting</th>
-                  <th style={{ padding: '8px 10px', textAlign: 'left', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>Shear Strength Setting</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td colSpan={5} style={{ padding: '14px 10px', borderBottom: '1px solid #eef2f7', color: '#64748b' }}>No records found.</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      );
-    }
-    
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {displayRecords.map((rec, idx) => (
-          <div key={rec._id || idx} style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8fafc', padding: '8px 12px', borderBottom: '1px solid #e5e7eb' }}>
-              <div style={{ fontWeight: 600 }}>Table 1 - Primary Information</div>
-            </div>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>
-                    <th style={{ padding: '8px 10px', textAlign: 'left', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>Date</th>
-                    <th style={{ padding: '8px 10px', textAlign: 'left', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>Shift</th>
-                    <th style={{ padding: '8px 10px', textAlign: 'left', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>Sand Plant</th>
-                    <th style={{ padding: '8px 10px', textAlign: 'left', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>Compactibility Setting</th>
-                    <th style={{ padding: '8px 10px', textAlign: 'left', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>Shear Strength Setting</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7' }}>{formatDateDMY(rec.date)}</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7' }}>{rec.shift || '-'}</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7' }}>{rec.sandPlant || '-'}</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7' }}>{rec.compactibilitySetting || '-'}</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7' }}>{rec.shearStrengthSetting || '-'}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ))}
-      </div>
-    );
+  // Fetch current date data on component mount
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleDateChange = (e) => {
+    setSelectedDate(e.target.value);
   };
 
-  // Render Table 2: Clay Test Results
-  const renderTable2 = () => {
-    if (displayRecords.length === 0) {
-      return (
-        <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden', marginTop: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8fafc', padding: '8px 12px', borderBottom: '1px solid #e5e7eb' }}>
-            <div style={{ fontWeight: 600 }}>Table 2 - Clay Test Results</div>
-          </div>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={{ padding: '8px 10px', textAlign: 'left', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>Parameter</th>
-                  <th style={{ padding: '8px 10px', textAlign: 'left', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>Test 1</th>
-                  <th style={{ padding: '8px 10px', textAlign: 'left', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>Test 2</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td colSpan={3} style={{ padding: '14px 10px', borderBottom: '1px solid #eef2f7', color: '#64748b' }}>No records found.</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      );
+  const handleFilter = () => {
+    if (selectedDate) {
+      fetchData(selectedDate);
     }
-    
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {displayRecords.map((rec, idx) => (
-          <div key={rec._id || idx} style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8fafc', padding: '8px 12px', borderBottom: '1px solid #e5e7eb' }}>
-              <div style={{ fontWeight: 600 }}>Table 2 - Clay Test Results</div>
-            </div>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>
-                    <th style={{ padding: '8px 10px', textAlign: 'left', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>Parameter</th>
-                    <th style={{ padding: '8px 10px', textAlign: 'center', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>Test 1</th>
-                    <th style={{ padding: '8px 10px', textAlign: 'center', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>Test 2</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', fontWeight: 500 }}>Total Clay - Solution</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'clayTests.test1.totalClay.solution') || '-'}</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'clayTests.test2.totalClay.solution') || '-'}</td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', fontWeight: 500 }}>Active Clay - Solution</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'clayTests.test1.activeClay.solution') || '-'}</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'clayTests.test2.activeClay.solution') || '-'}</td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', fontWeight: 500 }}>Dead Clay - Solution</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'clayTests.test1.deadClay.solution') || '-'}</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'clayTests.test2.deadClay.solution') || '-'}</td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', fontWeight: 500 }}>VCM - Solution</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'clayTests.test1.vcm.solution') || '-'}</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'clayTests.test2.vcm.solution') || '-'}</td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', fontWeight: 500 }}>LOI - Solution</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'clayTests.test1.loi.solution') || '-'}</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'clayTests.test2.loi.solution') || '-'}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ))}
-      </div>
-    );
   };
 
-  // Render Table 3: Sieve Testing
-  const renderTable3 = () => {
-    if (displayRecords.length === 0) {
-      return (
-        <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden', marginTop: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8fafc', padding: '8px 12px', borderBottom: '1px solid #e5e7eb' }}>
-            <div style={{ fontWeight: 600 }}>Table 3 - Sieve Testing</div>
-          </div>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={{ padding: '8px 10px', textAlign: 'left', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>Sieve Size</th>
-                  <th style={{ padding: '8px 10px', textAlign: 'left', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>Test 1</th>
-                  <th style={{ padding: '8px 10px', textAlign: 'left', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>Test 2</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td colSpan={3} style={{ padding: '14px 10px', borderBottom: '1px solid #eef2f7', color: '#64748b' }}>No records found.</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      );
-    }
-    
-    const sieveSizes = [
-      { size: '1700', label: '1700 µm (5 MF)' },
-      { size: '850', label: '850 µm (10 MF)' },
-      { size: '600', label: '600 µm (20 MF)' },
-      { size: '425', label: '425 µm (30 MF)' },
-      { size: '300', label: '300 µm (40 MF)' },
-      { size: '212', label: '212 µm (50 MF)' },
-      { size: '150', label: '150 µm (70 MF)' },
-      { size: '106', label: '106 µm (100 MF)' },
-      { size: '75', label: '75 µm (140 MF)' },
-      { size: 'pan', label: 'Pan' },
-      { size: 'total', label: 'Total' }
-    ];
-    
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {displayRecords.map((rec, idx) => (
-          <div key={rec._id || idx} style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8fafc', padding: '8px 12px', borderBottom: '1px solid #e5e7eb' }}>
-              <div style={{ fontWeight: 600 }}>Table 3 - Sieve Testing</div>
-            </div>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>
-                    <th style={{ padding: '8px 10px', textAlign: 'left', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>Sieve Size</th>
-                    <th style={{ padding: '8px 10px', textAlign: 'center', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>Test 1 (%)</th>
-                    <th style={{ padding: '8px 10px', textAlign: 'center', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>Test 2 (%)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sieveSizes.map((sieve, sIdx) => (
-                    <tr key={sIdx} style={{ background: sieve.size === 'total' ? '#f1f5f9' : 'transparent' }}>
-                      <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', fontWeight: sieve.size === 'total' ? 600 : 400 }}>{sieve.label}</td>
-                      <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center', fontWeight: sieve.size === 'total' ? 600 : 400 }}>
-                        {getAt(rec, `sieveTesting.test1.sieveSize.${sieve.size}`) || '-'}
-                      </td>
-                      <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center', fontWeight: sieve.size === 'total' ? 600 : 400 }}>
-                        {getAt(rec, `sieveTesting.test2.sieveSize.${sieve.size}`) || '-'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ))}
-      </div>
-    );
+  const handleClear = () => {
+    setSelectedDate('');
+    fetchData();
   };
 
-  // Render Table 4: Test Parameters
-  const renderTable4 = () => {
-    if (displayRecords.length === 0) {
-      return (
-        <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden', marginTop: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8fafc', padding: '8px 12px', borderBottom: '1px solid #e5e7eb' }}>
-            <div style={{ fontWeight: 600 }}>Table 4 - Test Parameters</div>
-          </div>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={{ padding: '8px 10px', textAlign: 'left', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>Parameter</th>
-                  <th style={{ padding: '8px 10px', textAlign: 'left', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>Test 1</th>
-                  <th style={{ padding: '8px 10px', textAlign: 'left', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>Test 2</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td colSpan={3} style={{ padding: '14px 10px', borderBottom: '1px solid #eef2f7', color: '#64748b' }}>No records found.</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      );
-    }
-    
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {displayRecords.map((rec, idx) => (
-          <div key={rec._id || idx} style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8fafc', padding: '8px 12px', borderBottom: '1px solid #e5e7eb' }}>
-              <div style={{ fontWeight: 600 }}>Table 4 - Test Parameters</div>
-            </div>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>
-                    <th style={{ padding: '8px 10px', textAlign: 'left', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>Parameter</th>
-                    <th style={{ padding: '8px 10px', textAlign: 'center', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>Test 1</th>
-                    <th style={{ padding: '8px 10px', textAlign: 'center', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>Test 2</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', fontWeight: 500 }}>Compactability (%)</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'parameters.test1.compactability') || '-'}</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'parameters.test2.compactability') || '-'}</td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', fontWeight: 500 }}>Permeability</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'parameters.test1.permeability') || '-'}</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'parameters.test2.permeability') || '-'}</td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', fontWeight: 500 }}>GCS (Green Compression Strength)</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'parameters.test1.gcs') || '-'}</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'parameters.test2.gcs') || '-'}</td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', fontWeight: 500 }}>WTS (Wet Tensile Strength)</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'parameters.test1.wts') || '-'}</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'parameters.test2.wts') || '-'}</td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', fontWeight: 500 }}>Moisture (%)</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'parameters.test1.moisture') || '-'}</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'parameters.test2.moisture') || '-'}</td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', fontWeight: 500 }}>Bentonite</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'parameters.test1.bentonite') || '-'}</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'parameters.test2.bentonite') || '-'}</td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', fontWeight: 500 }}>Coal Dust</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'parameters.test1.coalDust') || '-'}</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'parameters.test2.coalDust') || '-'}</td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', fontWeight: 500 }}>Hopper Level</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'parameters.test1.hopperLevel') || '-'}</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'parameters.test2.hopperLevel') || '-'}</td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', fontWeight: 500 }}>Shear Strength</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'parameters.test1.shearStrength') || '-'}</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'parameters.test2.shearStrength') || '-'}</td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', fontWeight: 500 }}>Dust Collector Settings</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'parameters.test1.dustCollectorSettings') || '-'}</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'parameters.test2.dustCollectorSettings') || '-'}</td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', fontWeight: 500 }}>Return Sand Moisture</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'parameters.test1.returnSandMoisture') || '-'}</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'parameters.test2.returnSandMoisture') || '-'}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ))}
-      </div>
-    );
+  // Helper function to format date
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-GB');
   };
 
-  // Render Table 5: Additional Data & Remarks
-  const renderTable5 = () => {
-    if (displayRecords.length === 0) {
-      return (
-        <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden', marginTop: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8fafc', padding: '8px 12px', borderBottom: '1px solid #e5e7eb' }}>
-            <div style={{ fontWeight: 600 }}>Table 5 - Additional Data & Remarks</div>
-          </div>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={{ padding: '8px 10px', textAlign: 'left', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>Parameter</th>
-                  <th style={{ padding: '8px 10px', textAlign: 'left', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>Value</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td colSpan={2} style={{ padding: '14px 10px', borderBottom: '1px solid #eef2f7', color: '#64748b' }}>No records found.</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      );
-    }
-    
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {displayRecords.map((rec, idx) => (
-          <div key={rec._id || idx} style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8fafc', padding: '8px 12px', borderBottom: '1px solid #e5e7eb' }}>
-              <div style={{ fontWeight: 600 }}>Table 5 - Additional Data & Remarks</div>
-            </div>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>
-                    <th style={{ padding: '8px 10px', textAlign: 'left', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>Parameter</th>
-                    <th style={{ padding: '8px 10px', textAlign: 'center', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>Test 1</th>
-                    <th style={{ padding: '8px 10px', textAlign: 'center', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>Test 2</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', fontWeight: 500 }}>AFS No</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'additionalData.test1.afsNo') || '-'}</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'additionalData.test2.afsNo') || '-'}</td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', fontWeight: 500 }}>Fines (%)</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'additionalData.test1.fines') || '-'}</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'additionalData.test2.fines') || '-'}</td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', fontWeight: 500 }}>GD (Grain Distribution)</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'additionalData.test1.gd') || '-'}</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'center' }}>{getAt(rec, 'additionalData.test2.gd') || '-'}</td>
-                  </tr>
-                  <tr style={{ background: '#f8fafc' }}>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', fontWeight: 600 }}>Remarks</td>
-                    <td colSpan={2} style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', textAlign: 'left' }}>{rec.remarks || '-'}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ))}
-      </div>
-    );
+  // Prepare data for Clay Tests Table
+  const prepareClayTestsData = () => {
+    const rows = [];
+    reportData.forEach((record) => {
+      if (record.clayTests) {
+        ['test1', 'test2'].forEach((testKey) => {
+          const test = record.clayTests[testKey];
+          if (test && Object.values(test).some(val => val && Object.values(val).some(v => v))) {
+            rows.push({
+              _id: `${record._id}-${testKey}`,
+              date: formatDate(record.date),
+              shift: record.shift,
+              testNo: testKey === 'test1' ? 'Test 1' : 'Test 2',
+              totalClay: test.totalClay?.solution || '-',
+              activeClay: test.activeClay?.solution || '-',
+              deadClay: test.deadClay?.solution || '-',
+              vcm: test.vcm?.solution || '-',
+              loi: test.loi?.solution || '-'
+            });
+          }
+        });
+      }
+    });
+    return rows;
   };
+
+  // Prepare data for Sieve Testing Table
+  const prepareSieveTestingData = () => {
+    const rows = [];
+    reportData.forEach((record) => {
+      if (record.sieveTesting) {
+        ['test1', 'test2'].forEach((testKey) => {
+          const test = record.sieveTesting[testKey];
+          if (test && test.sieveSize) {
+            rows.push({
+              _id: `${record._id}-${testKey}`,
+              date: formatDate(record.date),
+              shift: record.shift,
+              testNo: testKey === 'test1' ? 'Test 1' : 'Test 2',
+              s1700: test.sieveSize['1700'] || '-',
+              s850: test.sieveSize['850'] || '-',
+              s600: test.sieveSize['600'] || '-',
+              s425: test.sieveSize['425'] || '-',
+              s300: test.sieveSize['300'] || '-',
+              s212: test.sieveSize['212'] || '-',
+              s150: test.sieveSize['150'] || '-',
+              s106: test.sieveSize['106'] || '-',
+              s75: test.sieveSize['75'] || '-',
+              pan: test.sieveSize['pan'] || '-',
+              total: test.sieveSize['total'] || '-'
+            });
+          }
+        });
+      }
+    });
+    return rows;
+  };
+
+  // Prepare data for Parameters Table
+  const prepareParametersData = () => {
+    const rows = [];
+    reportData.forEach((record) => {
+      if (record.parameters) {
+        ['test1', 'test2'].forEach((testKey) => {
+          const test = record.parameters[testKey];
+          if (test && Object.values(test).some(v => v)) {
+            rows.push({
+              _id: `${record._id}-${testKey}`,
+              date: formatDate(record.date),
+              shift: record.shift,
+              testNo: testKey === 'test1' ? 'Test 1' : 'Test 2',
+              compactability: test.compactability || '-',
+              permeability: test.permeability || '-',
+              gcs: test.gcs || '-',
+              wts: test.wts || '-',
+              moisture: test.moisture || '-',
+              bentonite: test.bentonite || '-',
+              coalDust: test.coalDust || '-',
+              hopperLevel: test.hopperLevel || '-',
+              shearStrength: test.shearStrength || '-',
+              dustCollectorSettings: test.dustCollectorSettings || '-',
+              returnSandMoisture: test.returnSandMoisture || '-'
+            });
+          }
+        });
+      }
+    });
+    return rows;
+  };
+
+  // Prepare data for Additional Data Table
+  const prepareAdditionalData = () => {
+    const rows = [];
+    reportData.forEach((record) => {
+      if (record.additionalData) {
+        ['test1', 'test2'].forEach((testKey) => {
+          const test = record.additionalData[testKey];
+          if (test && Object.values(test).some(v => v)) {
+            rows.push({
+              _id: `${record._id}-${testKey}`,
+              date: formatDate(record.date),
+              shift: record.shift,
+              testNo: testKey === 'test1' ? 'Test 1' : 'Test 2',
+              afsNo: test.afsNo || '-',
+              fines: test.fines || '-',
+              gd: test.gd || '-'
+            });
+          }
+        });
+      }
+    });
+    return rows;
+  };
+
+  const clayTestsColumns = [
+    { key: 'date', label: 'Date', width: '120px', align: 'center' },
+    { key: 'shift', label: 'Shift', width: '80px', align: 'center' },
+    { key: 'testNo', label: 'Test', width: '80px', align: 'center' },
+    { key: 'totalClay', label: 'Total Clay', width: '120px', align: 'center' },
+    { key: 'activeClay', label: 'Active Clay', width: '120px', align: 'center' },
+    { key: 'deadClay', label: 'Dead Clay', width: '120px', align: 'center' },
+    { key: 'vcm', label: 'VCM', width: '120px', align: 'center' },
+    { key: 'loi', label: 'LOI', width: '120px', align: 'center' }
+  ];
+
+  const sieveTestingColumns = [
+    { key: 'date', label: 'Date', width: '100px', align: 'center' },
+    { key: 'shift', label: 'Shift', width: '70px', align: 'center' },
+    { key: 'testNo', label: 'Test', width: '70px', align: 'center' },
+    { key: 's1700', label: '1700µ', width: '80px', align: 'center' },
+    { key: 's850', label: '850µ', width: '80px', align: 'center' },
+    { key: 's600', label: '600µ', width: '80px', align: 'center' },
+    { key: 's425', label: '425µ', width: '80px', align: 'center' },
+    { key: 's300', label: '300µ', width: '80px', align: 'center' },
+    { key: 's212', label: '212µ', width: '80px', align: 'center' },
+    { key: 's150', label: '150µ', width: '80px', align: 'center' },
+    { key: 's106', label: '106µ', width: '80px', align: 'center' },
+    { key: 's75', label: '75µ', width: '80px', align: 'center' },
+    { key: 'pan', label: 'Pan', width: '80px', align: 'center' },
+    { key: 'total', label: 'Total', width: '80px', align: 'center', bold: true }
+  ];
+
+  const parametersColumns = [
+    { key: 'date', label: 'Date', width: '100px', align: 'center' },
+    { key: 'shift', label: 'Shift', width: '70px', align: 'center' },
+    { key: 'testNo', label: 'Test', width: '70px', align: 'center' },
+    { key: 'compactability', label: 'Compactability', width: '110px', align: 'center' },
+    { key: 'permeability', label: 'Permeability', width: '110px', align: 'center' },
+    { key: 'gcs', label: 'GCS', width: '90px', align: 'center' },
+    { key: 'wts', label: 'WTS', width: '90px', align: 'center' },
+    { key: 'moisture', label: 'Moisture', width: '90px', align: 'center' },
+    { key: 'bentonite', label: 'Bentonite', width: '90px', align: 'center' },
+    { key: 'coalDust', label: 'Coal Dust', width: '90px', align: 'center' },
+    { key: 'hopperLevel', label: 'Hopper Level', width: '100px', align: 'center' },
+    { key: 'shearStrength', label: 'Shear Strength', width: '110px', align: 'center' },
+    { key: 'dustCollectorSettings', label: 'Dust Collector', width: '110px', align: 'center' },
+    { key: 'returnSandMoisture', label: 'Return Sand Moisture', width: '140px', align: 'center' }
+  ];
+
+  const additionalDataColumns = [
+    { key: 'date', label: 'Date', width: '120px', align: 'center' },
+    { key: 'shift', label: 'Shift', width: '80px', align: 'center' },
+    { key: 'testNo', label: 'Test', width: '80px', align: 'center' },
+    { key: 'afsNo', label: 'AFS No', width: '120px', align: 'center' },
+    { key: 'fines', label: 'Fines', width: '120px', align: 'center' },
+    { key: 'gd', label: 'GD', width: '120px', align: 'center' }
+  ];
 
   return (
-    <>
-      {toast.show && (
-        <div
-          role="status"
-          style={{
-            position: 'fixed',
-            top: 16,
-            right: 16,
-            padding: '10px 14px',
-            borderRadius: 8,
-            color: toast.type === 'success' ? '#065f46' : '#991b1b',
-            background: toast.type === 'success' ? '#d1fae5' : '#fee2e2',
-            border: `1px solid ${toast.type === 'success' ? '#10b981' : '#ef4444'}`,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
-            zIndex: 2000,
-            fontSize: 14,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8
-          }}
-        >
-          {toast.message}
-        </div>
-      )}
-      
-      <div className="sand-testing-report-container">
-        <div className="sand-testing-report-header">
-          <div className="sand-testing-report-header-text">
-            <h2>
-              <BookOpen size={24} />
-              Foundry Sand Testing Note - Report
-            </h2>
-          </div>
-        </div>
-
-        <div className="sand-testing-filter-container">
-          <div className="sand-testing-filter-group">
-            <label>Date</label>
-            <CustomDatePicker
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              name="selectedDate"
-              placeholder="e.g: DD/MM/YYYY"
-            />
-          </div>
-        </div>
-
-        {/* Table 1 - Full Width */}
-        <div>
-          {renderTable1()}
-        </div>
-
-        {/* Tables 2 & 5 - Side by Side */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16, marginTop: 16 }}>
-          {renderTable2()}
-          {renderTable5()}
-        </div>
-
-        {/* Table 3 - Full Width */}
-        <div style={{ marginTop: 16 }}>
-          {renderTable3()}
-        </div>
-
-        {/* Table 4 - Full Width */}
-        <div style={{ marginTop: 16 }}>
-          {renderTable4()}
+    <div className="foundry-sand-testing-report-container">
+      <div className="foundry-sand-testing-report-header">
+        <div className="foundry-sand-testing-report-header-text">
+          <BookOpenCheck size={28} style={{ color: '#5B9AA9', marginRight: '0.75rem' }} />
+          <h2>Foundry Sand Testing Note - Report</h2>
         </div>
       </div>
-    </>
+      <div className="foundry-sand-testing-filter-container">
+        <div className="foundry-sand-testing-filter-group">
+          <label style={{ fontWeight: '600', marginRight: '0.5rem' }}>Date:</label>
+          <CustomDatePicker
+            value={selectedDate}
+            onChange={handleDateChange}
+            name="selectedDate"
+          />
+        </div>
+        <div className="foundry-sand-testing-filter-actions">
+          <FilterButton onClick={handleFilter} disabled={!selectedDate || loading} />
+          <ClearButton onClick={handleClear} disabled={loading} />
+        </div>
+      </div>
+
+      {loading && (
+        <div style={{ textAlign: 'center', padding: '20px', color: '#5B9AA9' }}>
+          Loading data...
+        </div>
+      )}
+
+      {/* Clay Tests Section */}
+      <div className="foundry-section-header" style={{ marginTop: '2rem' }}>
+        <h3>Clay Tests Results</h3>
+      </div>
+      <Table
+        columns={clayTestsColumns}
+        data={prepareClayTestsData()}
+        noDataMessage="No clay test records found for the selected date"
+        minWidth={1200}
+        striped
+        headerGradient
+      />
+
+      {/* Sieve Testing Section */}
+      <div className="foundry-section-header" style={{ marginTop: '2rem' }}>
+        <h3>Sieve Testing Results</h3>
+      </div>
+      <Table
+        columns={sieveTestingColumns}
+        data={prepareSieveTestingData()}
+        noDataMessage="No sieve testing records found for the selected date"
+        minWidth={1600}
+        striped
+        headerGradient
+      />
+
+      {/* Parameters Section */}
+      <div className="foundry-section-header" style={{ marginTop: '2rem' }}>
+        <h3>Testing Parameters</h3>
+      </div>
+      <Table
+        columns={parametersColumns}
+        data={prepareParametersData()}
+        noDataMessage="No parameter records found for the selected date"
+        minWidth={1800}
+        striped
+        headerGradient
+      />
+
+      {/* Additional Data Section */}
+      <div className="foundry-section-header" style={{ marginTop: '2rem' }}>
+        <h3>Additional Data</h3>
+      </div>
+      <Table
+        columns={additionalDataColumns}
+        data={prepareAdditionalData()}
+        noDataMessage="No additional data found for the selected date"
+        minWidth={800}
+        striped
+        headerGradient
+      />
+    </div>
   );
 };
 
 export default FoundrySandTestingReport;
+

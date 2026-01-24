@@ -1,23 +1,21 @@
-/* Foundry Sand Testing Note - Report Page Styles */
-/* Matching SandTestingRecordReport.css structure */
-/* Page container padding to avoid cramped edges */
-.sand-testing-report-container {
+
+.foundry-sand-testing-report-container {
   padding: 12px 18px;
 }
 
-.sand-testing-report-header {
+.foundry-sand-testing-report-header {
   width: 100%;
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
   gap: 1rem;
-  margin: 0 0 1.75rem 0;
-  padding: 0 0 1.25rem 0;
-  border-bottom: 1px solid #e5e7eb;
+  margin: 0 0 1.5rem 0;
+  padding: 0 0 1rem 0;
+  border-bottom: 2px solid #e2e8f0;
 }
 
-.sand-testing-report-header-text {
+.foundry-sand-testing-report-header-text {
   flex: 1;
   display: flex;
   align-items: center;
@@ -25,7 +23,7 @@
   padding: 0;
 }
 
-.sand-testing-report-header-text h2 {
+.foundry-sand-testing-report-header-text h2 {
   font-size: 1.625rem;
   font-weight: 700;
   color: #1e293b;
@@ -39,8 +37,7 @@
   position: relative;
 }
 
-/* Filter Section */
-.sand-testing-filter-container {
+.foundry-sand-testing-filter-container {
   display: flex;
   align-items: flex-end;
   justify-content: flex-start;
@@ -49,34 +46,13 @@
   flex-wrap: wrap;
 }
 
-.sand-testing-filter-group {
+.foundry-sand-testing-filter-group {
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
 
-.sand-testing-filter-group label {
-  display: block;
-  font-size: 0.6875rem;
-  font-weight: 500;
-  color: #334155;
-  margin-bottom: 0.15rem;
-}
-
-.sand-testing-filter-group input {
-  width: 190px;
-  padding: 0.6rem 1rem;
-  font-size: 0.875rem;
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-  .sand-testing-filter-container {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .sand-testing-filter-group input {
-    width: 100%;
-  }
+.foundry-sand-testing-filter-actions {
+  display: flex;
+  gap: 1rem;
 }

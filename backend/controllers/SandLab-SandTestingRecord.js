@@ -73,9 +73,21 @@ exports.createTableEntry = async (req, res) => {
                         target[key] = {};
                     }
                     deepMerge(target[key], source[key]);
+                } else if (Array.isArray(source[key])) {
+                    // For arrays, append new values to existing array instead of replacing
+                    if (!target[key]) {
+                        target[key] = [];
+                    }
+                    // Filter out empty strings and append only non-empty new values
+                    const newValues = source[key].filter(val => val && val.trim() !== '');
+                    if (newValues.length > 0) {
+                        target[key] = [...target[key], ...newValues];
+                    }
                 } else {
-                    // For arrays and primitive values, directly assign
-                    target[key] = source[key];
+                    // For primitive values, only assign if not empty string (to preserve existing data)
+                    if (source[key] !== '' && source[key] !== null && source[key] !== undefined) {
+                        target[key] = source[key];
+                    }
                 }
             });
         };
@@ -91,9 +103,29 @@ exports.createTableEntry = async (req, res) => {
             if (!document.mixshifts) document.mixshifts = {};
             deepMerge(document.mixshifts, data);
         } else if (tableNum === 4) {
-            if (data.sandLump !== undefined) document.sandLump = data.sandLump;
-            if (data.newSandWt !== undefined) document.newSandWt = data.newSandWt;
-            if (data.sandFriability !== undefined) document.sandFriability = data.sandFriability;
+            // Only update if value is not empty - preserves existing data
+            if (data.sandLump !== undefined && data.sandLump !== null && data.sandLump.trim() !== '') {
+                document.sandLump = data.sandLump;
+            }
+            if (data.newSandWt !== undefined && data.newSandWt !== null && data.newSandWt.trim() !== '') {
+                document.newSandWt = data.newSandWt;
+            }
+            if (data.sandFriability !== undefined) {
+                // Initialize sandFriability if it doesn't exist
+                if (!document.sandFriability) {
+                    document.sandFriability = {};
+                }
+                // Only update individual shift values if they are not empty
+                if (data.sandFriability.shiftI !== undefined && data.sandFriability.shiftI !== null && data.sandFriability.shiftI.trim() !== '') {
+                    document.sandFriability.shiftI = data.sandFriability.shiftI;
+                }
+                if (data.sandFriability.shiftII !== undefined && data.sandFriability.shiftII !== null && data.sandFriability.shiftII.trim() !== '') {
+                    document.sandFriability.shiftII = data.sandFriability.shiftII;
+                }
+                if (data.sandFriability.shiftIII !== undefined && data.sandFriability.shiftIII !== null && data.sandFriability.shiftIII.trim() !== '') {
+                    document.sandFriability.shiftIII = data.sandFriability.shiftIII;
+                }
+            }
         } else if (tableNum === 5) {
             if (!document.testParameter) document.testParameter = [];
             // Add new entry to array
