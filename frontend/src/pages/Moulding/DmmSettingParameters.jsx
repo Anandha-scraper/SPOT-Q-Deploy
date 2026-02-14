@@ -1,10 +1,9 @@
-
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Save, RefreshCw, FileText, Loader2, RotateCcw, Info } from "lucide-react";
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { CustomTimeInput, Time, MachineDropdown } from '../../Components/Buttons';
-import { SuccessAlert } from '../../Components/PopUp';
+import { SuccessAlert } from '../../Components/Alert';
 import Sakthi from '../../Components/Sakthi';
 import '../../styles/PageStyles/Moulding/DmmSettingParameters.css';
 
@@ -19,8 +18,6 @@ const initialRow = {
   coreMaskThickness: "",
   coreMaskHeightOutside: "",
   coreMaskHeightInside: "",
-  spCoreMaskThickness: "", // mapped for backend persistence (thickness)
-  spCoreMaskHeight: "", // mapped for backend persistence (outside height)
   sandShotPressureBar: "",
   correctionShotTime: "",
   squeezePressure: "",

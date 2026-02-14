@@ -1,222 +1,231 @@
 const CupolaHolderLog = require('../models/Melting-CupolaHolderLog');
-const { ensureDateDocument, getCurrentDate } = require('../utils/dateUtils');
+
+/** Helper: normalize date to UTC start of day **/
+const toStartOfDay = (dateStr) => {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+};
+
+const toEndOfDay = (dateStr) => {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
+};
+
+/** Helper: find or create date document **/
+const getOrCreateDateDoc = async (dateStr) => {
+    const startOfDay = toStartOfDay(dateStr);
+    const endOfDay = toEndOfDay(dateStr);
+    let doc = await CupolaHolderLog.findOne({ date: { $gte: startOfDay, $lte: endOfDay } });
+    if (!doc) {
+        doc = new CupolaHolderLog({ date: startOfDay, primaries: [] });
+        await doc.save();
+    }
+    return doc;
+};
+
+/** Helper: find primary in document **/
+const findPrimary = (doc, shift, holderNumber) => {
+    return doc.primaries.find(p => p.shift === shift && p.holderNumber === holderNumber);
+};
 
 /** 1. DATA RETRIEVAL **/
+
+exports.getPrimaryByDate = async (req, res) => {
+    try {
+        const { date } = req.params;
+        const { shift, holderNumber } = req.query;
+
+        const startOfDay = toStartOfDay(date);
+        const endOfDay = toEndOfDay(date);
+
+        const doc = await CupolaHolderLog.findOne({ date: { $gte: startOfDay, $lte: endOfDay } });
+
+        if (!doc) return res.status(200).json({ success: true, data: null });
+
+        // Find matching primary
+        const primary = findPrimary(doc, shift, holderNumber);
+
+        if (!primary) return res.status(200).json({ success: true, data: null });
+
+        res.status(200).json({
+            success: true,
+            data: {
+                _id: primary._id,
+                date: doc.date,
+                shift: primary.shift,
+                holderNumber: primary.holderNumber,
+                entryCount: primary.entries.length,
+                entries: primary.entries
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
 
 exports.filterByDateRange = async (req, res) => {
     try {
         const { startDate, endDate } = req.query;
-        
         if (!startDate || !endDate) {
-            return res.status(400).json({ success: false, message: 'Start date and end date are required' });
+            return res.status(400).json({ success: false, message: 'Start and end dates are required.' });
         }
 
-        const start = new Date(startDate);
-        start.setUTCHours(0, 0, 0, 0);
-        const end = new Date(endDate);
-        end.setUTCHours(23, 59, 59, 999);
+        const documents = await CupolaHolderLog.find({
+            date: {
+                $gte: new Date(startDate),
+                $lte: new Date(endDate)
+            }
+        }).sort({ date: -1 });
 
-        const entries = await CupolaHolderLog.find({
-            date: { $gte: start, $lte: end }
-        }).sort({ date: -1, shift: 1, holderno: 1 });
+        // Flatten: one row per entry per primary per date
+        const flattened = [];
+        for (const doc of documents) {
+            for (const primary of doc.primaries) {
+                if (primary.entries.length === 0) {
+                    // Primary with no entries — still show it
+                    flattened.push({
+                        _id: primary._id,
+                        date: doc.date,
+                        shift: primary.shift,
+                        holderNumber: primary.holderNumber,
+                        entryCount: 0
+                    });
+                } else {
+                    for (const entry of primary.entries) {
+                        flattened.push({
+                            _id: entry._id,
+                            primaryId: primary._id,
+                            date: doc.date,
+                            shift: primary.shift,
+                            holderNumber: primary.holderNumber,
+                            entryCount: primary.entries.length,
+                            // Entry fields
+                            heatNo: entry.heatNo,
+                            cpc: entry.cpc,
+                            FeSl: entry.FeSl,
+                            feMn: entry.feMn,
+                            sic: entry.sic,
+                            pureMg: entry.pureMg,
+                            cu: entry.cu,
+                            feCr: entry.feCr,
+                            actualTime: entry.actualTime,
+                            tappingTime: entry.tappingTime,
+                            tappingTemp: entry.tappingTemp,
+                            metalKg: entry.metalKg,
+                            disaLine: entry.disaLine,
+                            indFur: entry.indFur,
+                            bailNo: entry.bailNo,
+                            tap: entry.tap,
+                            kw: entry.kw,
+                            remarks: entry.remarks
+                        });
+                    }
+                }
+            }
+        }
 
-        // Flatten nested structure for frontend
-        const flattenedData = entries.map(entry => ({
-            _id: entry._id,
-            date: entry.date,
-            shift: entry.shift,
-            holderNumber: entry.holderno,
-            heatNo: entry.heatNo || '',
-            // Additions (Table 1)
-            cpc: entry.additions?.cpc || 0,
-            FeSl: entry.additions?.FeSl || 0,
-            feMn: entry.additions?.feMn || 0,
-            sic: entry.additions?.sic || 0,
-            pureMg: entry.additions?.pureMg || 0,
-            cu: entry.additions?.cu || 0,
-            feCr: entry.additions?.feCr || 0,
-            // Tapping (Table 2)
-            actualTime: entry.tapping?.time?.actualTime || '',
-            tappingTime: entry.tapping?.time?.tappingTime || '',
-            tappingTemp: entry.tapping?.tempC || 0,
-            metalKg: entry.tapping?.metalKgs || 0,
-            // Pouring (Table 3)
-            disaLine: entry.pouring?.disaLine || '',
-            indFur: entry.pouring?.indFur || '',
-            bailNo: entry.pouring?.bailNo || '',
-            // Electrical (Table 4)
-            tap: entry.electrical?.tap || '',
-            kw: entry.electrical?.kw || 0
-        }));
-
-        res.status(200).json({ 
-            success: true, 
-            count: flattenedData.length, 
-            data: flattenedData 
-        });
+        res.status(200).json({ success: true, count: flattened.length, data: flattened });
     } catch (error) {
         console.error('Filter error:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 };
 
-exports.getPrimaryByDate = async (req, res) => {
+/** 2. TABLE ENTRY — push a new entry into the primary's entries array **/
+
+exports.createTableEntry = async (req, res) => {
     try {
-        const { date, shift, holderNumber } = req.params;
-        
-        // Handle various holderNumber formats (0, h, H, H0, etc.)
-        let hNo;
-        if (holderNumber === '0' || holderNumber.toLowerCase() === 'h' || holderNumber === '') {
-            hNo = 0;
-        } else {
-            // Extract number from formats like "H0", "h1", or plain "1"
-            const match = holderNumber.match(/\d+/);
-            hNo = match ? parseInt(match[0]) : 0;
+        const { primaryData, data } = req.body;
+        if (!data || !primaryData?.date) {
+            return res.status(400).json({ success: false, message: 'Data and date are required.' });
         }
 
-        // Normalize date
-        const dateObj = new Date(date);
-        dateObj.setUTCHours(0, 0, 0, 0);
+        const doc = await getOrCreateDateDoc(primaryData.date);
 
-        // Find specific log by triple-key: Date, Shift, and Holder
-        const entry = await CupolaHolderLog.findOne({ 
-            date: dateObj, 
-            shift: shift, 
-            holderno: hNo 
-        });
+        // Find or create primary
+        let primary = findPrimary(doc, primaryData.shift || '', primaryData.holderNumber || '');
+        if (!primary) {
+            doc.primaries.push({
+                shift: primaryData.shift || '',
+                holderNumber: primaryData.holderNumber || '',
+                entries: []
+            });
+            primary = doc.primaries[doc.primaries.length - 1];
+        }
+
+        // Support both single entry (object) and batch entries (array)
+        const entriesArray = Array.isArray(data) ? data : [data];
+
+        for (const item of entriesArray) {
+            const entry = {
+                heatNo: item.heatNo,
+                cpc: item.cpc,
+                FeSl: item.FeSl,
+                feMn: item.feMn,
+                sic: item.sic,
+                pureMg: item.pureMg,
+                cu: item.cu,
+                feCr: item.feCr,
+                actualTime: item.actualTime,
+                tappingTime: item.tappingTime,
+                tappingTemp: item.tappingTemp,
+                metalKg: item.metalKg,
+                disaLine: item.disaLine,
+                indFur: item.indFur,
+                bailNo: item.bailNo,
+                tap: item.tap,
+                kw: item.kw,
+                remarks: item.remarks
+            };
+            primary.entries.push(entry);
+        }
+
+        await doc.save();
 
         res.status(200).json({
             success: true,
-            data: entry ? {
-                _id: entry._id,
-                date: entry.date,
-                shift: entry.shift,
-                holderNumber: entry.holderno.toString(),
-                heatNo: entry.heatNo || ''
-            } : null
+            data: doc,
+            entryCount: primary.entries.length,
+            addedCount: entriesArray.length,
+            message: `${entriesArray.length} ${entriesArray.length === 1 ? 'entry' : 'entries'} saved successfully.`
         });
     } catch (error) {
-        console.error('Get primary by date error:', error);
-        res.status(500).json({ success: false, message: error.message });
-    }
-};
-
-exports.getAllEntries = async (req, res) => {
-    try {
-        const { startDate, endDate } = req.query;
-        let query = {};
-
-        if (startDate || endDate) {
-            query.date = {};
-            if (startDate) query.date.$gte = new Date(startDate);
-            if (endDate) query.date.$lte = new Date(endDate);
-        }
-
-        const entries = await CupolaHolderLog.find(query).sort({ date: -1, createdAt: -1 });
-        res.status(200).json({ success: true, count: entries.length, data: entries });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-    }
-};
-
-/** 2. CORE LOGIC (Smart Upsert) **/
-
-exports.createPrimary = async (req, res) => {
-    try {
-        console.log('Received request body:', JSON.stringify(req.body, null, 2));
-        const { primaryData } = req.body;
-        
-        console.log('Extracted primaryData:', primaryData);
-        console.log('Validation checks:', {
-            hasPrimaryData: !!primaryData,
-            hasDate: primaryData?.date,
-            hasShift: primaryData?.shift,
-            hasHolderNumber: primaryData?.holderNumber
-        });
-        
-        if (!primaryData || !primaryData.date || !primaryData.shift || !primaryData.holderNumber) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Date, shift, and holder number are required in primaryData' 
-            });
-        }
-
-        const { date, shift, holderNumber, heatNo } = primaryData;
-        const hNo = parseInt(holderNumber);
-
-        // Normalize date
-        const dateObj = new Date(date);
-        dateObj.setUTCHours(0, 0, 0, 0);
-
-        // Find or create entry with just primary fields
-        let entry = await CupolaHolderLog.findOne({ 
-            date: dateObj, 
-            shift, 
-            holderno: hNo 
-        });
-
-        if (entry) {
-            // Update primary fields only
-            if (heatNo !== undefined) entry.heatNo = heatNo;
-            await entry.save();
-        } else {
-            // Create new entry with primary fields
-            entry = await CupolaHolderLog.create({ 
-                date: dateObj, 
-                shift, 
-                holderno: hNo, 
-                heatNo: heatNo || '' 
-            });
-        }
-
-        res.status(200).json({ 
-            success: true, 
-            data: {
-                _id: entry._id,
-                date: entry.date,
-                shift: entry.shift,
-                holderNumber: entry.holderno,
-                heatNo: entry.heatNo || ''
-            }
-        });
-    } catch (error) {
-        console.error('Create primary error:', error);
         res.status(400).json({ success: false, message: error.message });
     }
 };
 
-exports.createEntry = async (req, res) => {
+/** 3. LOCKING & PRIMARY UPDATES **/
+
+exports.createOrUpdatePrimary = async (req, res) => {
     try {
-        const { date, shift, holderNumber, holderno, ...payload } = req.body;
-        const hNo = parseInt(holderNumber || holderno);
+        const { primaryData } = req.body;
 
-        if (!date || !shift || !hNo) {
-            return res.status(400).json({ success: false, message: 'Date, Shift, and Holder No are required.' });
-        }
+        const doc = await getOrCreateDateDoc(primaryData.date);
 
-        // 1. Normalize Date
-        const dateObj = new Date(date);
-        dateObj.setUTCHours(0, 0, 0, 0);
+        // Find or create primary
+        let primary = findPrimary(doc, primaryData.shift || '', primaryData.holderNumber || '');
 
-        // 2. Find or Create
-        let entry = await CupolaHolderLog.findOne({ date: dateObj, shift, holderno: hNo });
-
-        if (entry) {
-            // DEEP MERGE: Update nested objects (tapping, electrical, etc.) without losing existing sub-fields
-            Object.keys(payload).forEach(key => {
-                if (payload[key] && typeof payload[key] === 'object' && !Array.isArray(payload[key])) {
-                    entry[key] = { ...entry[key], ...payload[key] };
-                } else {
-                    entry[key] = payload[key];
-                }
+        if (!primary) {
+            doc.primaries.push({
+                shift: primaryData.shift || '',
+                holderNumber: primaryData.holderNumber || '',
+                entries: []
             });
-            await entry.save();
-        } else {
-            // CREATE NEW
-            entry = await CupolaHolderLog.create({ date: dateObj, shift, holderno: hNo, ...payload });
+            primary = doc.primaries[doc.primaries.length - 1];
         }
 
-        res.status(entry.isNew ? 201 : 200).json({ success: true, data: entry });
+        await doc.save();
+
+        res.status(200).json({
+            success: true,
+            data: {
+                _id: primary._id,
+                date: doc.date,
+                shift: primary.shift,
+                holderNumber: primary.holderNumber,
+                entryCount: primary.entries.length
+            }
+        });
     } catch (error) {
         res.status(400).json({ success: false, message: error.message });
     }

@@ -199,7 +199,7 @@ MachineDropdown.displayName = 'MachineDropdown';
 
 // Shift Dropdown Component
 
-export const ShiftDropdown = forwardRef(({ value, onChange, name, disabled, onKeyDown, className = '' }, ref) => {
+export const ShiftDropdown = forwardRef(({ value, onChange, name, disabled, onKeyDown, onMouseDown, className = '' }, ref) => {
   const shiftOptions = ['Shift 1', 'Shift 2', 'Shift 3'];
 
   return (
@@ -210,7 +210,14 @@ export const ShiftDropdown = forwardRef(({ value, onChange, name, disabled, onKe
         value={value}
         onChange={onChange}
         onKeyDown={onKeyDown}
-        disabled={disabled}
+        onMouseDown={onMouseDown}
+        tabIndex={disabled ? -1 : 0}
+        style={{
+          pointerEvents: disabled ? 'none' : 'auto',
+          opacity: disabled ? 0.6 : 1,
+          backgroundColor: disabled ? '#f1f5f9' : '#ffffff',
+          cursor: disabled ? 'not-allowed' : 'pointer'
+        }}
       >
         <option value="">Select Shift</option>
         {shiftOptions.map((option) => (
@@ -223,6 +230,101 @@ export const ShiftDropdown = forwardRef(({ value, onChange, name, disabled, onKe
   );
 });
 ShiftDropdown.displayName = 'ShiftDropdown';
+
+// Furnace Number Dropdown Component
+
+export const FurnaceDropdown = forwardRef(({ value, onChange, name, disabled, onKeyDown, onMouseDown, className = '' }, ref) => {
+  const furnaceOptions = ['1', '2', '3', '4'];
+
+  return (
+    <div className={`shift-dropdown-wrapper ${className}`}>
+      <select
+        ref={ref}
+        name={name}
+        value={value}
+        onChange={onChange}
+        onKeyDown={onKeyDown}
+        onMouseDown={onMouseDown}
+        tabIndex={disabled ? -1 : 0}
+        style={{
+          pointerEvents: disabled ? 'none' : 'auto',
+          opacity: disabled ? 0.6 : 1,
+          backgroundColor: disabled ? '#f1f5f9' : '#ffffff',
+          cursor: disabled ? 'not-allowed' : 'pointer'
+        }}
+      >
+        <option value="">Select Furnace</option>
+        {furnaceOptions.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+});
+FurnaceDropdown.displayName = 'FurnaceDropdown';
+
+// Holder Number Dropdown Component
+
+export const HolderDropdown = forwardRef(({ value, onChange, name, disabled, onKeyDown, className = '' }, ref) => {
+  const holderOptions = ['1', '2', '3', '4'];
+
+  return (
+    <div className={`shift-dropdown-wrapper ${className}`}>
+      <select
+        ref={ref}
+        name={name}
+        value={value}
+        onChange={onChange}
+        onKeyDown={onKeyDown}
+        disabled={disabled}
+      >
+        <option value="">Select Holder</option>
+        {holderOptions.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+});
+HolderDropdown.displayName = 'HolderDropdown';
+
+// Panel Dropdown Component
+
+export const PanelDropdown = forwardRef(({ value, onChange, name, disabled, onKeyDown, onMouseDown, className = '' }, ref) => {
+  const panelOptions = ['A', 'B', 'C', 'D'];
+
+  return (
+    <div className={`shift-dropdown-wrapper ${className}`}>
+      <select
+        ref={ref}
+        name={name}
+        value={value}
+        onChange={onChange}
+        onKeyDown={onKeyDown}
+        onMouseDown={onMouseDown}
+        tabIndex={disabled ? -1 : 0}
+        style={{
+          pointerEvents: disabled ? 'none' : 'auto',
+          opacity: disabled ? 0.6 : 1,
+          backgroundColor: disabled ? '#f1f5f9' : '#ffffff',
+          cursor: disabled ? 'not-allowed' : 'pointer'
+        }}
+      >
+        <option value="">Select Panel</option>
+        {panelOptions.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+});
+PanelDropdown.displayName = 'PanelDropdown';
 
 export { Time };
 export const CustomTimeInput = forwardRef(({ value, onChange, className = '', hasError = false, onFocus, onBlur, onEnterPress, disabled = false, style = {}, ...props }, ref) => {
@@ -250,31 +352,50 @@ export const CustomTimeInput = forwardRef(({ value, onChange, className = '', ha
     return classes;
   };
 
-  // Handle Enter key press
+  // Handle Enter key press - navigate within segments, then exit on last segment
   useEffect(() => {
-    if (!onEnterPress || !containerRef.current || disabled) return;
+    if (!containerRef.current || disabled) return;
     
     const handleKeyDown = (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        e.stopPropagation();
-        onEnterPress(e);
+      if (e.key !== 'Enter') return;
+      
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Find all spinbutton segments inside this time container
+      const segments = Array.from(containerRef.current.querySelectorAll('[role="spinbutton"]'));
+      const currentIdx = segments.indexOf(e.target);
+      
+      if (currentIdx > -1 && currentIdx < segments.length - 1) {
+        // Not the last segment - move to next segment within time input
+        segments[currentIdx + 1].focus();
+      } else {
+        // Last segment - navigate to next focusable element outside this container
+        const allFocusables = Array.from(document.querySelectorAll(
+          'input:not([type="hidden"]), select, textarea, [role="spinbutton"]'
+        )).filter(el => !el.disabled && el.offsetParent !== null);
+        
+        const lastSegment = segments[segments.length - 1] || e.target;
+        const idx = allFocusables.indexOf(lastSegment);
+        if (idx > -1 && idx < allFocusables.length - 1) {
+          allFocusables[idx + 1].focus();
+        }
       }
     };
     
     const container = containerRef.current;
-    const inputs = container.querySelectorAll('input, [tabindex]');
+    const elements = container.querySelectorAll('[role="spinbutton"], input');
     
-    inputs.forEach(input => {
-      input.addEventListener('keydown', handleKeyDown);
+    elements.forEach(el => {
+      el.addEventListener('keydown', handleKeyDown);
     });
     
     return () => {
-      inputs.forEach(input => {
-        input.removeEventListener('keydown', handleKeyDown);
+      elements.forEach(el => {
+        el.removeEventListener('keydown', handleKeyDown);
       });
     };
-  }, [onEnterPress, disabled]);
+  }, [disabled]);
 
   return (
     <div 

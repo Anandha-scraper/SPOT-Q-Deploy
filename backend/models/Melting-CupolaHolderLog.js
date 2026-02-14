@@ -1,114 +1,47 @@
 const mongoose = require('mongoose');
 
-const CupolaHolderLogSchema = new mongoose.Schema({
+// Sub-schema for a single entry row (one heat)
+const EntrySchema = new mongoose.Schema({
+    heatNo: { type: String, default: '' },
+    // Additions
+    cpc: { type: Number, default: 0 },
+    FeSl: { type: Number, default: 0 },
+    feMn: { type: Number, default: 0 },
+    sic: { type: Number, default: 0 },
+    pureMg: { type: Number, default: 0 },
+    cu: { type: Number, default: 0 },
+    feCr: { type: Number, default: 0 },
+    // Tapping
+    actualTime: { type: String, default: '' },
+    tappingTime: { type: String, default: '' },
+    tappingTemp: { type: Number, default: 0 },
+    metalKg: { type: Number, default: 0 },
+    // Pouring
+    disaLine: { type: String, default: '' },
+    indFur: { type: String, default: '' },
+    bailNo: { type: String, default: '' },
+    // Electrical
+    tap: { type: String, default: '' },
+    kw: { type: Number, default: 0 },
+    // Remarks
+    remarks: { type: String, default: '' }
+}, { _id: true, timestamps: true });
 
+// Sub-schema for a primary combination (shift + holderNumber)
+const PrimarySchema = new mongoose.Schema({
+    shift: { type: String, required: true },
+    holderNumber: { type: String, required: true },
+    entries: [EntrySchema]
+}, { _id: true, timestamps: true });
+
+// Main document — one per date
+const CupolaHolderLogSchema = new mongoose.Schema({
     date: {
         type: Date,
-        required: true
+        required: true,
+        unique: true
     },
-
-    shift: {
-        type: String,
-        required: true
-
-    },
-
-    holderno :{
-        type : Number,
-        required : true
-    },
-    
-    heatNo: { 
-        type: String, 
-        required: false, 
-        trim: true, 
-        sparse: false
-    },
-
-    additions: {
-        cpc: { 
-            type: Number, 
-            min: 0 
-        },
-
-        FeSl: { 
-            type: Number, 
-            min: 0 
-        },
-
-        feMn: { 
-            type: Number, 
-            min: 0 
-        },
-
-        sic: { 
-            type: Number, 
-            min: 0 
-        },
-
-        pureMg: { 
-            type: Number, 
-            min: 0 
-        },
-
-        cu: { 
-            type: Number, 
-            min: 0 
-        },
-
-        feCr: { 
-            type: Number, 
-            min: 0 
-        },
-    },
-
-    tapping: {
-        time: {
-
-        actualTime: { 
-            type: String 
-        },
-
-        tappingTime: { 
-            type: String 
-        }
-    },
-    
-        tempC: { 
-            type: Number 
-        },
-        metalKgs: { 
-            type: Number, 
-            min: 0 
-        },
-    },
-
-    pouring: {
-        disaLine: { 
-            type: String, 
-            trim: true 
-        },
-        indFur: { 
-            type: String, 
-            trim: true 
-        },
-
-        bailNo: { 
-            type: String, 
-            trim: true 
-        },
-    },
-
-    electrical: {
-        tap: { 
-            type: String, 
-            trim: true 
-        },
-
-        kw: { 
-            type: Number 
-        },
-    }
+    primaries: [PrimarySchema]
 }, {
     timestamps: true,
     collection: 'cupola_holder_log'

@@ -1,295 +1,184 @@
-import React, { useEffect, useState } from 'react';
-import { BookOpenCheck } from 'lucide-react';
-import { FilterButton, ClearButton } from '../../Components/Buttons';
+import React, { useEffect, useState, useMemo } from 'react';
+import { BookOpenCheck, ChevronLeft, ChevronRight } from 'lucide-react';
+import { FilterButton, ClearButton, ShiftDropdown, HolderDropdown } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import Table from '../../Components/Table';
 import '../../styles/PageStyles/Melting/CupolaHolderLogSheetReport.css';
+
+const ITEMS_PER_PAGE = 20;
 
 const CupolaHolderLogSheetReport = () => {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
   const [entries, setEntries] = useState([]);
-  const [show, setShow] = useState({ table1: false, table2: false, table3: false, remarks: false });
-  
+
   // Filter states
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [selectedShift, setSelectedShift] = useState('');
+  const [selectedHolder, setSelectedHolder] = useState('');
 
-  // Load current data on mount
+  // Section visibility toggles
+  const [show, setShow] = useState({
+    additions: false,
+    tapping: false,
+    pouring: false,
+    electrical: false,
+    remarks: false
+  });
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Remark modal
+  const [remarkModal, setRemarkModal] = useState({ open: false, text: '' });
+
+  // Load today's data on mount
   useEffect(() => {
     loadCurrentData();
   }, []);
 
-  const loadCurrentData = async () => {
+  const getCurrentDate = () => {
     const today = new Date();
-    const currentDate = today.toISOString().split('T')[0];
-    
+    return today.toISOString().split('T')[0];
+  };
+
+  const loadCurrentData = async () => {
+    const currentDate = getCurrentDate();
     setLoading(true);
-    setError('');
     try {
-      const response = await fetch(`http://localhost:5000/api/v1/cupola-logs/filter?startDate=${currentDate}&endDate=${currentDate}`, {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await fetch(
+        `http://localhost:5000/api/v1/cupola-logs/filter?startDate=${currentDate}&endDate=${currentDate}`,
+        { method: 'GET', credentials: 'include', headers: { 'Content-Type': 'application/json' } }
+      );
       const data = await response.json();
       if (data?.success) {
-        const list = Array.isArray(data.data) ? data.data : [];
-        const sorted = [...list].sort((a, b) => {
-          const da = new Date(a.date || a.createdAt || 0).getTime();
-          const db = new Date(b.date || b.createdAt || 0).getTime();
-          return db - da;
-        });
-        setEntries(sorted);
+        setEntries(Array.isArray(data.data) ? data.data : []);
       } else {
         setEntries([]);
       }
-    } catch (e) {
-      setError(e.message || 'Failed to fetch current data');
+    } catch {
       setEntries([]);
     } finally {
       setLoading(false);
     }
   };
 
+  const isFilterEnabled = startDate || selectedShift || selectedHolder;
+
   const loadFilteredData = async () => {
-    if (!startDate) {
-      alert('Please select at least a start date');
-      return;
-    }
-    
-    // Use endDate if provided, otherwise use startDate for single day filter
-    const filterEndDate = endDate || startDate;
-    
+    if (!isFilterEnabled) return;
+
+    const filterStart = startDate || getCurrentDate();
+    const filterEnd = endDate || filterStart;
+
     setLoading(true);
-    setError('');
     try {
-      const response = await fetch(`http://localhost:5000/api/v1/cupola-logs/filter?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(filterEndDate)}`, {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await fetch(
+        `http://localhost:5000/api/v1/cupola-logs/filter?startDate=${encodeURIComponent(filterStart)}&endDate=${encodeURIComponent(filterEnd)}`,
+        { method: 'GET', credentials: 'include', headers: { 'Content-Type': 'application/json' } }
+      );
       const data = await response.json();
       if (data?.success) {
-        const list = Array.isArray(data.data) ? data.data : [];
-        const sorted = [...list].sort((a, b) => {
-          const da = new Date(a.date || a.createdAt || 0).getTime();
-          const db = new Date(b.date || b.createdAt || 0).getTime();
-          return db - da;
-        });
-        setEntries(sorted);
+        let list = Array.isArray(data.data) ? data.data : [];
+        // Client-side filtering
+        if (selectedShift) list = list.filter(r => r.shift === selectedShift);
+        if (selectedHolder) list = list.filter(r => String(r.holderNumber || r.holderno) === selectedHolder);
+        setEntries(list);
       } else {
         setEntries([]);
       }
-    } catch (e) {
-      setError(e.message || 'Failed to fetch report data');
+    } catch {
       setEntries([]);
     } finally {
       setLoading(false);
+      setCurrentPage(1);
     }
   };
 
   const clearFilters = () => {
     setStartDate('');
     setEndDate('');
-    setError('');
-    loadCurrentData(); // Reload current data when filters are cleared
+    setSelectedShift('');
+    setSelectedHolder('');
+    setCurrentPage(1);
+    loadCurrentData();
   };
 
-  const toggle = (key) => setShow((prev) => ({ ...prev, [key]: !prev[key] }));
+  const toggle = (key) => setShow(prev => ({ ...prev, [key]: !prev[key] }));
 
-  const [confirm, setConfirm] = useState({ open: false, row: null });
-  const [editModal, setEditModal] = useState({ open: false, row: null });
-  const [editForm, setEditForm] = useState({});
-  const [saveConfirm, setSaveConfirm] = useState({ open: false });
-  const [remarkModal, setRemarkModal] = useState({ open: false, text: '' });
+  const anySection = Object.values(show).some(Boolean);
+  const clearSections = () => setShow({ additions: false, tapping: false, pouring: false, electrical: false, remarks: false });
 
-  const requestDelete = (row) => {
-    if (!row?._id) return;
-    setConfirm({ open: true, row });
-  };
-
-  const closeConfirm = () => setConfirm({ open: false, row: null });
-
-  const performDelete = async () => {
-    const row = confirm.row;
-    if (!row?._id) return;
-    try {
-      const response = await fetch(`/v1/cupola-holder-logs/${row._id}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
-        }
-      });
-      if (response.ok) {
-        setEntries((prev) => prev.filter((e) => e._id !== row._id));
-      } else {
-        const data = await response.json();
-        alert(data.message || 'Failed to delete the record');
-      }
-    } catch (e) {
-      alert(e.message || 'Failed to delete the record');
-    } finally {
-      closeConfirm();
-    }
-  };
-
-  const requestEdit = (row) => {
-    if (!row?._id) return;
-    setEditForm({
-      date: row.date ? new Date(row.date).toISOString().split('T')[0] : '',
-      shift: row.shift || '',
-      holderNumber: row.holderNumber || row.holderno || '',
-      heatNo: row.heatNo || '',
-      cpc: row.cpc ?? '',
-      mFeSl: row.mFeSl ?? row.FeSl ?? '',
-      feMn: row.feMn ?? '',
-      sic: row.sic ?? '',
-      pureMg: row.pureMg ?? '',
-      cu: row.cu ?? '',
-      feCr: row.feCr ?? '',
-      actualTime: row.actualTime ?? row?.tapping?.time?.actualTime ?? '',
-      tappingTime: row.tappingTime ?? row?.tapping?.time?.tappingTime ?? '',
-      tappingTemp: row.tappingTemp ?? row?.tapping?.tempC ?? '',
-      metalKg: row.metalKg ?? row?.tapping?.metalKgs ?? '',
-      disaLine: row.disaLine ?? row?.pouring?.disaLine ?? '',
-      indFur: row.indFur ?? row?.pouring?.indFur ?? '',
-      bailNo: row.bailNo ?? row?.pouring?.bailNo ?? '',
-      tap: row.tap ?? row?.electrical?.tap ?? '',
-      kw: row.kw ?? row?.electrical?.kw ?? '',
-      remarks: row.remarks || ''
-    });
-    setEditModal({ open: true, row });
-  };
-
-  const closeEditModal = () => setEditModal({ open: false, row: null });
-  const handleEditChange = (e) => {
-    const { name, value } = e.target;
-    setEditForm((prev) => ({ ...prev, [name]: value }));
-  };
-  const openSaveConfirm = () => setSaveConfirm({ open: true });
-  const closeSaveConfirm = () => setSaveConfirm({ open: false });
-  const performSave = async () => {
-    const row = editModal.row;
-    if (!row?._id) return;
-    try {
-      const payload = { ...editForm };
-      const response = await fetch(`/v1/cupola-holder-logs/${row._id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
-        },
-        body: JSON.stringify(payload)
-      });
-      const res = await response.json();
-      if (res?.success) {
-        setEntries((prev) => prev.map((e) => (e._id === row._id ? { ...e, ...payload, _id: row._id } : e)));
-        setEditModal({ open: false, row: null });
-        setSaveConfirm({ open: false });
-      }
-    } catch (e) {
-      alert(e.message || 'Failed to update the record');
-    } finally {
-      setSaveConfirm({ open: false });
-    }
-  };
-
+  // Format date to DD/MM/YYYY
   const formatDate = (d) => {
-    if (!d) return '';
+    if (!d) return '-';
     const date = new Date(d);
-    if (Number.isNaN(date.getTime())) return String(d);
+    if (isNaN(date.getTime())) return String(d);
     return date.toLocaleDateString('en-GB');
   };
 
-  const buildColumns = () => {
-    const columns = [
-      { key: 'date', label: 'Date', width: '100px', render: (r) => formatDate(r.date) },
-      { key: 'shift', label: 'Shift', width: '80px', render: (r) => r.shift || '-' },
-      { key: 'holderNumber', label: 'Holder No', width: '100px', render: (r) => r.holderNumber || r.holderno || '-' },
-      { key: 'heatNo', label: 'Heat No', width: '90px', render: (r) => r.heatNo || '-' },
-    ];
+  // Format value — show '-' for 0 or empty
+  const fmtVal = (v) => (v !== undefined && v !== null && v !== '' && v !== 0) ? v : '-';
 
-    if (show.table1) {
-      columns.push(
-        { key: 'cpc', label: 'CPC', width: '80px', render: (r) => r.cpc ?? '-' },
-        { key: 'mFeSl', label: 'Fe Sl', width: '80px', render: (r) => r.mFeSl ?? r.FeSl ?? '-' },
-        { key: 'feMn', label: 'Fe Mn', width: '80px', render: (r) => r.feMn ?? '-' },
-        { key: 'sic', label: 'Sic', width: '80px', render: (r) => r.sic ?? '-' },
-        { key: 'pureMg', label: 'Pure Mg', width: '90px', render: (r) => r.pureMg ?? '-' },
-        { key: 'cu', label: 'Cu', width: '70px', render: (r) => r.cu ?? '-' },
-        { key: 'feCr', label: 'Fe Cr', width: '80px', render: (r) => r.feCr ?? '-' },
-      );
-    }
+  // Column count for no-data row
+  const totalCols = useMemo(() => {
+    let c = 4; // date, shift, holder, heatNo
+    if (show.additions) c += 7;
+    if (show.tapping) c += 4;
+    if (show.pouring) c += 3;
+    if (show.electrical) c += 2;
+    if (show.remarks) c += 1;
+    return c;
+  }, [show]);
 
-    if (show.table2) {
-      columns.push(
-        { key: 'actualTime', label: 'Actual Time', width: '110px', render: (r) => r.actualTime ?? r?.tapping?.time?.actualTime ?? '-' },
-        { key: 'tappingTime', label: 'Tapping Time', width: '110px', render: (r) => r.tappingTime ?? r?.tapping?.time?.tappingTime ?? '-' },
-        { key: 'tappingTemp', label: 'Temp (°C)', width: '90px', render: (r) => r.tappingTemp ?? r?.tapping?.tempC ?? '-' },
-        { key: 'metalKg', label: 'Metal (KG)', width: '100px', render: (r) => r.metalKg ?? r?.tapping?.metalKgs ?? '-' },
-      );
-    }
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(entries.length / ITEMS_PER_PAGE));
+  const paginatedData = entries.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
-    if (show.table3) {
-      columns.push(
-        { key: 'disaLine', label: 'DISA LINE', width: '100px', render: (r) => r.disaLine ?? r?.pouring?.disaLine ?? '-' },
-        { key: 'indFur', label: 'IND FUR', width: '90px', render: (r) => r.indFur ?? r?.pouring?.indFur ?? '-' },
-        { key: 'bailNo', label: 'BAIL NO', width: '90px', render: (r) => r.bailNo ?? r?.pouring?.bailNo ?? '-' },
-        { key: 'tap', label: 'TAP', width: '80px', render: (r) => r.tap ?? r?.electrical?.tap ?? '-' },
-        { key: 'kw', label: 'KW', width: '70px', render: (r) => r.kw ?? r?.electrical?.kw ?? '-' },
-      );
-    }
+  const sectionConfig = [
+    { key: 'additions', label: 'Additions' },
+    { key: 'tapping', label: 'Tapping' },
+    { key: 'pouring', label: 'Pouring' },
+    { key: 'electrical', label: 'Electrical' },
+    { key: 'remarks', label: 'Remarks' }
+  ];
 
-    if (show.remarks) {
-      columns.push({
-        key: 'remarks',
-        label: 'Remarks',
-        width: '120px',
-        render: (r) => {
-          const value = r?.remarks || r?.remark || r?.notes || r?.note || '';
-          if (!value) return '-';
-          const short = value.length > 6 ? value.slice(0, 5) + '..' : value;
-          return (
-            <span
-              onClick={() => setRemarkModal({ open: true, text: value })}
-              title={value}
-              style={{ cursor: 'pointer', color: '#0ea5e9', textDecoration: 'underline dotted' }}
-            >
-              {short}</span>
-          );
-        }
-      });
-    }
-
-    return columns;
+  // Styles matching the entry page
+  const thStyle = {
+    padding: '0.5rem 0.4rem',
+    textAlign: 'center',
+    fontSize: '0.75rem',
+    fontWeight: 600,
+    color: '#334155',
+    borderBottom: '2px solid #cbd5e1',
+    borderRight: '1px solid #e2e8f0',
+    whiteSpace: 'nowrap',
+    background: '#f8fafc'
   };
 
-  const PrimaryTable = ({ list, show }) => {
-    const columns = buildColumns();
+  const groupThStyle = {
+    ...thStyle,
+    fontSize: '0.8rem',
+    fontWeight: 700,
+    color: '#1e293b',
+    background: '#eef4f7',
+    letterSpacing: '0.03em',
+    borderBottom: '1px solid #cbd5e1'
+  };
 
-    return (
-      <div className="chr-primary-table-wrap">
-        <div className="chr-section-title">Cupola Holder Log Sheet Report</div>
-        <Table
-          columns={columns}
-          data={list}
-          noDataMessage="No records found for the selected date range."
-          minWidth={1600}
-          striped={true}
-          headerGradient={true}
-        />
-      </div>
-    );
+  const tdStyle = {
+    padding: '0.5rem 0.4rem',
+    textAlign: 'center',
+    borderBottom: '1px solid #e5e7eb',
+    borderRight: '1px solid #e5e7eb',
+    fontSize: '0.825rem',
+    color: '#475569',
+    verticalAlign: 'middle',
+    whiteSpace: 'nowrap'
   };
 
   return (
     <div className="page-wrapper">
+      {/* Header */}
       <div className="cupola-holder-report-header">
         <div className="cupola-holder-report-header-text">
           <h2>
@@ -303,55 +192,282 @@ const CupolaHolderLogSheetReport = () => {
       <div className="cupola-holder-filter-container">
         <div className="cupola-holder-filter-group">
           <label>Start Date</label>
-          <CustomDatePicker
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-          />
+          <CustomDatePicker value={startDate} onChange={(e) => setStartDate(e.target.value)} />
         </div>
         <div className="cupola-holder-filter-group">
           <label>End Date</label>
-          <CustomDatePicker
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-          />
+          <CustomDatePicker value={endDate} onChange={(e) => setEndDate(e.target.value)} />
         </div>
-        <FilterButton onClick={loadFilteredData} disabled={loading}>
+        <div className="cupola-holder-filter-group">
+          <label>Shift</label>
+          <ShiftDropdown value={selectedShift} onChange={(e) => setSelectedShift(e.target.value)} />
+        </div>
+        <div className="cupola-holder-filter-group">
+          <label>Holder No</label>
+          <HolderDropdown value={selectedHolder} onChange={(e) => setSelectedHolder(e.target.value)} />
+        </div>
+        <FilterButton onClick={loadFilteredData} disabled={loading || !isFilterEnabled}>
           {loading ? 'Loading...' : 'Filter'}
         </FilterButton>
-        <ClearButton onClick={clearFilters}>
-          Clear
-        </ClearButton>
+        <ClearButton onClick={clearFilters}>Clear</ClearButton>
       </div>
 
-      {/* Show/Hide Sections */}
-
+      {/* Section Checkboxes */}
       <div className="chr-checklist-container">
-        <div className="chr-checklist-title">Checklist</div>
-        <div className="chr-checklist">
-          <label className="chr-check">
-            <input type="checkbox" checked={show.table1} onChange={() => toggle('table1')} />
-            <span>Table 1</span>
-          </label>
-          <label className="chr-check">
-            <input type="checkbox" checked={show.table2} onChange={() => toggle('table2')} />
-            <span>Table 2</span>
-          </label>
-          <label className="chr-check">
-            <input type="checkbox" checked={show.table3} onChange={() => toggle('table3')} />
-            <span>Table 3</span>
-          </label>
-          <label className="chr-check">
-            <input type="checkbox" checked={show.remarks} onChange={() => toggle('remarks')} />
-            <span>Remarks</span>
-          </label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          {sectionConfig.map(({ key, label }) => (
+            <label
+              key={key}
+              className="chr-check"
+              style={{
+                background: show[key] ? '#0ea5e9' : '#ffffff',
+                color: show[key] ? '#ffffff' : '#334155',
+                borderColor: show[key] ? '#0ea5e9' : '#e2e8f0',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={show[key]}
+                onChange={() => toggle(key)}
+                style={{ width: '17px', height: '17px', accentColor: '#fff' }}
+              />
+              <span style={{ fontSize: '0.9rem', color: 'inherit' }}>{label}</span>
+            </label>
+          ))}
+          {anySection && (
+            <button
+              onClick={clearSections}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+                padding: '0.45rem 0.85rem', border: '1.5px solid #fca5a5',
+                borderRadius: '6px', background: '#fef2f2', color: '#dc2626',
+                fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer',
+                transition: 'all 0.2s ease', minHeight: '38px'
+              }}
+            >
+              ✕ Clear
+            </button>
+          )}
         </div>
       </div>
 
-      <PrimaryTable list={entries} show={show} />
+      {/* Data Table */}
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '3rem', color: '#64748b' }}>Loading...</div>
+      ) : (
+        <div className="chr-primary-table-wrap">
+          <div style={{ overflowX: 'auto', border: '1.5px solid #cbd5e1', borderRadius: '10px', background: '#fff' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '500px' }}>
+              <thead>
+                {/* Group Headers Row */}
+                <tr>
+                  <th rowSpan={2} style={{ ...groupThStyle, borderLeft: 'none' }}>Date</th>
+                  <th rowSpan={2} style={groupThStyle}>Shift</th>
+                  <th rowSpan={2} style={groupThStyle}>Holder No</th>
+                  <th rowSpan={2} style={groupThStyle}>Heat No</th>
+                  {show.additions && <th colSpan={7} style={groupThStyle}>ADDITIONS</th>}
+                  {show.tapping && <th colSpan={4} style={groupThStyle}>TAPPING</th>}
+                  {show.pouring && <th colSpan={3} style={groupThStyle}>POURING</th>}
+                  {show.electrical && <th colSpan={2} style={groupThStyle}>ELECTRICAL</th>}
+                  {show.remarks && <th rowSpan={2} style={{ ...groupThStyle, borderRight: 'none' }}>Remarks</th>}
+                </tr>
+                {/* Sub Headers Row */}
+                {(show.additions || show.tapping || show.pouring || show.electrical) && (
+                  <tr>
+                    {show.additions && (
+                      <>
+                        <th style={thStyle}>CPC</th>
+                        <th style={thStyle}>Fe Sl</th>
+                        <th style={thStyle}>Fe Mn</th>
+                        <th style={thStyle}>SIC</th>
+                        <th style={thStyle}>Pure Mg</th>
+                        <th style={thStyle}>Cu</th>
+                        <th style={thStyle}>Fe Cr</th>
+                      </>
+                    )}
+                    {show.tapping && (
+                      <>
+                        <th style={thStyle}>Actual Time</th>
+                        <th style={thStyle}>Tapping Time</th>
+                        <th style={thStyle}>Temp °C</th>
+                        <th style={thStyle}>Metal (KG)</th>
+                      </>
+                    )}
+                    {show.pouring && (
+                      <>
+                        <th style={thStyle}>DISA LINE</th>
+                        <th style={thStyle}>IND FUR</th>
+                        <th style={thStyle}>BAIL NO</th>
+                      </>
+                    )}
+                    {show.electrical && (
+                      <>
+                        <th style={thStyle}>TAP</th>
+                        <th style={{ ...thStyle, borderRight: show.remarks ? '1px solid #e2e8f0' : 'none' }}>KW</th>
+                      </>
+                    )}
+                  </tr>
+                )}
+              </thead>
+              <tbody>
+                {paginatedData.length === 0 ? (
+                  <tr>
+                    <td colSpan={totalCols} style={{ ...tdStyle, borderRight: 'none', padding: '2rem', color: '#94a3b8', fontStyle: 'italic' }}>
+                      {entries.length === 0 ? 'No records found. Use the filters above to search.' : 'No data on this page'}
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedData.map((row, idx) => (
+                    <tr key={`${row._id || idx}`} style={{ background: idx % 2 === 0 ? '#fff' : '#f8fafc' }}>
+                      <td style={{ ...tdStyle, borderLeft: 'none' }}>{formatDate(row.date)}</td>
+                      <td style={tdStyle}>{fmtVal(row.shift)}</td>
+                      <td style={tdStyle}>{fmtVal(row.holderNumber || row.holderno)}</td>
+                      <td style={{ ...tdStyle, fontWeight: 600, color: '#0ea5e9' }}>{fmtVal(row.heatNo)}</td>
+                      {show.additions && (
+                        <>
+                          <td style={tdStyle}>{fmtVal(row.cpc)}</td>
+                          <td style={tdStyle}>{fmtVal(row.FeSl ?? row.mFeSl)}</td>
+                          <td style={tdStyle}>{fmtVal(row.feMn)}</td>
+                          <td style={tdStyle}>{fmtVal(row.sic)}</td>
+                          <td style={tdStyle}>{fmtVal(row.pureMg)}</td>
+                          <td style={tdStyle}>{fmtVal(row.cu)}</td>
+                          <td style={tdStyle}>{fmtVal(row.feCr)}</td>
+                        </>
+                      )}
+                      {show.tapping && (
+                        <>
+                          <td style={tdStyle}>{fmtVal(row.actualTime)}</td>
+                          <td style={tdStyle}>{fmtVal(row.tappingTime)}</td>
+                          <td style={tdStyle}>{fmtVal(row.tappingTemp)}</td>
+                          <td style={tdStyle}>{fmtVal(row.metalKg)}</td>
+                        </>
+                      )}
+                      {show.pouring && (
+                        <>
+                          <td style={tdStyle}>{fmtVal(row.disaLine)}</td>
+                          <td style={tdStyle}>{fmtVal(row.indFur)}</td>
+                          <td style={tdStyle}>{fmtVal(row.bailNo)}</td>
+                        </>
+                      )}
+                      {show.electrical && (
+                        <>
+                          <td style={tdStyle}>{fmtVal(row.tap)}</td>
+                          <td style={tdStyle}>{fmtVal(row.kw)}</td>
+                        </>
+                      )}
+                      {show.remarks && (
+                        <td style={{ ...tdStyle, borderRight: 'none' }}>
+                          {row.remarks ? (
+                            <span
+                              onClick={() => setRemarkModal({ open: true, text: row.remarks })}
+                              title={row.remarks}
+                              style={{ cursor: 'pointer', color: '#0ea5e9', textDecoration: 'underline dotted' }}
+                            >
+                              {row.remarks.length > 8 ? row.remarks.slice(0, 7) + '..' : row.remarks}
+                            </span>
+                          ) : '-'}
+                        </td>
+                      )}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div style={{
+          display: 'flex', justifyContent: 'center', alignItems: 'center',
+          gap: '0.5rem', marginTop: '1.5rem', flexWrap: 'wrap'
+        }}>
+          <button
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: '36px', height: '36px', border: '1px solid #e2e8f0',
+              borderRadius: '8px', background: currentPage === 1 ? '#f1f5f9' : '#fff',
+              cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+              color: currentPage === 1 ? '#94a3b8' : '#334155'
+            }}
+          >
+            <ChevronLeft size={18} />
+          </button>
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+            <button
+              key={page}
+              onClick={() => setCurrentPage(page)}
+              style={{
+                width: '36px', height: '36px', border: '1px solid',
+                borderColor: page === currentPage ? '#0ea5e9' : '#e2e8f0',
+                borderRadius: '8px',
+                background: page === currentPage ? '#0ea5e9' : '#fff',
+                color: page === currentPage ? '#fff' : '#334155',
+                fontWeight: page === currentPage ? 700 : 500,
+                fontSize: '0.875rem', cursor: 'pointer'
+              }}
+            >
+              {page}
+            </button>
+          ))}
+          <button
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: '36px', height: '36px', border: '1px solid #e2e8f0',
+              borderRadius: '8px', background: currentPage === totalPages ? '#f1f5f9' : '#fff',
+              cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+              color: currentPage === totalPages ? '#94a3b8' : '#334155'
+            }}
+          >
+            <ChevronRight size={18} />
+          </button>
+          <span style={{ fontSize: '0.8rem', color: '#64748b', marginLeft: '0.5rem' }}>
+            {entries.length} record{entries.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+      )}
 
-
-
+      {/* Remark Modal */}
+      {remarkModal.open && (
+        <div
+          onClick={() => setRemarkModal({ open: false, text: '' })}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#fff', borderRadius: '12px', padding: '1.5rem',
+              maxWidth: '420px', width: '90%', boxShadow: '0 8px 30px rgba(0,0,0,0.15)'
+            }}
+          >
+            <h3 style={{ margin: '0 0 0.75rem', fontSize: '1rem', color: '#1e293b' }}>Remarks</h3>
+            <p style={{ margin: 0, fontSize: '0.9rem', color: '#475569', lineHeight: 1.6, wordBreak: 'break-word' }}>
+              {remarkModal.text}
+            </p>
+            <div style={{ textAlign: 'right', marginTop: '1rem' }}>
+              <button
+                onClick={() => setRemarkModal({ open: false, text: '' })}
+                style={{
+                  padding: '0.5rem 1.25rem', border: 'none', borderRadius: '6px',
+                  background: '#0ea5e9', color: '#fff', fontSize: '0.875rem',
+                  fontWeight: 600, cursor: 'pointer'
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

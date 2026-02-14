@@ -1,5 +1,4 @@
 import React from 'react';
-import { Check } from 'lucide-react';
 import '../styles/ComponentStyles/PopUp.css';
 
 // Edit Card component for editing forms
@@ -137,23 +136,6 @@ export const RemarksCard = ({
         <div className="popup-footer">
         </div>
       </div>
-    </div>
-  );
-};
-
-// Success Alert component
-export const SuccessAlert = ({
-  isVisible,
-  message = 'Success!'
-}) => {
-  if (!isVisible) return null;
-
-  return (
-    <div className="success-alert">
-      <div className="success-alert-icon">
-        <Check size={20} strokeWidth={3} />
-      </div>
-      <span className="success-alert-text">{message}</span>
     </div>
   );
 };

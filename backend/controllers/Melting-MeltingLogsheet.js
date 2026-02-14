@@ -1,11 +1,41 @@
 const MeltingLogsheet = require('../models/Melting-MeltingLogsheet');
 const { ensureDateDocument, getCurrentDate } = require('../utils/dateUtils');
 
+/** Helper: normalize date to UTC start of day **/
+const toStartOfDay = (dateStr) => {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+};
+
+const toEndOfDay = (dateStr) => {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
+};
+
+/** Helper: find or create date document **/
+const getOrCreateDateDoc = async (dateStr) => {
+    const startOfDay = toStartOfDay(dateStr);
+    const endOfDay = toEndOfDay(dateStr);
+    let doc = await MeltingLogsheet.findOne({ date: { $gte: startOfDay, $lte: endOfDay } });
+    if (!doc) {
+        doc = new MeltingLogsheet({ date: startOfDay, primaries: [] });
+        await doc.save();
+    }
+    return doc;
+};
+
+/** Helper: find primary in document **/
+const findPrimary = (doc, shift, furnaceNo, panel) => {
+    return doc.primaries.find(p => p.shift === shift && p.furnaceNo === furnaceNo && p.panel === panel);
+};
+
 /** 1. SYSTEM INITIALIZATION **/
 
 exports.initializeTodayEntry = async () => {
     try {
-        await ensureDateDocument(MeltingLogsheet, getCurrentDate());
+        const today = getCurrentDate();
+        const dateStr = today.toISOString().split('T')[0];
+        await getOrCreateDateDoc(dateStr);
     } catch (error) {
         console.error('Melting Logsheet Init Error:', error.message);
     }
@@ -16,24 +46,35 @@ exports.initializeTodayEntry = async () => {
 exports.getPrimaryByDate = async (req, res) => {
     try {
         const { date } = req.params;
-        const document = await MeltingLogsheet.findOne({ date: new Date(date) });
+        const { shift, furnaceNo, panel } = req.query;
         
-        if (!document) return res.status(200).json({ success: true, data: null });
+        const startOfDay = toStartOfDay(date);
+        const endOfDay = toEndOfDay(date);
+        
+        const doc = await MeltingLogsheet.findOne({ date: { $gte: startOfDay, $lte: endOfDay } });
+        
+        if (!doc) return res.status(200).json({ success: true, data: null });
+
+        // Find matching primary
+        const primary = findPrimary(doc, shift, furnaceNo, panel);
+        
+        if (!primary) return res.status(200).json({ success: true, data: null });
 
         res.status(200).json({
             success: true,
             data: {
-                _id: document._id,
-                date: document.date,
-                shift: document.shift,
-                furnaceNo: document.furnaceNo,
-                panel: document.panel,
-                cumulativeLiquidMetal: document.cumulativeLiquidMetal,
-                finalKWHr: document.finalkwhr,
-                initialKWHr: document.initialkwhr,
-                totalUnits: document.totoalunits,
-                cumulativeUnits: document.cumulativeunits,
-                isLocked: document.isLocked
+                _id: primary._id,
+                date: doc.date,
+                shift: primary.shift,
+                furnaceNo: primary.furnaceNo,
+                panel: primary.panel,
+                cumulativeLiquidMetal: primary.cumulativeLiquidMetal,
+                finalKWHr: primary.finalkwhr,
+                initialKWHr: primary.initialkwhr,
+                totalUnits: primary.totoalunits,
+                cumulativeUnits: primary.cumulativeunits,
+                isLocked: primary.isLocked,
+                entryCount: primary.entries.length
             }
         });
     } catch (error) {
@@ -55,72 +96,97 @@ exports.filterByDateRange = async (req, res) => {
             }
         }).sort({ date: -1 });
 
-        // Flatten nested data structure for frontend consumption
-        const flattened = documents.map(doc => ({
-            _id: doc._id,
-            date: doc.date,
-            shift: doc.shift,
-            furnaceNo: doc.furnaceNo,
-            panel: doc.panel,
-            cumulativeLiquidMetal: doc.cumulativeLiquidMetal,
-            finalKWHr: doc.finalkwhr,
-            initialKWHr: doc.initialkwhr,
-            totalUnits: doc.totoalunits,
-            cumulativeUnits: doc.cumulativeunits,
-            isLocked: doc.isLocked,
-            // Table 1 - Charging Details
-            heatNo: doc.heatno,
-            grade: doc.grade,
-            chargingTime: doc.chargingkgs?.time,
-            ifBath: doc.chargingkgs?.ifbath,
-            liquidMetalPressPour: doc.chargingkgs?.liquidmetal?.presspour,
-            liquidMetalHolder: doc.chargingkgs?.liquidmetal?.holder,
-            sgMsSteel: doc.chargingkgs?.sqmssteel,
-            greyMsSteel: doc.chargingkgs?.greymssteel,
-            returnsSg: doc.chargingkgs?.returnSg,
-            gl: doc.chargingkgs?.gl,
-            pigIron: doc.chargingkgs?.pigiron,
-            borings: doc.chargingkgs?.borings,
-            finalBath: doc.chargingkgs?.finalbath,
-            // Table 2 - Additions
-            charCoal: doc.charcoal,
-            cpcFur: doc.cpc?.fur,
-            cpcLc: doc.cpc?.lc,
-            siliconCarbideFur: doc.siliconcarbide?.fur,
-            ferrosiliconFur: doc.ferroSilicon?.fur,
-            ferrosiliconLc: doc.ferroSilicon?.lc,
-            ferroManganeseFur: doc.ferroManganese?.fur,
-            ferroManganeseLc: doc.ferroManganese?.lc,
-            cu: doc.cu,
-            cr: doc.cr,
-            pureMg: doc.pureMg,
-            ironPyrite: doc.ironPyrite,
-            // Table 3 - Timing Details
-            labCoinTime: doc.labCoin?.time,
-            labCoinTempC: doc.labCoin?.tempC,
-            deslagingTimeFrom: doc.deslagingTime?.from,
-            deslagingTimeTo: doc.deslagingTime?.to,
-            metalReadyTime: doc.metalReadyTime,
-            waitingForTappingFrom: doc.waitingForTapping?.from,
-            waitingForTappingTo: doc.waitingForTapping?.to,
-            reason: doc.reason,
-            // Table 4 - Metal Tapping
-            time: doc.metalTapping?.time,
-            tempCSg: doc.metalTapping?.tempCSg,
-            tempCGrey: doc.metalTapping?.tempCGrey,
-            directFurnace: doc.directFurnace,
-            holderToFurnace: doc.holderToFurnace,
-            furnaceToHolder: doc.furnaceToHolder,
-            disaNo: doc.disaNo,
-            item: doc.item,
-            // Table 5 - Electrical Readings
-            furnace1Kw: doc.electricalReadings?.furnace1?.kw,
-            furnace1A: doc.electricalReadings?.furnace1?.a,
-            furnace1V: doc.electricalReadings?.furnace1?.v,
-            furnace4Hz: doc.electricalReadings?.furnace4?.hz,
-            furnace4Gld: doc.electricalReadings?.furnace4?.gld,
-            furnace4KwHr: doc.electricalReadings?.furnace4?.kwhr
-        }));
+        // Flatten: one row per entry per primary per date
+        const flattened = [];
+        for (const doc of documents) {
+            for (const primary of doc.primaries) {
+                if (primary.entries.length === 0) {
+                    // Primary with no entries - still show it
+                    flattened.push({
+                        _id: primary._id,
+                        date: doc.date,
+                        shift: primary.shift,
+                        furnaceNo: primary.furnaceNo,
+                        panel: primary.panel,
+                        cumulativeLiquidMetal: primary.cumulativeLiquidMetal,
+                        finalKWHr: primary.finalkwhr,
+                        initialKWHr: primary.initialkwhr,
+                        totalUnits: primary.totoalunits,
+                        cumulativeUnits: primary.cumulativeunits,
+                        isLocked: primary.isLocked,
+                        entryCount: 0
+                    });
+                } else {
+                    for (const entry of primary.entries) {
+                        flattened.push({
+                            _id: entry._id,
+                            primaryId: primary._id,
+                            date: doc.date,
+                            shift: primary.shift,
+                            furnaceNo: primary.furnaceNo,
+                            panel: primary.panel,
+                            cumulativeLiquidMetal: primary.cumulativeLiquidMetal,
+                            finalKWHr: primary.finalkwhr,
+                            initialKWHr: primary.initialkwhr,
+                            totalUnits: primary.totoalunits,
+                            cumulativeUnits: primary.cumulativeunits,
+                            isLocked: primary.isLocked,
+                            entryCount: primary.entries.length,
+                            // Table 1
+                            heatNo: entry.heatno,
+                            grade: entry.grade,
+                            chargingTime: entry.chargingkgs?.time,
+                            ifBath: entry.chargingkgs?.ifbath,
+                            liquidMetalPressPour: entry.chargingkgs?.liquidmetal?.presspour,
+                            liquidMetalHolder: entry.chargingkgs?.liquidmetal?.holder,
+                            sgMsSteel: entry.chargingkgs?.sqmssteel,
+                            greyMsSteel: entry.chargingkgs?.greymssteel,
+                            returnsSg: entry.chargingkgs?.returnSg,
+                            pigIron: entry.chargingkgs?.pigiron,
+                            borings: entry.chargingkgs?.borings,
+                            finalBath: entry.chargingkgs?.finalbath,
+                            // Table 2
+                            charCoal: entry.charcoal,
+                            cpcFur: entry.cpc?.fur,
+                            cpcLc: entry.cpc?.lc,
+                            siliconCarbideFur: entry.siliconcarbide?.fur,
+                            ferrosiliconFur: entry.ferroSilicon?.fur,
+                            ferrosiliconLc: entry.ferroSilicon?.lc,
+                            ferroManganeseFur: entry.ferroManganese?.fur,
+                            ferroManganeseLc: entry.ferroManganese?.lc,
+                            cu: entry.cu,
+                            cr: entry.cr,
+                            pureMg: entry.pureMg,
+                            ironPyrite: entry.ironPyrite,
+                            // Table 3
+                            labCoinTime: entry.labCoin?.time,
+                            labCoinTempC: entry.labCoin?.tempC,
+                            deslagingTimeFrom: entry.deslagingTime?.from,
+                            deslagingTimeTo: entry.deslagingTime?.to,
+                            metalReadyTime: entry.metalReadyTime,
+                            waitingForTappingFrom: entry.waitingForTapping?.from,
+                            waitingForTappingTo: entry.waitingForTapping?.to,
+                            reason: entry.reason,
+                            // Table 4
+                            time: entry.metalTapping?.time,
+                            tempCSg: entry.metalTapping?.tempCSg,
+                            directFurnace: entry.directFurnace,
+                            holderToFurnace: entry.holderToFurnace,
+                            furnaceToHolder: entry.furnaceToHolder,
+                            disaNo: entry.disaNo,
+                            item: entry.item,
+                            // Table 5
+                            furnace1Kw: entry.electricalReadings?.furnace1?.kw,
+                            furnace1A: entry.electricalReadings?.furnace1?.a,
+                            furnace1V: entry.electricalReadings?.furnace1?.v,
+                            furnace4Hz: entry.electricalReadings?.furnace4?.hz,
+                            furnace4Gld: entry.electricalReadings?.furnace4?.gld,
+                            furnace4KwHr: entry.electricalReadings?.furnace4?.kwhr
+                        });
+                    }
+                }
+            }
+        }
 
         res.status(200).json({ success: true, data: flattened });
     } catch (error) {
@@ -128,84 +194,81 @@ exports.filterByDateRange = async (req, res) => {
     }
 };
 
-/** 3. THE "DYNAMIC" TABLE UPDATER **/
+/** 3. THE "DYNAMIC" TABLE UPDATER - pushes a new entry into the array **/
 
 exports.createTableEntry = async (req, res) => {
     try {
-        const { tableNum, primaryData, data } = req.body;
-        if (!tableNum || !data || !primaryData?.date) {
-            return res.status(400).json({ success: false, message: 'Table number, data, and date are required.' });
+        const { primaryData, data } = req.body;
+        if (!data || !primaryData?.date) {
+            return res.status(400).json({ success: false, message: 'Data and date are required.' });
         }
 
-        // Normalize the date
-        const [year, month, day] = primaryData.date.split('-').map(Number);
-        const dateObj = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
-
-        // Find existing document by date - should only have one per date
-        let document = await MeltingLogsheet.findOne({ date: dateObj });
+        const doc = await getOrCreateDateDoc(primaryData.date);
         
-        if (!document) {
-            // Create new document with date only if it doesn't exist
-            document = await MeltingLogsheet.create({ date: dateObj });
+        // Find or create primary
+        let primary = findPrimary(doc, primaryData.shift || '', primaryData.furnaceNo || '', primaryData.panel || '');
+        if (!primary) {
+            doc.primaries.push({
+                shift: primaryData.shift || '',
+                furnaceNo: primaryData.furnaceNo || '',
+                panel: primaryData.panel || '',
+                entries: []
+            });
+            primary = doc.primaries[doc.primaries.length - 1];
         }
 
-        // Map Table Numbers to Model Schema Paths
-        const updateMap = {
-            1: { // Charging Details
-                heatno: data.heatNo,
-                grade: data.grade,
-                chargingkgs: {
-                    time: data.chargingTime,
-                    ifbath: data.ifBath,
-                    liquidmetal: { presspour: data.liquidMetalPressPour, holder: data.liquidMetalHolder },
-                    sqmssteel: data.sgMsSteel,
-                    greymssteel: data.greyMsSteel,
-                    returnSg: data.returnsSg,
-                    gl: data.gl,
-                    pigiron: data.pigIron,
-                    borings: data.borings,
-                    finalbath: data.finalBath
-                }
+        // Build the entry from all 5 tables combined
+        const entry = {
+            heatno: data.heatNo,
+            grade: data.grade,
+            chargingkgs: {
+                time: data.chargingTime,
+                ifbath: data.ifBath,
+                liquidmetal: { presspour: data.liquidMetalPressPour, holder: data.liquidMetalHolder },
+                sqmssteel: data.sgMsSteel,
+                greymssteel: data.greyMsSteel,
+                returnSg: data.returnsSg,
+                pigiron: data.pigIron,
+                borings: data.borings,
+                finalbath: data.finalBath
             },
-            2: { // Additions
-                charcoal: data.charCoal,
-                cpc: { fur: data.cpcFur, lc: data.cpcLc },
-                siliconcarbide: { fur: data.siliconCarbideFur },
-                ferroSilicon: { fur: data.ferrosiliconFur, lc: data.ferrosiliconLc },
-                ferroManganese: { fur: data.ferroManganeseFur, lc: data.ferroManganeseLc },
-                cu: data.cu, cr: data.cr, pureMg: data.pureMg, ironPyrite: data.ironPyrite
-            },
-            3: { // Timing Details
-                labCoin: { time: data.labCoinTime, tempC: data.labCoinTempC },
-                deslagingTime: { from: data.deslagingTimeFrom, to: data.deslagingTimeTo },
-                metalReadyTime: data.metalReadyTime,
-                waitingForTapping: { from: data.waitingForTappingFrom, to: data.waitingForTappingTo },
-                reason: data.reason
-            },
-            4: { // Metal Tapping
-                metalTapping: { time: data.time, tempCSg: data.tempCSg, tempCGrey: data.tempCGrey },
-                directFurnace: data.directFurnace,
-                holderToFurnace: data.holderToFurnace,
-                furnaceToHolder: data.furnaceToHolder,
-                disaNo: data.disaNo,
-                item: data.item
-            },
-            5: { // Electrical Readings
-                electricalReadings: {
-                    furnace1: { kw: data.furnace1Kw, a: data.furnace1A, v: data.furnace1V },
-                    furnace4: { hz: data.furnace4Hz, gld: data.furnace4Gld, kwhr: data.furnace4KwHr }
-                }
+            charcoal: data.charCoal,
+            cpc: { fur: data.cpcFur, lc: data.cpcLc },
+            siliconcarbide: { fur: data.siliconCarbideFur },
+            ferroSilicon: { fur: data.ferrosiliconFur, lc: data.ferrosiliconLc },
+            ferroManganese: { fur: data.ferroManganeseFur, lc: data.ferroManganeseLc },
+            cu: data.cu,
+            cr: data.cr,
+            pureMg: data.pureMg,
+            ironPyrite: data.ironPyrite,
+            labCoin: { time: data.labCoinTime, tempC: data.labCoinTempC },
+            deslagingTime: { from: data.deslagingTimeFrom, to: data.deslagingTimeTo },
+            metalReadyTime: data.metalReadyTime,
+            waitingForTapping: { from: data.waitingForTappingFrom, to: data.waitingForTappingTo },
+            reason: data.reason,
+            metalTapping: { time: data.time, tempCSg: data.tempCSg },
+            directFurnace: data.directFurnace,
+            holderToFurnace: data.holderToFurnace,
+            furnaceToHolder: data.furnaceToHolder,
+            disaNo: data.disaNo,
+            item: data.item,
+            electricalReadings: {
+                furnace1: { kw: data.furnace1Kw, a: data.furnace1A, v: data.furnace1V },
+                furnace2: { kw: data.furnace2Kw, a: data.furnace2A, v: data.furnace2V },
+                furnace3: { kw: data.furnace3Kw, a: data.furnace3A, v: data.furnace3V },
+                furnace4: { hz: data.furnace4Hz, gld: data.furnace4Gld, kwhr: data.furnace4KwHr }
             }
         };
 
-        const updateData = updateMap[tableNum];
-        if (!updateData) return res.status(400).json({ success: false, message: 'Invalid Table Number' });
+        primary.entries.push(entry);
+        await doc.save();
 
-        // Deep merge the section into the document
-        Object.assign(document, updateData);
-        await document.save();
-
-        res.status(200).json({ success: true, data: document, message: `Table ${tableNum} updated.` });
+        res.status(200).json({ 
+            success: true, 
+            data: doc, 
+            entryCount: primary.entries.length,
+            message: 'Entry saved successfully.' 
+        });
     } catch (error) {
         res.status(400).json({ success: false, message: error.message });
     }
@@ -216,21 +279,49 @@ exports.createTableEntry = async (req, res) => {
 exports.createOrUpdatePrimary = async (req, res) => {
     try {
         const { primaryData, isLocked } = req.body;
-        const document = await ensureDateDocument(MeltingLogsheet, primaryData.date);
+        
+        const doc = await getOrCreateDateDoc(primaryData.date);
+        
+        // Find or create primary
+        let primary = findPrimary(doc, primaryData.shift || '', primaryData.furnaceNo || '', primaryData.panel || '');
+        
+        if (!primary) {
+            doc.primaries.push({
+                shift: primaryData.shift || '',
+                furnaceNo: primaryData.furnaceNo || '',
+                panel: primaryData.panel || '',
+                entries: []
+            });
+            primary = doc.primaries[doc.primaries.length - 1];
+        }
 
-        // Map primary fields (handling initial units and power metrics)
-        document.shift = primaryData.shift || document.shift;
-        document.furnaceNo = primaryData.furnaceNo || document.furnaceNo;
-        document.panel = primaryData.panel || document.panel;
-        document.cumulativeLiquidMetal = primaryData.cumulativeLiquidMetal !== undefined ? primaryData.cumulativeLiquidMetal : document.cumulativeLiquidMetal;
-        document.initialkwhr = primaryData.initialKWHr || document.initialkwhr;
-        document.finalkwhr = primaryData.finalKWHr || document.finalkwhr;
-        document.totoalunits = primaryData.totalUnits !== undefined ? primaryData.totalUnits : document.totoalunits;
-        document.cumulativeunits = primaryData.cumulativeUnits !== undefined ? primaryData.cumulativeUnits : document.cumulativeunits;
-        document.isLocked = isLocked !== undefined ? isLocked : document.isLocked;
+        // Update value fields
+        primary.cumulativeLiquidMetal = primaryData.cumulativeLiquidMetal !== undefined ? primaryData.cumulativeLiquidMetal : primary.cumulativeLiquidMetal;
+        primary.initialkwhr = primaryData.initialKWHr || primary.initialkwhr;
+        primary.finalkwhr = primaryData.finalKWHr || primary.finalkwhr;
+        primary.totoalunits = primaryData.totalUnits !== undefined ? primaryData.totalUnits : primary.totoalunits;
+        primary.cumulativeunits = primaryData.cumulativeUnits !== undefined ? primaryData.cumulativeUnits : primary.cumulativeunits;
+        primary.isLocked = isLocked !== undefined ? isLocked : primary.isLocked;
 
-        await document.save();
-        res.status(200).json({ success: true, data: document });
+        await doc.save();
+        
+        res.status(200).json({ 
+            success: true, 
+            data: {
+                _id: primary._id,
+                date: doc.date,
+                shift: primary.shift,
+                furnaceNo: primary.furnaceNo,
+                panel: primary.panel,
+                cumulativeLiquidMetal: primary.cumulativeLiquidMetal,
+                finalKWHr: primary.finalkwhr,
+                initialKWHr: primary.initialkwhr,
+                totalUnits: primary.totoalunits,
+                cumulativeUnits: primary.cumulativeunits,
+                isLocked: primary.isLocked,
+                entryCount: primary.entries.length
+            }
+        });
     } catch (error) {
         res.status(400).json({ success: false, message: error.message });
     }

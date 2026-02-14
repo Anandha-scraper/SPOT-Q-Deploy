@@ -418,6 +418,14 @@
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
 }
 
+/* Focused input - active green border */
+.focused-input {
+  outline: none;
+  border-color: #22c55e !important;
+  background-color: #f0fdf4 !important;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2) !important;
+}
+
 .valid-input:focus {
   outline: none;
   border-color: #16a34a !important;
@@ -506,4 +514,35 @@
   font-size: 1.25rem;
   font-weight: 600;
   color: #64748b;
+}
+
+/* Error Highlight for Required Fields */
+.error-highlight input,
+.error-highlight select,
+.error-highlight .shift-dropdown-wrapper select,
+.error-highlight .date-input,
+.error-highlight .custom-date-picker input {
+  border-color: #ef4444 !important;
+  background-color: #fef2f2 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
+  animation: shake 0.3s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+/* Numeric Input Validation Classes */
+.valid-input {
+  border-color: #10b981 !important;
+  background-color: #f0fdf4 !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1) !important;
+}
+
+.invalid-input {
+  border-color: #ef4444 !important;
+  background-color: #fef2f2 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
 }

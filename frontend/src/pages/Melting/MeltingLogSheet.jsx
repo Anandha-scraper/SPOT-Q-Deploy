@@ -1,27 +1,15 @@
-import React, { useState, useRef } from 'react';
-import { Save, Loader2, RotateCcw } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Save, Loader2 } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import { CustomTimeInput, Time } from '../../Components/Buttons';
+import { CustomTimeInput, Time, ShiftDropdown, FurnaceDropdown, PanelDropdown, DisaDropdown } from '../../Components/Buttons';
+import { SuccessAlert } from '../../Components/Alert';
+import Sakthi from '../../Components/Sakthi';
 import '../../styles/PageStyles/Melting/MeltingLogSheet.css';
 
 const MeltingLogSheet = () => {
-  // Helper function to get current date in YYYY-MM-DD format
-  const getCurrentDate = () => {
-    try {
-      const today = new Date();
-      const year = today.getFullYear();
-      const month = String(today.getMonth() + 1).padStart(2, '0');
-      const day = String(today.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    } catch (error) {
-      console.error('Error getting current date:', error);
-      return new Date().toISOString().split('T')[0];
-    }
-  };
-
   // Primary: Date, Shift, Furnace No., Panel, Cumulative Liquid metal, Final KWHr, Initial KWHr, Total Units, Cumulative Units
   const [primaryData, setPrimaryData] = useState({
-    date: getCurrentDate(),
+    date: "",
     shift: '',
     furnaceNo: '',
     panel: '',
@@ -35,14 +23,161 @@ const MeltingLogSheet = () => {
   const [primaryId, setPrimaryId] = useState(null);
   const [fetchingPrimary, setFetchingPrimary] = useState(false);
   const [primaryLocks, setPrimaryLocks] = useState({});
+  const [isPrimaryDataSaved, setIsPrimaryDataSaved] = useState(false);
+  const [primaryDataOriginal, setPrimaryDataOriginal] = useState(null);
+  const [entryCount, setEntryCount] = useState(0);
+  const [primarySuccessAlert, setPrimarySuccessAlert] = useState(false);
+  const [dynamicCheckAlert, setDynamicCheckAlert] = useState(false);
+  const [showSakthi, setShowSakthi] = useState(false);
+  
+  // Sequential validation highlighting
+  const [dateErrorHighlight, setDateErrorHighlight] = useState(false);
+  const [shiftErrorHighlight, setShiftErrorHighlight] = useState(false);
+  const [furnaceNoErrorHighlight, setFurnaceNoErrorHighlight] = useState(false);
+  const [panelErrorHighlight, setPanelErrorHighlight] = useState(false);
+
+  // Numeric input validation states
+  const [cumulativeLiquidMetalValid, setCumulativeLiquidMetalValid] = useState(null);
+  const [finalKWHrValid, setFinalKWHrValid] = useState(null);
+  const [initialKWHrValid, setInitialKWHrValid] = useState(null);
+  const [totalUnitsValid, setTotalUnitsValid] = useState(null);
+  const [cumulativeUnitsValid, setCumulativeUnitsValid] = useState(null);
+
+  // Refs for navigation
+  const dateRef = useRef(null);
+  const shiftRef = useRef(null);
+  const furnaceRef = useRef(null);
+  const panelRef = useRef(null);
+  const cumulativeLiquidMetalRef = useRef(null);
+  const finalKWHrRef = useRef(null);
+  const initialKWHrRef = useRef(null);
+  const totalUnitsRef = useRef(null);
+  const cumulativeUnitsRef = useRef(null);
+  const primarySaveButtonRef = useRef(null);
+
+  // Table input refs for Enter key navigation
+  // Table 1
+  const heatNoRef = useRef(null);
+  const gradeRef = useRef(null);
+  const chargingTimeRef = useRef(null);
+  const ifBathRef = useRef(null);
+  const liquidMetalPressPourRef = useRef(null);
+  const liquidMetalHolderRef = useRef(null);
+  const sgMsSteelRef = useRef(null);
+  const greyMsSteelRef = useRef(null);
+  const returnsSgRef = useRef(null);
+  const pigIronRef = useRef(null);
+  const boringsRef = useRef(null);
+  const finalBathRef = useRef(null);
+  // Table 2
+  const charCoalRef = useRef(null);
+  const cpcFurRef = useRef(null);
+  const cpcLcRef = useRef(null);
+  const siliconCarbideFurRef = useRef(null);
+  const ferrosiliconFurRef = useRef(null);
+  const ferrosiliconLcRef = useRef(null);
+  const ferroManganeseFurRef = useRef(null);
+  const ferroManganeseLcRef = useRef(null);
+  const cuRef = useRef(null);
+  const crRef = useRef(null);
+  const pureMgRef = useRef(null);
+  const ironPyriteRef = useRef(null);
+  // Table 3
+  const labCoinTimeRef = useRef(null);
+  const labCoinTempCRef = useRef(null);
+  const deslagingTimeFromRef = useRef(null);
+  const deslagingTimeToRef = useRef(null);
+  const metalReadyTimeRef = useRef(null);
+  const waitingForTappingFromRef = useRef(null);
+  const waitingForTappingToRef = useRef(null);
+  const reasonRef = useRef(null);
+  // Table 4
+  const table4TimeRef = useRef(null);
+  const tempCSgRef = useRef(null);
+  const directFurnaceRef = useRef(null);
+  const holderToFurnaceRef = useRef(null);
+  const furnaceToHolderRef = useRef(null);
+  const disaNoRef = useRef(null);
+  const itemRef = useRef(null);
+  // Table 5
+  const furnace1KwRef = useRef(null);
+  const furnace1ARef = useRef(null);
+  const furnace1VRef = useRef(null);
+  const furnace4HzRef = useRef(null);
+  const furnace4GldRef = useRef(null);
+  const furnace4KwHrRef = useRef(null);
+
+  // Fetch primary data when date + shift + furnaceNo + panel all change
+  useEffect(() => {
+    if (primaryData.date && primaryData.shift && primaryData.furnaceNo && primaryData.panel) {
+      fetchPrimaryData(primaryData.date, primaryData.shift, primaryData.furnaceNo, primaryData.panel);
+      // Reset error highlights when all key fields are filled
+      setDateErrorHighlight(false);
+      setShiftErrorHighlight(false);
+      setFurnaceNoErrorHighlight(false);
+      setPanelErrorHighlight(false);
+    } else {
+      // Reset when any key field is missing
+      setPrimaryId(null);
+      setPrimaryLocks({});
+      setIsPrimaryDataSaved(false);
+      // Reset value fields only (keep the key fields)
+      setPrimaryData(prev => ({
+        ...prev,
+        cumulativeLiquidMetal: '',
+        finalKWHr: '',
+        initialKWHr: '',
+        totalUnits: '',
+        cumulativeUnits: ''
+      }));
+    }
+  }, [primaryData.date, primaryData.shift, primaryData.furnaceNo, primaryData.panel]);
+
+  // Auto-dismiss success alert
+  useEffect(() => {
+    if (primarySuccessAlert) {
+      const timer = setTimeout(() => {
+        setPrimarySuccessAlert(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [primarySuccessAlert]);
+
+  // Auto-dismiss dynamic check alert
+  useEffect(() => {
+    if (dynamicCheckAlert) {
+      const timer = setTimeout(() => {
+        setDynamicCheckAlert(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [dynamicCheckAlert]);
 
   // Validation flag and helper for primary section
   const [primarySubmitted, setPrimarySubmitted] = useState(false);
-  const classFor = (value, submitted, required = false) => {
+  const classFor = (value, submitted, required = false, locked = false) => {
+    if (locked) return '';
     const has = value !== undefined && value !== null && String(value).trim() !== '';
     if (has) return 'melting-success-outline';
     if (submitted && required) return 'melting-error-outline';
     return '';
+  };
+
+  // Helper for numeric validation classes
+  const getNumericValidationClass = (validState, locked = false) => {
+    if (locked) return '';
+    if (validState === true) return 'valid-input';
+    if (validState === false) return 'invalid-input';
+    return '';
+  };
+
+  // Check if any numeric validation is invalid (false)
+  const hasInvalidNumericInput = () => {
+    return cumulativeLiquidMetalValid === false || 
+           finalKWHrValid === false || 
+           initialKWHrValid === false || 
+           totalUnitsValid === false || 
+           cumulativeUnitsValid === false;
   };
   
   const [table1, setTable1] = useState({
@@ -56,7 +191,6 @@ const MeltingLogSheet = () => {
     sgMsSteel: '',
     greyMsSteel: '',
     returnsSg: '',
-    gl: '',
     pigIron: '',
     borings: '',
     finalBath: ''
@@ -95,7 +229,6 @@ const MeltingLogSheet = () => {
     timeHour: '',
     timeMinute: '',
     tempCSg: '',
-    tempCGrey: '',
     directFurnace: '',
     holderToFurnace: '',
     furnaceToHolder: '',
@@ -118,16 +251,6 @@ const MeltingLogSheet = () => {
   });
 
   // Validation states (null = neutral, true = valid/green, false = invalid/red)
-  // Primary validations
-  const [shiftValid, setShiftValid] = useState(null);
-  const [furnaceNoValid, setFurnaceNoValid] = useState(null);
-  const [panelValid, setPanelValid] = useState(null);
-  const [cumulativeLiquidMetalValid, setCumulativeLiquidMetalValid] = useState(null);
-  const [finalKWHrValid, setFinalKWHrValid] = useState(null);
-  const [initialKWHrValid, setInitialKWHrValid] = useState(null);
-  const [totalUnitsValid, setTotalUnitsValid] = useState(null);
-  const [cumulativeUnitsValid, setCumulativeUnitsValid] = useState(null);
-  
   // Table 1 validations
   const [heatNoValid, setHeatNoValid] = useState(null);
   const [gradeValid, setGradeValid] = useState(null);
@@ -138,7 +261,6 @@ const MeltingLogSheet = () => {
   const [sgMsSteelValid, setSgMsSteelValid] = useState(null);
   const [greyMsSteelValid, setGreyMsSteelValid] = useState(null);
   const [returnsSgValid, setReturnsSgValid] = useState(null);
-  const [glValid, setGlValid] = useState(null);
   const [pigIronValid, setPigIronValid] = useState(null);
   const [boringsValid, setBoringsValid] = useState(null);
   const [finalBathValid, setFinalBathValid] = useState(null);
@@ -170,7 +292,6 @@ const MeltingLogSheet = () => {
   // Table 4 validations
   const [table4TimeValid, setTable4TimeValid] = useState(null);
   const [tempCSgValid, setTempCSgValid] = useState(null);
-  const [tempCGreyValid, setTempCGreyValid] = useState(null);
   const [directFurnaceValid, setDirectFurnaceValid] = useState(null);
   const [holderToFurnaceValid, setHolderToFurnaceValid] = useState(null);
   const [furnaceToHolderValid, setFurnaceToHolderValid] = useState(null);
@@ -190,6 +311,12 @@ const MeltingLogSheet = () => {
   const [furnace4HzValid, setFurnace4HzValid] = useState(null);
   const [furnace4GldValid, setFurnace4GldValid] = useState(null);
   const [furnace4KwHrValid, setFurnace4KwHrValid] = useState(null);
+
+  // Focus tracking for active input highlighting
+  const [focusedField, setFocusedField] = useState(null);
+  
+  // Validation error message
+  const [validationErrorMessage, setValidationErrorMessage] = useState('');
 
   // Helper functions to convert between Time object and hour/minute strings
   const createTimeFromHourMinute = (hour, minute) => {
@@ -216,6 +343,16 @@ const MeltingLogSheet = () => {
     table4: false,
     table5: false
   });
+
+  // Auto-dismiss validation error message after 3 seconds
+  useEffect(() => {
+    if (validationErrorMessage) {
+      const timer = setTimeout(() => {
+        setValidationErrorMessage('');
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [validationErrorMessage]);
 
   const handleTableChange = (tableNum, field, value) => {
     // Validation logic for Table 1
@@ -290,13 +427,6 @@ const MeltingLogSheet = () => {
           setReturnsSgValid(null);
         } else {
           setReturnsSgValid(!isNaN(value) && parseFloat(value) >= 0);
-        }
-      }
-      if (field === 'gl') {
-        if (value.trim() === '') {
-          setGlValid(null);
-        } else {
-          setGlValid(!isNaN(value) && parseFloat(value) >= 0);
         }
       }
       if (field === 'pigIron') {
@@ -468,14 +598,6 @@ const MeltingLogSheet = () => {
           setTempCSgValid(!isNaN(value) && num >= 0 && num <= 2000);
         }
       }
-      if (field === 'tempCGrey') {
-        if (value.trim() === '') {
-          setTempCGreyValid(null);
-        } else {
-          const num = parseFloat(value);
-          setTempCGreyValid(!isNaN(value) && num >= 0 && num <= 2000);
-        }
-      }
       if (field === 'directFurnace') {
         if (value.trim() === '') {
           setDirectFurnaceValid(null);
@@ -553,41 +675,22 @@ const MeltingLogSheet = () => {
     }));
   };
 
-  const handleTableSubmit = async (tableNum) => {
-    // Ensure primary data exists first
-    if (!primaryData.date) {
-      alert('Please enter a date first.');
-      return;
-    }
-
-    const tables = { 1: table1, 2: table2, 3: table3, 4: table4, 5: table5 };
-    const tableData = tables[tableNum];
-    
-    setLoadingStates(prev => ({ ...prev, [`table${tableNum}`]: true }));
-    
-    try {
-      // Send primary data + table data together
-      const res = await fetch(`http://localhost:5000/api/v1/melting-logs/table-update`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({
-        tableNum,
-        primaryData: primaryData,
-        data: tableData
-      }) });
-      const response = await res.json();
-      
-      if (response.success) {
-        alert(`Table ${tableNum} saved successfully!`);
-      } else {
-        alert('Error: ' + response.message);
+  // Handle Enter key navigation for table inputs
+  const handleTableEnterKey = (e, nextRef) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (nextRef && nextRef.current) {
+        nextRef.current.focus();
       }
-    } catch (error) {
-      console.error(`Error saving table ${tableNum}:`, error);
-      alert(`Failed to save table ${tableNum}. Please try again.`);
-    } finally {
-      setLoadingStates(prev => ({ ...prev, [`table${tableNum}`]: false }));
     }
   };
 
+
+
   const handleAllTablesSubmit = async () => {
+    // Clear previous error message
+    setValidationErrorMessage('');
+    
     // Validate only table fields (mark them as invalid if empty)
     let hasErrors = false;
 
@@ -626,10 +729,6 @@ const MeltingLogSheet = () => {
     }
     if (!table1.returnsSg || table1.returnsSg.trim() === '') {
       setReturnsSgValid(false);
-      hasErrors = true;
-    }
-    if (!table1.gl || table1.gl.trim() === '') {
-      setGlValid(false);
       hasErrors = true;
     }
     if (!table1.pigIron || table1.pigIron.trim() === '') {
@@ -738,10 +837,6 @@ const MeltingLogSheet = () => {
       setTempCSgValid(false);
       hasErrors = true;
     }
-    if (!table4.tempCGrey || table4.tempCGrey.trim() === '') {
-      setTempCGreyValid(false);
-      hasErrors = true;
-    }
     if (!table4.directFurnace || table4.directFurnace.trim() === '') {
       setDirectFurnaceValid(false);
       hasErrors = true;
@@ -790,10 +885,11 @@ const MeltingLogSheet = () => {
     }
 
     if (hasErrors) {
+      setValidationErrorMessage('Correct Data format or Enter Empty Field');
       return;
     }
 
-    // Set all tables as loading
+    // Set loading
     setLoadingStates({
       table1: true,
       table2: true,
@@ -803,76 +899,41 @@ const MeltingLogSheet = () => {
     });
 
     try {
-      // Submit all tables in parallel
-      const promises = [
-        fetch('http://localhost:5000/api/v1/melting-logs/table-update', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            tableNum: 1,
-            primaryData: primaryData,
-            data: table1
-          })
-        }).then(res => res.json()),
-        fetch('http://localhost:5000/api/v1/melting-logs/table-update', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            tableNum: 2,
-            primaryData: primaryData,
-            data: table2
-          })
-        }).then(res => res.json()),
-        fetch('http://localhost:5000/api/v1/melting-logs/table-update', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            tableNum: 3,
-            primaryData: primaryData,
-            data: table3
-          })
-        }).then(res => res.json()),
-        fetch('http://localhost:5000/api/v1/melting-logs/table-update', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            tableNum: 4,
-            primaryData: primaryData,
-            data: table4
-          })
-        }).then(res => res.json()),
-        fetch('http://localhost:5000/api/v1/melting-logs/table-update', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            tableNum: 5,
-            primaryData: primaryData,
-            data: table5
-          })
-        }).then(res => res.json())
-      ];
+      // Combine all table data into one entry
+      const allData = {
+        ...prepareTableData(1, table1),
+        ...prepareTableData(2, table2),
+        ...prepareTableData(3, table3),
+        ...prepareTableData(4, table4),
+        ...prepareTableData(5, table5)
+      };
 
-      const results = await Promise.all(promises);
+      const res = await fetch('http://localhost:5000/api/v1/melting-logs/table-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          primaryData: primaryData,
+          data: allData
+        })
+      });
+      const response = await res.json();
       
-      // Check if all succeeded
-      const allSuccess = results.every(response => response.success);
-      
-      if (allSuccess) {
-        alert('All tables saved successfully!');
+      if (response.success) {
+        setEntryCount(response.entryCount || 0);
+        setShowSakthi(true);
+        // Reset all tables after successful save
+        resetTable1();
+        resetTable2();
+        resetTable3();
+        resetTable4();
+        resetTable5();
       } else {
-        const failedTables = results
-          .map((response, index) => response.success ? null : index + 1)
-          .filter(num => num !== null);
-        alert(`Some tables failed to save: ${failedTables.join(', ')}`);
+        alert('Error: ' + response.message);
       }
     } catch (error) {
-      console.error('Error saving tables:', error);
-      alert('Failed to save tables. Please try again.');
+      console.error('Error saving entry:', error);
+      alert('Failed to save entry. Please try again.');
     } finally {
       setLoadingStates({
         table1: false,
@@ -884,23 +945,14 @@ const MeltingLogSheet = () => {
     }
   };
 
-  const handleAllTablesReset = () => {
-    if (!window.confirm('Are you sure you want to reset all table entries?')) return;
-    resetTable1();
-    resetTable2();
-    resetTable3();
-    resetTable4();
-    resetTable5();
-  };
-
-  const fetchPrimaryData = async (date) => {
-    if (!date) return;
+  const fetchPrimaryData = async (date, shift, furnaceNo, panel) => {
+    if (!date || !shift || !furnaceNo || !panel) return;
     
     setFetchingPrimary(true);
     try {
       // Format date for API (YYYY-MM-DD)
       const dateStr = date instanceof Date ? date.toISOString().split('T')[0] : date;
-      const res = await fetch(`http://localhost:5000/api/v1/melting-logs/primary/${dateStr}`, {
+      const res = await fetch(`http://localhost:5000/api/v1/melting-logs/primary/${dateStr}?shift=${encodeURIComponent(shift)}&furnaceNo=${encodeURIComponent(furnaceNo)}&panel=${encodeURIComponent(panel)}`, {
         method: 'GET',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' }
@@ -908,31 +960,27 @@ const MeltingLogSheet = () => {
       const response = await res.json();
       
       if (response.success && response.data) {
-        // Populate form with fetched data
-        setPrimaryData({
-          date: response.data.date ? new Date(response.data.date).toISOString().split('T')[0] : date,
-          shift: response.data.shift || '',
-          furnaceNo: response.data.furnaceNo || '',
-          panel: response.data.panel || '',
+        // Populate form with fetched data (only value fields, not key fields)
+        setPrimaryData(prev => ({
+          ...prev,
           cumulativeLiquidMetal: response.data.cumulativeLiquidMetal || '',
           finalKWHr: response.data.finalKWHr || '',
           initialKWHr: response.data.initialKWHr || '',
           totalUnits: response.data.totalUnits || '',
           cumulativeUnits: response.data.cumulativeUnits || ''
-        });
-        setPrimaryId(response.data._id);
+        }));
         
-        // Lock all primary fields except date (date should remain changeable)
+        setPrimaryId(response.data._id);
+        setEntryCount(response.data.entryCount || 0);
+        
+        // Reset error highlights
+        setDateErrorHighlight(false);
+        setShiftErrorHighlight(false);
+        setFurnaceNoErrorHighlight(false);
+        setPanelErrorHighlight(false);
+        
+        // Lock only value fields that have data (shift/furnaceNo/panel are keys, never locked)
         const locks = {};
-        if (response.data.shift !== undefined && response.data.shift !== null && response.data.shift !== '') {
-          locks.shift = true;
-        }
-        if (response.data.furnaceNo !== undefined && response.data.furnaceNo !== null && response.data.furnaceNo !== '') {
-          locks.furnaceNo = true;
-        }
-        if (response.data.panel !== undefined && response.data.panel !== null && response.data.panel !== '') {
-          locks.panel = true;
-        }
         if (response.data.cumulativeLiquidMetal !== undefined && response.data.cumulativeLiquidMetal !== null && response.data.cumulativeLiquidMetal !== 0) {
           locks.cumulativeLiquidMetal = true;
         }
@@ -949,119 +997,338 @@ const MeltingLogSheet = () => {
           locks.cumulativeUnits = true;
         }
         setPrimaryLocks(locks);
+        
+        // Validate only locked fields (fields with actual saved data)
+        // Unlocked/empty fields remain neutral (null) until user fills them
+        setCumulativeLiquidMetalValid(locks.cumulativeLiquidMetal ? validateNumericInput(response.data.cumulativeLiquidMetal) : null);
+        setFinalKWHrValid(locks.finalKWHr ? validateNumericInput(response.data.finalKWHr) : null);
+        setInitialKWHrValid(locks.initialKWHr ? validateNumericInput(response.data.initialKWHr) : null);
+        setTotalUnitsValid(locks.totalUnits ? validateNumericInput(response.data.totalUnits) : null);
+        setCumulativeUnitsValid(locks.cumulativeUnits ? validateNumericInput(response.data.cumulativeUnits) : null);
+        setIsPrimaryDataSaved(true);
+        setPrimaryDataOriginal({
+          cumulativeLiquidMetal: response.data.cumulativeLiquidMetal || '',
+          finalKWHr: response.data.finalKWHr || '',
+          initialKWHr: response.data.initialKWHr || '',
+          totalUnits: response.data.totalUnits || '',
+          cumulativeUnits: response.data.cumulativeUnits || ''
+        });
       } else {
-        // No data found for this date, reset
+        // No data found for this combination, reset value fields
         setPrimaryId(null);
         setPrimaryLocks({});
+        setIsPrimaryDataSaved(false);
+        setEntryCount(0);
+        setPrimaryDataOriginal(null);
+        setPrimaryData(prev => ({
+          ...prev,
+          cumulativeLiquidMetal: '',
+          finalKWHr: '',
+          initialKWHr: '',
+          totalUnits: '',
+          cumulativeUnits: ''
+        }));
+        // Reset validation states
+        setCumulativeLiquidMetalValid(null);
+        setFinalKWHrValid(null);
+        setInitialKWHrValid(null);
+        setTotalUnitsValid(null);
+        setCumulativeUnitsValid(null);
       }
     } catch (error) {
       console.error('Error fetching primary data:', error);
-      // If error, assume no data exists for this date
       setPrimaryId(null);
       setPrimaryLocks({});
-    } finally {
-      setFetchingPrimary(false);
-    }
-  };
-
-  const handlePrimaryChange = (field, value) => {
-    // Prevent changes to locked fields (except date)
-    if (field !== 'date' && isPrimaryFieldLocked(field)) {
-      return;
-    }
-
-    // Validation logic for primary fields
-    if (field === 'shift') {
-      if (value.trim() === '') {
-        setShiftValid(null);
-      } else {
-        setShiftValid(value.trim().length > 0);
-      }
-    }
-    if (field === 'furnaceNo') {
-      if (value.trim() === '') {
-        setFurnaceNoValid(null);
-      } else {
-        setFurnaceNoValid(value.trim().length > 0);
-      }
-    }
-    if (field === 'panel') {
-      if (value.trim() === '') {
-        setPanelValid(null);
-      } else {
-        setPanelValid(value.trim().length > 0);
-      }
-    }
-    if (field === 'cumulativeLiquidMetal') {
-      if (value.trim() === '') {
-        setCumulativeLiquidMetalValid(null);
-      } else {
-        setCumulativeLiquidMetalValid(!isNaN(value) && parseFloat(value) >= 0);
-      }
-    }
-    if (field === 'finalKWHr') {
-      if (value.trim() === '') {
-        setFinalKWHrValid(null);
-      } else {
-        setFinalKWHrValid(!isNaN(value) && parseFloat(value) >= 0);
-      }
-    }
-    if (field === 'initialKWHr') {
-      if (value.trim() === '') {
-        setInitialKWHrValid(null);
-      } else {
-        setInitialKWHrValid(!isNaN(value) && parseFloat(value) >= 0);
-      }
-    }
-    if (field === 'totalUnits') {
-      if (value.trim() === '') {
-        setTotalUnitsValid(null);
-      } else {
-        setTotalUnitsValid(!isNaN(value) && parseFloat(value) >= 0);
-      }
-    }
-    if (field === 'cumulativeUnits') {
-      if (value.trim() === '') {
-        setCumulativeUnitsValid(null);
-      } else {
-        setCumulativeUnitsValid(!isNaN(value) && parseFloat(value) >= 0);
-      }
-    }
-    
-    setPrimaryData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-    
-    // When date changes, automatically fetch existing data
-    if (field === 'date' && value) {
-      const dateStr = value instanceof Date ? value.toISOString().split('T')[0] : value;
-      fetchPrimaryData(dateStr);
-    } else if (field === 'date' && !value) {
-      // Clear primary ID, locks, and validation states when date is cleared
-      setPrimaryId(null);
-      setPrimaryLocks({});
-      setShiftValid(null);
-      setFurnaceNoValid(null);
-      setPanelValid(null);
+      setIsPrimaryDataSaved(false);
+      setEntryCount(0);
+      setPrimaryDataOriginal(null);
+      // Reset validation states
       setCumulativeLiquidMetalValid(null);
       setFinalKWHrValid(null);
       setInitialKWHrValid(null);
       setTotalUnitsValid(null);
       setCumulativeUnitsValid(null);
+    } finally {
+      setFetchingPrimary(false);
+      setDynamicCheckAlert(true);
     }
+  };
+
+  // Prevent non-numeric characters in number inputs
+  const handleKeyDown = (e, nextRef = null, currentField = null) => {
+    // Block e, E, +, - keys for numeric inputs
+    if (e.key === 'e' || e.key === 'E' || e.key === '+' || e.key === '-') {
+      e.preventDefault();
+      return;
+    }
+    
+    // Handle Enter and Tab for navigation within primary section
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault();
+      
+      // Check if current field is locked - if so, don't navigate
+      if (currentField && isPrimaryFieldLocked(currentField)) {
+        return;
+      }
+      
+      // Navigate to next field
+      if (nextRef?.current) {
+        nextRef.current.focus();
+      }
+    }
+  };
+
+  // Get next available field after cumulativeLiquidMetal
+  const getNextAfterCumulativeLiquidMetal = () => {
+    if (!isPrimaryFieldLocked('finalKWHr')) return finalKWHrRef;
+    if (!isPrimaryFieldLocked('initialKWHr')) return initialKWHrRef;
+    if (!isPrimaryFieldLocked('totalUnits')) return totalUnitsRef;
+    if (!isPrimaryFieldLocked('cumulativeUnits')) return cumulativeUnitsRef;
+    return primarySaveButtonRef;
+  };
+
+  // Get next available field after finalKWHr
+  const getNextAfterFinalKWHr = () => {
+    if (!isPrimaryFieldLocked('initialKWHr')) return initialKWHrRef;
+    if (!isPrimaryFieldLocked('totalUnits')) return totalUnitsRef;
+    if (!isPrimaryFieldLocked('cumulativeUnits')) return cumulativeUnitsRef;
+    return primarySaveButtonRef;
+  };
+
+  // Get next available field after initialKWHr
+  const getNextAfterInitialKWHr = () => {
+    if (!isPrimaryFieldLocked('totalUnits')) return totalUnitsRef;
+    if (!isPrimaryFieldLocked('cumulativeUnits')) return cumulativeUnitsRef;
+    return primarySaveButtonRef;
+  };
+
+  // Get next available field after totalUnits
+  const getNextAfterTotalUnits = () => {
+    if (!isPrimaryFieldLocked('cumulativeUnits')) return cumulativeUnitsRef;
+    return primarySaveButtonRef;
+  };
+
+  // Get next available field after panel
+  const getNextAfterPanel = () => {
+    if (!isPrimaryFieldLocked('cumulativeLiquidMetal') && primaryData.date && primaryData.shift && primaryData.furnaceNo && primaryData.panel) {
+      return cumulativeLiquidMetalRef;
+    }
+    if (!isPrimaryFieldLocked('finalKWHr') && primaryData.date && primaryData.shift && primaryData.furnaceNo && primaryData.panel) {
+      return finalKWHrRef;
+    }
+    if (!isPrimaryFieldLocked('initialKWHr') && primaryData.date && primaryData.shift && primaryData.furnaceNo && primaryData.panel) {
+      return initialKWHrRef;
+    }
+    if (!isPrimaryFieldLocked('totalUnits') && primaryData.date && primaryData.shift && primaryData.furnaceNo && primaryData.panel) {
+      return totalUnitsRef;
+    }
+    if (!isPrimaryFieldLocked('cumulativeUnits') && primaryData.date && primaryData.shift && primaryData.furnaceNo && primaryData.panel) {
+      return cumulativeUnitsRef;
+    }
+    return primarySaveButtonRef;
+  };
+
+  // Validate numeric input
+  const validateNumericInput = (value) => {
+    if (value === '' || value === null || value === undefined) {
+      return null; // Empty is neutral
+    }
+    const num = parseFloat(value);
+    return !isNaN(num) && isFinite(num) && num >= 0;
+  };
+
+  const handlePrimaryChange = (field, value) => {
+    // Prevent changes to locked value fields
+    if (isPrimaryFieldLocked(field)) {
+      return;
+    }
+
+    // Remove error highlight when filling the field
+    if (field === 'date' && value) {
+      setDateErrorHighlight(false);
+    }
+    if (field === 'shift' && value) {
+      setShiftErrorHighlight(false);
+    }
+    if (field === 'furnaceNo' && value) {
+      setFurnaceNoErrorHighlight(false);
+    }
+    if (field === 'panel' && value) {
+      setPanelErrorHighlight(false);
+    }
+
+    // Validate numeric fields (without auto-focus on change)
+    if (field === 'cumulativeLiquidMetal') {
+      const isValid = validateNumericInput(value);
+      setCumulativeLiquidMetalValid(isValid);
+    }
+    if (field === 'finalKWHr') {
+      const isValid = validateNumericInput(value);
+      setFinalKWHrValid(isValid);
+    }
+    if (field === 'initialKWHr') {
+      const isValid = validateNumericInput(value);
+      setInitialKWHrValid(isValid);
+    }
+    if (field === 'totalUnits') {
+      const isValid = validateNumericInput(value);
+      setTotalUnitsValid(isValid);
+    }
+    if (field === 'cumulativeUnits') {
+      const isValid = validateNumericInput(value);
+      setCumulativeUnitsValid(isValid);
+    }
+
+    // When date changes, reset everything
+    if (field === 'date') {
+      setPrimaryData({
+        date: value,
+        shift: '',
+        furnaceNo: '',
+        panel: '',
+        cumulativeLiquidMetal: '',
+        finalKWHr: '',
+        initialKWHr: '',
+        totalUnits: '',
+        cumulativeUnits: ''
+      });
+      setPrimaryId(null);
+      setPrimaryLocks({});
+      setIsPrimaryDataSaved(false);
+      setPrimarySubmitted(false);
+      setEntryCount(0);
+      setPrimaryDataOriginal(null);
+      // Reset error highlights
+      setDateErrorHighlight(false);
+      setShiftErrorHighlight(false);
+      setFurnaceNoErrorHighlight(false);
+      setPanelErrorHighlight(false);
+      // Reset all validation states
+      setCumulativeLiquidMetalValid(null);
+      setFinalKWHrValid(null);
+      setInitialKWHrValid(null);
+      setTotalUnitsValid(null);
+      setCumulativeUnitsValid(null);
+      setHeatNoValid(null);
+      setGradeValid(null);
+      setChargingTimeValid(null);
+      setIfBathValid(null);
+      setLiquidMetalPressPourValid(null);
+      setLiquidMetalHolderValid(null);
+      setSgMsSteelValid(null);
+      setGreyMsSteelValid(null);
+      setReturnsSgValid(null);
+      setPigIronValid(null);
+      setBoringsValid(null);
+      setFinalBathValid(null);
+      setCharCoalValid(null);
+      setCpcFurValid(null);
+      setCpcLcValid(null);
+      setSiliconCarbideFurValid(null);
+      setFerrosiliconFurValid(null);
+      setFerrosiliconLcValid(null);
+      setFerroManganeseFurValid(null);
+      setFerroManganeseLcValid(null);
+      setCuValid(null);
+      setCrValid(null);
+      setPureMgValid(null);
+      setIronPyriteValid(null);
+      setLabCoinTimeValid(null);
+      setLabCoinTempCValid(null);
+      setDeslagingTimeFromValid(null);
+      setDeslagingTimeToValid(null);
+      setMetalReadyTimeValid(null);
+      setWaitingForTappingFromValid(null);
+      setWaitingForTappingToValid(null);
+      setReasonValid(null);
+      setTable4TimeValid(null);
+      setTempCSgValid(null);
+      setDirectFurnaceValid(null);
+      setHolderToFurnaceValid(null);
+      setFurnaceToHolderValid(null);
+      setDisaNoValid(null);
+      setItemValid(null);
+      setFurnace1KwValid(null);
+      setFurnace1AValid(null);
+      setFurnace1VValid(null);
+      setFurnace2KwValid(null);
+      setFurnace2AValid(null);
+      setFurnace2VValid(null);
+      setFurnace3KwValid(null);
+      setFurnace3AValid(null);
+      setFurnace3VValid(null);
+      setFurnace4HzValid(null);
+      setFurnace4GldValid(null);
+      setFurnace4KwHrValid(null);
+      resetTable1();
+      resetTable2();
+      resetTable3();
+      resetTable4();
+      resetTable5();
+      return;
+    }
+
+    setPrimaryData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  // Handler for when value fields are focused - check if prerequisites are filled
+  const handleValueFieldFocus = (e) => {
+    // Check sequential requirements
+    if (!primaryData.date) {
+      console.log('Setting date error highlight');
+      setDateErrorHighlight(true);
+      e?.preventDefault();
+      e?.stopPropagation();
+      return;
+    }
+    if (!primaryData.shift) {
+      console.log('Setting shift error highlight');
+      setShiftErrorHighlight(true);
+      e?.preventDefault();
+      e?.stopPropagation();
+      return;
+    }
+    if (!primaryData.furnaceNo) {
+      console.log('Setting furnace error highlight');
+      setFurnaceNoErrorHighlight(true);
+      e?.preventDefault();
+      e?.stopPropagation();
+      return;
+    }
+    if (!primaryData.panel) {
+      console.log('Setting panel error highlight');
+      setPanelErrorHighlight(true);
+      e?.preventDefault();
+      e?.stopPropagation();
+      return;
+    }
+  };
+
+  // Check if primary value fields have changed from what was fetched/saved
+  const isPrimaryDirty = () => {
+    if (!isPrimaryDataSaved) return true; // first save always enabled
+    if (!primaryDataOriginal) return true;
+    return (
+      String(primaryData.cumulativeLiquidMetal) !== String(primaryDataOriginal.cumulativeLiquidMetal) ||
+      String(primaryData.finalKWHr) !== String(primaryDataOriginal.finalKWHr) ||
+      String(primaryData.initialKWHr) !== String(primaryDataOriginal.initialKWHr) ||
+      String(primaryData.totalUnits) !== String(primaryDataOriginal.totalUnits) ||
+      String(primaryData.cumulativeUnits) !== String(primaryDataOriginal.cumulativeUnits)
+    );
   };
 
   const handlePrimarySubmit = async () => {
     setPrimarySubmitted(true);
-    // Validate required fields
-    if (!primaryData.date) {
-      alert('Please fill in Date');
+    // Validate required key fields
+    if (!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) {
+      alert('Please fill in Date, Shift, Furnace No., and Panel');
       return;
     }
 
     // Save primary data to database (without locking)
-    setPrimaryLoading(true);
     try {
       const res = await fetch('http://localhost:5000/api/v1/melting-logs/primary', {
         method: 'POST',
@@ -1076,25 +1343,33 @@ const MeltingLogSheet = () => {
       
       if (response.success) {
         setPrimaryId(response.data._id);
+        setEntryCount(response.data.entryCount || 0);
         // Update primary data with response data to ensure consistency
         setPrimaryData(prev => ({
           ...prev,
           date: response.data.date ? new Date(response.data.date).toISOString().split('T')[0] : prev.date
         }));
         
-        // Lock all primary fields except date after saving (only if they have values)
+        // Lock only value fields after saving (shift/furnaceNo/panel are keys)
         const locks = {};
-        if (primaryData.shift !== undefined && primaryData.shift !== null && primaryData.shift !== '') locks.shift = true;
-        if (primaryData.furnaceNo !== undefined && primaryData.furnaceNo !== null && primaryData.furnaceNo !== '') locks.furnaceNo = true;
-        if (primaryData.panel !== undefined && primaryData.panel !== null && primaryData.panel !== '') locks.panel = true;
         if (primaryData.cumulativeLiquidMetal !== undefined && primaryData.cumulativeLiquidMetal !== null && primaryData.cumulativeLiquidMetal !== 0 && primaryData.cumulativeLiquidMetal !== '') locks.cumulativeLiquidMetal = true;
         if (primaryData.finalKWHr !== undefined && primaryData.finalKWHr !== null && primaryData.finalKWHr !== 0 && primaryData.finalKWHr !== '') locks.finalKWHr = true;
         if (primaryData.initialKWHr !== undefined && primaryData.initialKWHr !== null && primaryData.initialKWHr !== 0 && primaryData.initialKWHr !== '') locks.initialKWHr = true;
         if (primaryData.totalUnits !== undefined && primaryData.totalUnits !== null && primaryData.totalUnits !== 0 && primaryData.totalUnits !== '') locks.totalUnits = true;
         if (primaryData.cumulativeUnits !== undefined && primaryData.cumulativeUnits !== null && primaryData.cumulativeUnits !== 0 && primaryData.cumulativeUnits !== '') locks.cumulativeUnits = true;
         setPrimaryLocks(locks);
+        setIsPrimaryDataSaved(true);
         
-        alert('Primary data saved successfully.');
+        // Snapshot current values as original so button disables until next change
+        setPrimaryDataOriginal({
+          cumulativeLiquidMetal: primaryData.cumulativeLiquidMetal,
+          finalKWHr: primaryData.finalKWHr,
+          initialKWHr: primaryData.initialKWHr,
+          totalUnits: primaryData.totalUnits,
+          cumulativeUnits: primaryData.cumulativeUnits
+        });
+        
+        setPrimarySuccessAlert(true);
       } else {
         alert('Error: ' + response.message);
       }
@@ -1102,36 +1377,7 @@ const MeltingLogSheet = () => {
       console.error('Error saving primary data:', error);
       alert('Failed to save primary data. Please try again.');
     } finally {
-      setPrimaryLoading(false);
     }
-  };
-
-  // Reset functions for each section
-  const resetPrimaryData = () => {
-    if (!window.confirm('Are you sure you want to reset Primary data?')) return;
-    setPrimaryData({
-      date: '',
-      shift: '',
-      furnaceNo: '',
-      panel: '',
-      cumulativeLiquidMetal: '',
-      finalKWHr: '',
-      initialKWHr: '',
-      totalUnits: '',
-      cumulativeUnits: ''
-    });
-    setPrimaryId(null);
-    setPrimaryLocks({});
-    
-    // Reset all validation states
-    setShiftValid(null);
-    setFurnaceNoValid(null);
-    setPanelValid(null);
-    setCumulativeLiquidMetalValid(null);
-    setFinalKWHrValid(null);
-    setInitialKWHrValid(null);
-    setTotalUnitsValid(null);
-    setCumulativeUnitsValid(null);
   };
 
   // Helper function to check if a primary field is locked
@@ -1139,21 +1385,40 @@ const MeltingLogSheet = () => {
     return primaryLocks[field] === true;
   };
 
-  const handleEnterFocusNext = (e) => {
-    if (e.key !== 'Enter') return;
+  // Transform frontend table state into the format the backend expects
+  const combineTime = (hour, minute) => {
+    if (!hour && !minute) return '';
+    const h = String(hour || '0').padStart(2, '0');
+    const m = String(minute || '0').padStart(2, '0');
+    return `${h}:${m}`;
+  };
 
-    const target = e.target;
-    if (!(target && (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA'))) return;
-
-    const value = target.value != null ? String(target.value).trim() : '';
-    if (value === '') return; // Only move when current field has a value
-
-    e.preventDefault();
-    const focusables = Array.from(document.querySelectorAll('input, select, textarea'))
-      .filter(el => !el.disabled && el.type !== 'hidden' && el.offsetParent !== null);
-    const idx = focusables.indexOf(document.activeElement);
-    if (idx > -1 && idx < focusables.length - 1) {
-      focusables[idx + 1].focus();
+  const prepareTableData = (tableNum, rawData) => {
+    switch (tableNum) {
+      case 1:
+        return {
+          ...rawData,
+          chargingTime: combineTime(rawData.chargingTimeHour, rawData.chargingTimeMinute)
+        };
+      case 3:
+        return {
+          ...rawData,
+          labCoinTime: combineTime(rawData.labCoinTimeHour, rawData.labCoinTimeMinute),
+          labCoinTempC: rawData.labCoinTempC,
+          deslagingTimeFrom: combineTime(rawData.deslagingTimeFromHour, rawData.deslagingTimeFromMinute),
+          deslagingTimeTo: combineTime(rawData.deslagingTimeToHour, rawData.deslagingTimeToMinute),
+          metalReadyTime: combineTime(rawData.metalReadyTimeHour, rawData.metalReadyTimeMinute),
+          waitingForTappingFrom: combineTime(rawData.waitingForTappingFromHour, rawData.waitingForTappingFromMinute),
+          waitingForTappingTo: combineTime(rawData.waitingForTappingToHour, rawData.waitingForTappingToMinute),
+          reason: rawData.reason
+        };
+      case 4:
+        return {
+          ...rawData,
+          time: combineTime(rawData.timeHour, rawData.timeMinute)
+        };
+      default:
+        return rawData;
     }
   };
 
@@ -1169,7 +1434,6 @@ const MeltingLogSheet = () => {
       sgMsSteel: '',
       greyMsSteel: '',
       returnsSg: '',
-      gl: '',
       pigIron: '',
       borings: '',
       finalBath: ''
@@ -1217,7 +1481,6 @@ const MeltingLogSheet = () => {
       timeHour: '',
       timeMinute: '',
       tempCSg: '',
-      tempCGrey: '',
       directFurnace: '',
       holderToFurnace: '',
       furnaceToHolder: '',
@@ -1244,13 +1507,40 @@ const MeltingLogSheet = () => {
   };
 
   // Helper function to get validation className
-  const getValidationClass = (validationState) => {
-    if (validationState === null) return '';
-    return validationState ? 'valid-input' : 'invalid-input';
+  // Validation class with focus support
+  const getValidationClass = (fieldKey, validationState) => {
+    // Active input (focused) - green border
+    if (focusedField === fieldKey) return 'focused-input';
+    
+    // Invalid data - red border
+    if (validationState === false) return 'invalid-input';
+    
+    // Valid data - green border
+    if (validationState === true) return 'valid-input';
+    
+    // Default/neutral - no special styling
+    return '';
   };
 
   return (
-    <div className="page-wrapper" onKeyDown={handleEnterFocusNext}>
+    <>
+      {showSakthi && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999
+        }}>
+          <Sakthi onComplete={() => setShowSakthi(false)} />
+        </div>
+      )}
+      <div className="page-wrapper">
       {/* Header */}
       <div className="cupola-holder-header">
         <div className="cupola-holder-header-text">
@@ -1266,371 +1556,507 @@ const MeltingLogSheet = () => {
 
       {/* Primary Section */}
       <div>
-        <h3 className="section-header">Primary Data</h3>
+        <h3 className="section-header" style={{ display: 'flex', alignItems: 'center' }}>Primary Data {isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 500, color: '#5B9AA9', marginLeft: '0.75rem' }}>( Entries : {entryCount} )</span>}{dynamicCheckAlert && <div style={{ marginLeft: 'auto' }}><SuccessAlert isVisible={dynamicCheckAlert} message="Data check completed successfully!" /></div>}</h3>
         
         <div className="melting-log-form-grid">
-          <div className={`melting-log-form-group ${classFor(primaryData.shift, primarySubmitted, true)}`}>
-            <label>Shift</label>
-            <select
-              name="shift"
+          <div className={`melting-log-form-group ${classFor(primaryData.date, primarySubmitted, true)} ${dateErrorHighlight ? 'error-highlight' : ''}`}>
+            <label>Date <span style={{ color: '#ef4444' }}>*</span></label>
+            <CustomDatePicker
+              ref={dateRef}
+              value={primaryData.date}
+              onChange={(e) => handlePrimaryChange('date', e.target.value)}
+              max={new Date().toISOString().split('T')[0]}
+              onKeyDown={(e) => handleKeyDown(e, shiftRef, 'date')}
+            />
+          </div>
+          <div 
+            className={`melting-log-form-group ${classFor(primaryData.shift, primarySubmitted, true)} ${shiftErrorHighlight ? 'error-highlight' : ''}`}
+            onMouseDownCapture={(e) => {
+              if (!primaryData.date && e.target.tagName !== 'SELECT') {
+                setDateErrorHighlight(true);
+              }
+            }}
+          >
+            <label>
+              Shift <span style={{ color: '#ef4444' }}>*</span>
+            </label>
+            <ShiftDropdown
+              ref={shiftRef}
               value={primaryData.shift}
               onChange={(e) => handlePrimaryChange('shift', e.target.value)}
+              disabled={!primaryData.date || fetchingPrimary}
+              onKeyDown={(e) => handleKeyDown(e, furnaceRef, 'shift')}
               onMouseDown={(e) => {
-                if (isPrimaryFieldLocked('shift') || fetchingPrimary) {
-                  e.preventDefault();
-                  e.stopPropagation();
+                if (!primaryData.date) {
+                  setDateErrorHighlight(true);
                 }
               }}
-              onClick={(e) => {
-                if (isPrimaryFieldLocked('shift') || fetchingPrimary) {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }
-              }}
-              disabled={isPrimaryFieldLocked('shift') || fetchingPrimary}
-              readOnly={isPrimaryFieldLocked('shift')}
-              className={getValidationClass(shiftValid)}
-              style={{
-                width: '100%',
-                padding: '0.625rem 0.875rem',
-                border: '2px solid #cbd5e1',
-                borderRadius: '8px',
-                fontSize: '0.875rem',
-                backgroundColor: isPrimaryFieldLocked('shift') ? '#f1f5f9' : '#ffffff',
-                color: isPrimaryFieldLocked('shift') ? '#64748b' : '#1e293b',
-                cursor: isPrimaryFieldLocked('shift') ? 'not-allowed' : 'pointer',
-                opacity: isPrimaryFieldLocked('shift') ? 0.8 : 1,
-                pointerEvents: isPrimaryFieldLocked('shift') ? 'none' : 'auto'
-              }}
-            >
-              <option value="">Select Shift</option>
-              <option value="Shift 1">Shift 1</option>
-              <option value="Shift 2">Shift 2</option>
-              <option value="Shift 3">Shift 3</option>
-            </select>
-          </div>
-
-          <div className={`melting-log-form-group ${classFor(primaryData.furnaceNo, primarySubmitted, true)}`}>
-            <label>Furnace No.</label>
-          <input
-                type="text"
-                value={primaryData.furnaceNo}
-                onChange={(e) => handlePrimaryChange('furnaceNo', e.target.value)}
-                placeholder="Enter furnace no"
-                disabled={isPrimaryFieldLocked('furnaceNo')}
-                readOnly={isPrimaryFieldLocked('furnaceNo')}
-                className={getValidationClass(furnaceNoValid)}
-                style={{
-                  backgroundColor: isPrimaryFieldLocked('furnaceNo') ? '#f1f5f9' : '#ffffff',
-                  cursor: isPrimaryFieldLocked('furnaceNo') ? 'not-allowed' : 'text'
-                }}
             />
           </div>
 
-          <div className={`melting-log-form-group ${classFor(primaryData.panel, primarySubmitted, true)}`}>
-            <label>Panel</label>
-          <input
-                type="text"
-                value={primaryData.panel}
-                onChange={(e) => handlePrimaryChange('panel', e.target.value)}
-                placeholder="Enter panel"
-                disabled={isPrimaryFieldLocked('panel')}
-                readOnly={isPrimaryFieldLocked('panel')}
-                className={getValidationClass(panelValid)}
-                style={{
-                  backgroundColor: isPrimaryFieldLocked('panel') ? '#f1f5f9' : '#ffffff',
-                  cursor: isPrimaryFieldLocked('panel') ? 'not-allowed' : 'text'
-                }}
+          <div 
+            className={`melting-log-form-group ${classFor(primaryData.furnaceNo, primarySubmitted, true)} ${furnaceNoErrorHighlight ? 'error-highlight' : ''}`}
+            onMouseDownCapture={(e) => {
+              if (e.target.tagName !== 'SELECT') {
+                if (!primaryData.date) {
+                  setDateErrorHighlight(true);
+                } else if (!primaryData.shift) {
+                  setShiftErrorHighlight(true);
+                }
+              }
+            }}
+          >
+            <label>
+              Furnace No. <span style={{ color: '#ef4444' }}>*</span>
+            </label>
+            <FurnaceDropdown
+              ref={furnaceRef}
+              value={primaryData.furnaceNo}
+              onChange={(e) => handlePrimaryChange('furnaceNo', e.target.value)}
+              disabled={!primaryData.date || !primaryData.shift}
+              onKeyDown={(e) => handleKeyDown(e, panelRef, 'furnaceNo')}
+              onMouseDown={(e) => {
+                if (!primaryData.date) {
+                  setDateErrorHighlight(true);
+                } else if (!primaryData.shift) {
+                  setShiftErrorHighlight(true);
+                }
+              }}
             />
           </div>
 
-          <div className={`melting-log-form-group ${classFor(primaryData.cumulativeLiquidMetal, primarySubmitted, true)}`}>
-            <label>Cumulative Liquid Metal</label>
+          <div 
+            className={`melting-log-form-group ${classFor(primaryData.panel, primarySubmitted, true)} ${panelErrorHighlight ? 'error-highlight' : ''}`}
+            onMouseDownCapture={(e) => {
+              if (e.target.tagName !== 'SELECT') {
+                if (!primaryData.date) {
+                  setDateErrorHighlight(true);
+                } else if (!primaryData.shift) {
+                  setShiftErrorHighlight(true);
+                } else if (!primaryData.furnaceNo) {
+                  setFurnaceNoErrorHighlight(true);
+                }
+              }
+            }}
+          >
+            <label>
+              Panel <span style={{ color: '#ef4444' }}>*</span>
+            </label>
+            <PanelDropdown
+              ref={panelRef}
+              value={primaryData.panel}
+              onChange={(e) => handlePrimaryChange('panel', e.target.value)}
+              disabled={!primaryData.date || !primaryData.shift || !primaryData.furnaceNo}
+              onKeyDown={(e) => handleKeyDown(e, getNextAfterPanel(), 'panel')}
+              onMouseDown={(e) => {
+                if (!primaryData.date) {
+                  setDateErrorHighlight(true);
+                } else if (!primaryData.shift) {
+                  setShiftErrorHighlight(true);
+                } else if (!primaryData.furnaceNo) {
+                  setFurnaceNoErrorHighlight(true);
+                }
+              }}
+            />
+          </div>
+
+          <div 
+            className={`melting-log-form-group ${classFor(primaryData.cumulativeLiquidMetal, primarySubmitted, true, isPrimaryFieldLocked('cumulativeLiquidMetal'))}`}
+            onMouseDownCapture={(e) => {
+              if (!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) {
+                handleValueFieldFocus(e);
+              }
+            }}
+            style={{
+              cursor: (!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) ? 'pointer' : 'default'
+            }}
+          >
+            <label>
+              Cumulative Liquid Metal
+              {isPrimaryFieldLocked('cumulativeLiquidMetal') && <span style={{ fontSize: '0.75rem', color: '#10b981', marginLeft: '0.5rem' }}>✓ Locked</span>}
+            </label>
           <input
+                ref={cumulativeLiquidMetalRef}
                 type="number"
                 value={primaryData.cumulativeLiquidMetal}
                 onChange={(e) => handlePrimaryChange('cumulativeLiquidMetal', e.target.value)}
+                onKeyDown={(e) => handleKeyDown(e, getNextAfterCumulativeLiquidMetal(), 'cumulativeLiquidMetal')}
                 placeholder="Enter value"
                 step="0.01"
-                disabled={isPrimaryFieldLocked('cumulativeLiquidMetal')}
-                readOnly={isPrimaryFieldLocked('cumulativeLiquidMetal')}
-                className={getValidationClass(cumulativeLiquidMetalValid)}
+                readOnly={!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel || isPrimaryFieldLocked('cumulativeLiquidMetal')}
+                tabIndex={isPrimaryFieldLocked('cumulativeLiquidMetal') ? -1 : 0}
+                className={getNumericValidationClass(cumulativeLiquidMetalValid, isPrimaryFieldLocked('cumulativeLiquidMetal'))}
                 style={{
-                  backgroundColor: isPrimaryFieldLocked('cumulativeLiquidMetal') ? '#f0fdf4' : '#ffffff',
-                  cursor: isPrimaryFieldLocked('cumulativeLiquidMetal') ? 'not-allowed' : 'text'
+                  backgroundColor: isPrimaryFieldLocked('cumulativeLiquidMetal') ? '#f0fdf4' : (!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) ? '#f1f5f9' : '#ffffff',
+                  cursor: (isPrimaryFieldLocked('cumulativeLiquidMetal') || !primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) ? 'not-allowed' : 'text',
+                  opacity: isPrimaryFieldLocked('cumulativeLiquidMetal') ? 0.6 : 1,
+                  pointerEvents: (!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) ? 'none' : 'auto'
                 }}
             />
           </div>
 
-          <div className={`melting-log-form-group ${classFor(primaryData.finalKWHr, primarySubmitted, true)}`}>
-            <label>Final KWHr</label>
+          <div 
+            className={`melting-log-form-group ${classFor(primaryData.finalKWHr, primarySubmitted, true, isPrimaryFieldLocked('finalKWHr'))}`}
+            onMouseDownCapture={(e) => {
+              if (!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) {
+                handleValueFieldFocus(e);
+              }
+            }}
+            style={{
+              cursor: (!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) ? 'pointer' : 'default'
+            }}
+          >
+            <label>
+              Final KWHr
+              {isPrimaryFieldLocked('finalKWHr') && <span style={{ fontSize: '0.75rem', color: '#10b981', marginLeft: '0.5rem' }}>✓ Locked</span>}
+            </label>
           <input
+                ref={finalKWHrRef}
                 type="number"
                 value={primaryData.finalKWHr}
                 onChange={(e) => handlePrimaryChange('finalKWHr', e.target.value)}
+                onKeyDown={(e) => handleKeyDown(e, getNextAfterFinalKWHr(), 'finalKWHr')}
                 placeholder="Enter value"
                 step="0.01"
-                disabled={isPrimaryFieldLocked('finalKWHr')}
-                readOnly={isPrimaryFieldLocked('finalKWHr')}
-                className={getValidationClass(finalKWHrValid)}
+                readOnly={!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel || isPrimaryFieldLocked('finalKWHr')}
+                tabIndex={isPrimaryFieldLocked('finalKWHr') ? -1 : 0}
+                className={getNumericValidationClass(finalKWHrValid, isPrimaryFieldLocked('finalKWHr'))}
                 style={{
-                  backgroundColor: isPrimaryFieldLocked('finalKWHr') ? '#f0fdf4' : '#ffffff',
-                  cursor: isPrimaryFieldLocked('finalKWHr') ? 'not-allowed' : 'text'
+                  backgroundColor: isPrimaryFieldLocked('finalKWHr') ? '#f0fdf4' : (!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) ? '#f1f5f9' : '#ffffff',
+                  cursor: (isPrimaryFieldLocked('finalKWHr') || !primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) ? 'not-allowed' : 'text',
+                  opacity: isPrimaryFieldLocked('finalKWHr') ? 0.6 : 1,
+                  pointerEvents: (!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) ? 'none' : 'auto'
                 }}
             />
           </div>
 
-          <div className={`melting-log-form-group ${classFor(primaryData.initialKWHr, primarySubmitted, true)}`}>
-            <label>Initial KWHr</label>
+          <div 
+            className={`melting-log-form-group ${classFor(primaryData.initialKWHr, primarySubmitted, true, isPrimaryFieldLocked('initialKWHr'))}`}
+            onMouseDownCapture={(e) => {
+              if (!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) {
+                handleValueFieldFocus(e);
+              }
+            }}
+            style={{
+              cursor: (!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) ? 'pointer' : 'default'
+            }}
+          >
+            <label>
+              Initial KWHr
+              {isPrimaryFieldLocked('initialKWHr') && <span style={{ fontSize: '0.75rem', color: '#10b981', marginLeft: '0.5rem' }}>✓ Locked</span>}
+            </label>
           <input
+                ref={initialKWHrRef}
                 type="number"
                 value={primaryData.initialKWHr}
                 onChange={(e) => handlePrimaryChange('initialKWHr', e.target.value)}
+                onKeyDown={(e) => handleKeyDown(e, getNextAfterInitialKWHr(), 'initialKWHr')}
                 placeholder="Enter value"
-                style={{
-                  backgroundColor: isPrimaryFieldLocked('initialKWHr') ? '#f0fdf4' : '#ffffff',
-                  cursor: isPrimaryFieldLocked('initialKWHr') ? 'not-allowed' : 'text'
-                }}
                 step="0.01"
-                disabled={isPrimaryFieldLocked('initialKWHr')}
-                readOnly={isPrimaryFieldLocked('initialKWHr')}
-                className={getValidationClass(initialKWHrValid)}
+                readOnly={!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel || isPrimaryFieldLocked('initialKWHr')}
+                tabIndex={isPrimaryFieldLocked('initialKWHr') ? -1 : 0}
+                className={getNumericValidationClass(initialKWHrValid, isPrimaryFieldLocked('initialKWHr'))}
+                style={{
+                  backgroundColor: isPrimaryFieldLocked('initialKWHr') ? '#f0fdf4' : (!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) ? '#f1f5f9' : '#ffffff',
+                  cursor: (isPrimaryFieldLocked('initialKWHr') || !primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) ? 'not-allowed' : 'text',
+                  opacity: isPrimaryFieldLocked('initialKWHr') ? 0.6 : 1,
+                  pointerEvents: (!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) ? 'none' : 'auto'
+                }}
             />
           </div>
 
-          <div className={`melting-log-form-group ${classFor(primaryData.totalUnits, primarySubmitted, true)}`}>
-            <label>Total Units</label>
+          <div 
+            className={`melting-log-form-group ${classFor(primaryData.totalUnits, primarySubmitted, true, isPrimaryFieldLocked('totalUnits'))}`}
+            onMouseDownCapture={(e) => {
+              if (!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) {
+                handleValueFieldFocus(e);
+              }
+            }}
+            style={{
+              cursor: (!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) ? 'pointer' : 'default'
+            }}
+          >
+            <label>
+              Total Units
+              {isPrimaryFieldLocked('totalUnits') && <span style={{ fontSize: '0.75rem', color: '#10b981', marginLeft: '0.5rem' }}>✓ Locked</span>}
+            </label>
           <input
+                ref={totalUnitsRef}
                 type="number"
                 value={primaryData.totalUnits}
                 onChange={(e) => handlePrimaryChange('totalUnits', e.target.value)}
+                onKeyDown={(e) => handleKeyDown(e, getNextAfterTotalUnits(), 'totalUnits')}
                 placeholder="Enter value"
-                style={{
-                  backgroundColor: isPrimaryFieldLocked('totalUnits') ? '#f0fdf4' : '#ffffff',
-                  cursor: isPrimaryFieldLocked('totalUnits') ? 'not-allowed' : 'text'
-                }}
                 step="0.01"
-                disabled={isPrimaryFieldLocked('totalUnits')}
-                readOnly={isPrimaryFieldLocked('totalUnits')}
-                className={getValidationClass(totalUnitsValid)}
+                readOnly={!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel || isPrimaryFieldLocked('totalUnits')}
+                tabIndex={isPrimaryFieldLocked('totalUnits') ? -1 : 0}
+                className={getNumericValidationClass(totalUnitsValid, isPrimaryFieldLocked('totalUnits'))}
+                style={{
+                  backgroundColor: isPrimaryFieldLocked('totalUnits') ? '#f0fdf4' : (!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) ? '#f1f5f9' : '#ffffff',
+                  cursor: (isPrimaryFieldLocked('totalUnits') || !primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) ? 'not-allowed' : 'text',
+                  opacity: isPrimaryFieldLocked('totalUnits') ? 0.6 : 1,
+                  pointerEvents: (!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) ? 'none' : 'auto'
+                }}
             />
           </div>
 
-          <div className={`melting-log-form-group ${classFor(primaryData.cumulativeUnits, primarySubmitted, true)}`}>
-            <label>Cumulative Units</label>
+          <div 
+            className={`melting-log-form-group ${classFor(primaryData.cumulativeUnits, primarySubmitted, true, isPrimaryFieldLocked('cumulativeUnits'))}`}
+            onMouseDownCapture={(e) => {
+              if (!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) {
+                handleValueFieldFocus(e);
+              }
+            }}
+            style={{
+              cursor: (!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) ? 'pointer' : 'default'
+            }}
+          >
+            <label>
+              Cumulative Units
+              {isPrimaryFieldLocked('cumulativeUnits') && <span style={{ fontSize: '0.75rem', color: '#10b981', marginLeft: '0.5rem' }}>✓ Locked</span>}
+            </label>
           <input
-                style={{
-                  backgroundColor: isPrimaryFieldLocked('cumulativeUnits') ? '#f0fdf4' : '#ffffff',
-                  cursor: isPrimaryFieldLocked('cumulativeUnits') ? 'not-allowed' : 'text'
-                }}
+                ref={cumulativeUnitsRef}
                 type="number"
                 value={primaryData.cumulativeUnits}
                 onChange={(e) => handlePrimaryChange('cumulativeUnits', e.target.value)}
+                onKeyDown={(e) => handleKeyDown(e, primarySaveButtonRef, 'cumulativeUnits')}
                 placeholder="Enter value"
                 step="0.01"
-                disabled={isPrimaryFieldLocked('cumulativeUnits')}
-                readOnly={isPrimaryFieldLocked('cumulativeUnits')}
-                className={getValidationClass(cumulativeUnitsValid)}
+                readOnly={!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel || isPrimaryFieldLocked('cumulativeUnits')}
+                tabIndex={isPrimaryFieldLocked('cumulativeUnits') ? -1 : 0}
+                className={getNumericValidationClass(cumulativeUnitsValid, isPrimaryFieldLocked('cumulativeUnits'))}
+                style={{
+                  backgroundColor: isPrimaryFieldLocked('cumulativeUnits') ? '#f0fdf4' : (!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) ? '#f1f5f9' : '#ffffff',
+                  cursor: (isPrimaryFieldLocked('cumulativeUnits') || !primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) ? 'not-allowed' : 'text',
+                  opacity: isPrimaryFieldLocked('cumulativeUnits') ? 0.6 : 1,
+                  pointerEvents: (!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) ? 'none' : 'auto'
+                }}
             />
           </div>
         </div>
 
-        <div className="melting-log-submit-container">
+        <div className="melting-log-submit-container" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          {primarySuccessAlert && <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#fff', background: 'linear-gradient(135deg, #10b981, #059669)', padding: '0.35rem 0.85rem', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', boxShadow: '0 2px 6px rgba(16,185,129,0.3)' }}>✓ Primary data saved successfully!</span>}
           <button
-            type="button"
-            className="melting-log-reset-btn"
-            onClick={resetPrimaryData}
-            disabled={primaryLoading || fetchingPrimary}
-          >
-            <RotateCcw size={18} />
-            Reset Primary
-          </button>
-
-          <button
+            ref={primarySaveButtonRef}
             className="cupola-holder-submit-btn"
             onClick={handlePrimarySubmit}
-            disabled={primaryLoading || fetchingPrimary || !primaryData.date}
+            disabled={fetchingPrimary || !primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel || !isPrimaryDirty() || hasInvalidNumericInput()}
           >
-            {primaryLoading ? (
-              <>
-                <Loader2 size={18} className="animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save size={18} />
-                Save Changes
-              </>
-            )}
+            <Save size={18} />
+            {isPrimaryDataSaved ? 'Update Primary Data' : 'Save Primary'}
           </button>
         </div>
         <div style={{ gridColumn: '1 / -1', height: '1px', backgroundColor: '#e2e8f0', margin: '1.5rem 0' }}></div>
       </div>
 
       {/* Table 1 */}
-      <div>
-        <h3 className="section-header">Table 1</h3>
+      <div style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, pointerEvents: isPrimaryDataSaved ? 'auto' : 'none' }}>
+        <h3 className="section-header">Table 1 {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked - Save Primary Data First)</span>}</h3>
 
         <div className="melting-log-form-grid melting-log-table5-grid">
           <div className="melting-log-form-group">
             <label>Heat No</label>
             <input
+              ref={heatNoRef}
               type="text"
               value={table1.heatNo || ''}
               onChange={(e) => handleTableChange(1, 'heatNo', e.target.value)}
+              onKeyDown={(e) => handleTableEnterKey(e, gradeRef)}
+              onFocus={() => setFocusedField('table1.heatNo')}
+              onBlur={() => setFocusedField(null)}
               placeholder="Enter heat no"
-              className={getValidationClass(heatNoValid)}
+              className={getValidationClass('table1.heatNo', heatNoValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
 
           <div className="melting-log-form-group">
             <label>Grade</label>
             <input
+              ref={gradeRef}
               type="text"
               value={table1.grade || ''}
               onChange={(e) => handleTableChange(1, 'grade', e.target.value)}
+              onKeyDown={(e) => handleTableEnterKey(e, chargingTimeRef)}
+              onFocus={() => setFocusedField('table1.grade')}
+              onBlur={() => setFocusedField(null)}
               placeholder="Enter grade"
-              className={getValidationClass(gradeValid)}
+              className={getValidationClass('table1.grade', gradeValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
 
           <div className="melting-log-form-group">
-            <label>Charging Time</label>
+            <label>Time</label>
             <CustomTimeInput
               value={createTimeFromHourMinute(table1.chargingTimeHour, table1.chargingTimeMinute)}
               onChange={(time) => handleTimeChange(1, 'chargingTimeHour', 'chargingTimeMinute', time)}
-              className={getValidationClass(chargingTimeValid)}
+              className={getValidationClass('table1.chargingTime', chargingTimeValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
 
           <div className="melting-log-form-group">
             <label>If Bath</label>
             <input
+              ref={ifBathRef}
               type="text"
               value={table1.ifBath || ''}
               onChange={(e) => handleTableChange(1, 'ifBath', e.target.value)}
+              onKeyDown={(e) => handleTableEnterKey(e, liquidMetalPressPourRef)}
+              onFocus={() => setFocusedField('table1.ifBath')}
+              onBlur={() => setFocusedField(null)}
               placeholder="Enter if bath"
-              className={getValidationClass(ifBathValid)}
+              className={getValidationClass('table1.ifBath', ifBathValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
 
           <div className="melting-log-form-group">
             <label>Liquid Metal - Press Pour (kgs)</label>
             <input
+              ref={liquidMetalPressPourRef}
               type="number"
               value={table1.liquidMetalPressPour || ''}
               onChange={(e) => handleTableChange(1, 'liquidMetalPressPour', e.target.value)}
+              onKeyDown={(e) => handleTableEnterKey(e, liquidMetalHolderRef)}
+              onFocus={() => setFocusedField('table1.liquidMetalPressPour')}
+              onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
               step="0.01"
-              className={getValidationClass(liquidMetalPressPourValid)}
+              className={getValidationClass('table1.liquidMetalPressPour', liquidMetalPressPourValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
 
           <div className="melting-log-form-group">
             <label>Liquid Metal - Holder (kgs)</label>
             <input
+              ref={liquidMetalHolderRef}
               type="number"
               value={table1.liquidMetalHolder || ''}
               onChange={(e) => handleTableChange(1, 'liquidMetalHolder', e.target.value)}
+              onKeyDown={(e) => handleTableEnterKey(e, sgMsSteelRef)}
+              onFocus={() => setFocusedField('table1.liquidMetalHolder')}
+              onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
               step="0.01"
-              className={getValidationClass(liquidMetalHolderValid)}
+              className={getValidationClass('table1.liquidMetalHolder', liquidMetalHolderValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
 
           <div className="melting-log-form-group">
             <label>SG-MS Steel (400 - 2500 kgs)</label>
             <input
+              ref={sgMsSteelRef}
               type="number"
               value={table1.sgMsSteel || ''}
               onChange={(e) => handleTableChange(1, 'sgMsSteel', e.target.value)}
+              onKeyDown={(e) => handleTableEnterKey(e, greyMsSteelRef)}
+              onFocus={() => setFocusedField('table1.sgMsSteel')}
+              onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
               min="400"
               max="2500"
               step="0.01"
-              className={getValidationClass(sgMsSteelValid)}
+              className={getValidationClass('table1.sgMsSteel', sgMsSteelValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
 
           <div className="melting-log-form-group">
             <label>Grey MS Steel (400 - 2500 kgs)</label>
             <input
+              ref={greyMsSteelRef}
               type="number"
               value={table1.greyMsSteel || ''}
               onChange={(e) => handleTableChange(1, 'greyMsSteel', e.target.value)}
+              onKeyDown={(e) => handleTableEnterKey(e, returnsSgRef)}
+              onFocus={() => setFocusedField('table1.greyMsSteel')}
+              onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
               min="400"
               max="2500"
               step="0.01"
-              className={getValidationClass(greyMsSteelValid)}
+              className={getValidationClass('table1.greyMsSteel', greyMsSteelValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
 
           <div className="melting-log-form-group">
             <label>Returns SG (500 - 2500 kgs)</label>
             <input
+              ref={returnsSgRef}
               type="number"
               value={table1.returnsSg || ''}
               onChange={(e) => handleTableChange(1, 'returnsSg', e.target.value)}
+              onKeyDown={(e) => handleTableEnterKey(e, pigIronRef)}
+              onFocus={() => setFocusedField('table1.returnsSg')}
+              onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
               min="500"
               max="2500"
               step="0.01"
-              className={getValidationClass(returnsSgValid)}
-            />
-          </div>
-
-          <div className="melting-log-form-group">
-            <label>GL (900 - 2250 kgs)</label>
-            <input
-              type="number"
-              value={table1.gl || ''}
-              onChange={(e) => handleTableChange(1, 'gl', e.target.value)}
-              placeholder="Enter value"
-              min="900"
-              max="2250"
-              step="0.01"
-              className={getValidationClass(glValid)}
+              className={getValidationClass('table1.returnsSg', returnsSgValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
 
           <div className="melting-log-form-group">
             <label>Pig Iron (0 - 350 kgs)</label>
             <input
+              ref={pigIronRef}
               type="number"
               value={table1.pigIron || ''}
               onChange={(e) => handleTableChange(1, 'pigIron', e.target.value)}
+              onKeyDown={(e) => handleTableEnterKey(e, boringsRef)}
+              onFocus={() => setFocusedField('table1.pigIron')}
+              onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
               min="0"
               max="350"
               step="0.01"
-              className={getValidationClass(pigIronValid)}
+              className={getValidationClass('table1.pigIron', pigIronValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
 
           <div className="melting-log-form-group">
             <label>Borings (0 - 1900 kgs)</label>
             <input
+              ref={boringsRef}
               type="number"
               value={table1.borings || ''}
               onChange={(e) => handleTableChange(1, 'borings', e.target.value)}
+              onKeyDown={(e) => handleTableEnterKey(e, finalBathRef)}
+              onFocus={() => setFocusedField('table1.borings')}
+              onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
               min="0"
               max="1900"
               step="0.01"
-              className={getValidationClass(boringsValid)}
+              className={getValidationClass('table1.borings', boringsValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
 
           <div className="melting-log-form-group">
             <label>Final Bath (kgs)</label>
             <input
+              ref={finalBathRef}
               type="number"
               value={table1.finalBath || ''}
               onChange={(e) => handleTableChange(1, 'finalBath', e.target.value)}
+              onKeyDown={(e) => handleTableEnterKey(e, charCoalRef)}
+              onFocus={() => setFocusedField('table1.finalBath')}
+              onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
               step="0.01"
-              className={getValidationClass(finalBathValid)}
+              className={getValidationClass('table1.finalBath', finalBathValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
         </div>
@@ -1639,153 +2065,213 @@ const MeltingLogSheet = () => {
       </div>
 
       {/* Table 2 */}
-      <div>
-        <h3 className="section-header">Table 2</h3>
+      <div style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, pointerEvents: isPrimaryDataSaved ? 'auto' : 'none' }}>
+        <h3 className="section-header">Table 2 {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked - Save Primary Data First)</span>}</h3>
 
         <div className="melting-log-form-grid melting-log-table5-grid">
           <div className="melting-log-form-group">
             <label>CharCoal (kgs)</label>
             <input
+              ref={charCoalRef}
               type="number"
               value={table2.charCoal || ''}
               onChange={(e) => handleTableChange(2, 'charCoal', e.target.value)}
+              onKeyDown={(e) => handleTableEnterKey(e, cpcFurRef)}
+              onFocus={() => setFocusedField('table2.charCoal')}
+              onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
               step="0.01"
-              className={getValidationClass(charCoalValid)}
+              className={getValidationClass('table2.charCoal', charCoalValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
 
           <div className="melting-log-form-group">
             <label>CPC - Fur (kgs)</label>
             <input
+              ref={cpcFurRef}
               type="number"
               value={table2.cpcFur || ''}
               onChange={(e) => handleTableChange(2, 'cpcFur', e.target.value)}
+              onKeyDown={(e) => handleTableEnterKey(e, cpcLcRef)}
+              onFocus={() => setFocusedField('table2.cpcFur')}
+              onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
               step="0.01"
-              className={getValidationClass(cpcFurValid)}
+              className={getValidationClass('table2.cpcFur', cpcFurValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
 
           <div className="melting-log-form-group">
             <label>CPC - LC (kgs)</label>
             <input
+              ref={cpcLcRef}
               type="number"
               value={table2.cpcLc || ''}
               onChange={(e) => handleTableChange(2, 'cpcLc', e.target.value)}
+              onKeyDown={(e) => handleTableEnterKey(e, siliconCarbideFurRef)}
+              onFocus={() => setFocusedField('table2.cpcLc')}
+              onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
               step="0.01"
-              className={getValidationClass(cpcLcValid)}
+              className={getValidationClass('table2.cpcLc', cpcLcValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
 
           <div className="melting-log-form-group">
             <label>Silicon Carbide - Fur (kgs)</label>
             <input
+              ref={siliconCarbideFurRef}
               type="number"
               value={table2.siliconCarbideFur || ''}
               onChange={(e) => handleTableChange(2, 'siliconCarbideFur', e.target.value)}
+              onKeyDown={(e) => handleTableEnterKey(e, ferrosiliconFurRef)}
+              onFocus={() => setFocusedField('table2.siliconCarbideFur')}
+              onBlur={() => setFocusedField(null)}
               placeholder="Enter value (0.03 to 0.09)"
               min="0.03"
               max="0.09"
               step="0.01"
-              className={getValidationClass(siliconCarbideFurValid)}
+              className={getValidationClass('table2.siliconCarbideFur', siliconCarbideFurValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
 
           <div className="melting-log-form-group">
             <label>Ferrosilicon - Fur (kgs)</label>
             <input
+              ref={ferrosiliconFurRef}
               type="number"
               value={table2.ferrosiliconFur || ''}
               onChange={(e) => handleTableChange(2, 'ferrosiliconFur', e.target.value)}
+              onKeyDown={(e) => handleTableEnterKey(e, ferrosiliconLcRef)}
+              onFocus={() => setFocusedField('table2.ferrosiliconFur')}
+              onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
               step="0.01"
-              className={getValidationClass(ferrosiliconFurValid)}
+              className={getValidationClass('table2.ferrosiliconFur', ferrosiliconFurValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
 
           <div className="melting-log-form-group">
             <label>Ferrosilicon - LC (kgs)</label>
             <input
+              ref={ferrosiliconLcRef}
               type="number"
               value={table2.ferrosiliconLc || ''}
               onChange={(e) => handleTableChange(2, 'ferrosiliconLc', e.target.value)}
+              onKeyDown={(e) => handleTableEnterKey(e, ferroManganeseFurRef)}
+              onFocus={() => setFocusedField('table2.ferrosiliconLc')}
+              onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
               step="0.01"
-              className={getValidationClass(ferrosiliconLcValid)}
+              className={getValidationClass('table2.ferrosiliconLc', ferrosiliconLcValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
 
           <div className="melting-log-form-group">
             <label>FerroManganese - Fur (kgs)</label>
             <input
+              ref={ferroManganeseFurRef}
               type="number"
               value={table2.ferroManganeseFur || ''}
               onChange={(e) => handleTableChange(2, 'ferroManganeseFur', e.target.value)}
+              onKeyDown={(e) => handleTableEnterKey(e, ferroManganeseLcRef)}
+              onFocus={() => setFocusedField('table2.ferroManganeseFur')}
+              onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
               step="0.01"
-              className={getValidationClass(ferroManganeseFurValid)}
+              className={getValidationClass('table2.ferroManganeseFur', ferroManganeseFurValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
 
           <div className="melting-log-form-group">
             <label>FerroManganese - LC (kgs)</label>
             <input
+              ref={ferroManganeseLcRef}
               type="number"
               value={table2.ferroManganeseLc || ''}
               onChange={(e) => handleTableChange(2, 'ferroManganeseLc', e.target.value)}
+              onKeyDown={(e) => handleTableEnterKey(e, cuRef)}
+              onFocus={() => setFocusedField('table2.ferroManganeseLc')}
+              onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
               step="0.01"
-              className={getValidationClass(ferroManganeseLcValid)}
+              className={getValidationClass('table2.ferroManganeseLc', ferroManganeseLcValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
 
           <div className="melting-log-form-group">
             <label>Cu (kgs)</label>
             <input
+              ref={cuRef}
               type="number"
               value={table2.cu || ''}
               onChange={(e) => handleTableChange(2, 'cu', e.target.value)}
+              onKeyDown={(e) => handleTableEnterKey(e, crRef)}
+              onFocus={() => setFocusedField('table2.cu')}
+              onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
               step="0.01"
-              className={getValidationClass(cuValid)}
+              className={getValidationClass('table2.cu', cuValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
 
           <div className="melting-log-form-group">
             <label>Cr (kgs)</label>
             <input
+              ref={crRef}
               type="number"
               value={table2.cr || ''}
               onChange={(e) => handleTableChange(2, 'cr', e.target.value)}
+              onKeyDown={(e) => handleTableEnterKey(e, pureMgRef)}
+              onFocus={() => setFocusedField('table2.cr')}
+              onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
               step="0.01"
-              className={getValidationClass(crValid)}
+              className={getValidationClass('table2.cr', crValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
 
           <div className="melting-log-form-group">
             <label>Pure Mg (kgs)</label>
             <input
+              ref={pureMgRef}
               type="number"
               value={table2.pureMg || ''}
               onChange={(e) => handleTableChange(2, 'pureMg', e.target.value)}
+              onKeyDown={(e) => handleTableEnterKey(e, ironPyriteRef)}
+              onFocus={() => setFocusedField('table2.pureMg')}
+              onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
               step="0.01"
-              className={getValidationClass(pureMgValid)}
+              className={getValidationClass('table2.pureMg', pureMgValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
 
           <div className="melting-log-form-group">
             <label>Iron Pyrite (kgs)</label>
             <input
+              ref={ironPyriteRef}
               type="number"
               value={table2.ironPyrite || ''}
               onChange={(e) => handleTableChange(2, 'ironPyrite', e.target.value)}
+              onKeyDown={(e) => handleTableEnterKey(e, labCoinTimeRef)}
+              onFocus={() => setFocusedField('table2.ironPyrite')}
+              onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
               step="0.01"
-              className={getValidationClass(ironPyriteValid)}
+              className={getValidationClass('table2.ironPyrite', ironPyriteValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
         </div>
@@ -1794,8 +2280,8 @@ const MeltingLogSheet = () => {
       </div>
 
       {/* Table 3 */}
-      <div>
-        <h3 className="section-header">Table 3</h3>
+      <div style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, pointerEvents: isPrimaryDataSaved ? 'auto' : 'none' }}>
+        <h3 className="section-header">Table 3 {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked - Save Primary Data First)</span>}</h3>
 
         <div className="melting-log-form-grid melting-log-table5-grid" style={{ rowGap: '1.5rem' }}>
           <div className="melting-log-form-group">
@@ -1803,19 +2289,25 @@ const MeltingLogSheet = () => {
             <CustomTimeInput
               value={createTimeFromHourMinute(table3.labCoinTimeHour, table3.labCoinTimeMinute)}
               onChange={(time) => handleTimeChange(3, 'labCoinTimeHour', 'labCoinTimeMinute', time)}
-              className={getValidationClass(labCoinTimeValid)}
+              className={getValidationClass('table3.labCoinTime', labCoinTimeValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
 
           <div className="melting-log-form-group">
-            <label>Lab Coin - Temp (°C) (0-2000)</label>
+            <label>Lab Coin - Temp (°C)</label>
             <input
+              ref={labCoinTempCRef}
               type="number"
               value={table3.labCoinTempC || ''}
               onChange={(e) => handleTableChange(3, 'labCoinTempC', e.target.value)}
+              onKeyDown={(e) => handleTableEnterKey(e, reasonRef)}
+              onFocus={() => setFocusedField('table3.labCoinTempC')}
+              onBlur={() => setFocusedField(null)}
               placeholder="Enter temperature in °C"
               step="0.01"
-              className={getValidationClass(labCoinTempCValid)}
+              className={getValidationClass('table3.labCoinTempC', labCoinTempCValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
 
@@ -1824,7 +2316,8 @@ const MeltingLogSheet = () => {
             <CustomTimeInput
               value={createTimeFromHourMinute(table3.deslagingTimeFromHour, table3.deslagingTimeFromMinute)}
               onChange={(time) => handleTimeChange(3, 'deslagingTimeFromHour', 'deslagingTimeFromMinute', time)}
-              className={getValidationClass(deslagingTimeFromValid)}
+              className={getValidationClass('table3.deslagingTimeFrom', deslagingTimeFromValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
 
@@ -1833,7 +2326,8 @@ const MeltingLogSheet = () => {
             <CustomTimeInput
               value={createTimeFromHourMinute(table3.deslagingTimeToHour, table3.deslagingTimeToMinute)}
               onChange={(time) => handleTimeChange(3, 'deslagingTimeToHour', 'deslagingTimeToMinute', time)}
-              className={getValidationClass(deslagingTimeToValid)}
+              className={getValidationClass('table3.deslagingTimeTo', deslagingTimeToValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
 
@@ -1842,7 +2336,8 @@ const MeltingLogSheet = () => {
             <CustomTimeInput
               value={createTimeFromHourMinute(table3.metalReadyTimeHour, table3.metalReadyTimeMinute)}
               onChange={(time) => handleTimeChange(3, 'metalReadyTimeHour', 'metalReadyTimeMinute', time)}
-              className={getValidationClass(metalReadyTimeValid)}
+              className={getValidationClass('table3.metalReadyTime', metalReadyTimeValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
         </div>
@@ -1853,7 +2348,8 @@ const MeltingLogSheet = () => {
             <CustomTimeInput
               value={createTimeFromHourMinute(table3.waitingForTappingFromHour, table3.waitingForTappingFromMinute)}
               onChange={(time) => handleTimeChange(3, 'waitingForTappingFromHour', 'waitingForTappingFromMinute', time)}
-              className={getValidationClass(waitingForTappingFromValid)}
+              className={getValidationClass('table3.waitingForTappingFrom', waitingForTappingFromValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
 
@@ -1862,7 +2358,8 @@ const MeltingLogSheet = () => {
             <CustomTimeInput
               value={createTimeFromHourMinute(table3.waitingForTappingToHour, table3.waitingForTappingToMinute)}
               onChange={(time) => handleTimeChange(3, 'waitingForTappingToHour', 'waitingForTappingToMinute', time)}
-              className={getValidationClass(waitingForTappingToValid)}
+              className={getValidationClass('table3.waitingForTappingTo', waitingForTappingToValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
 
@@ -1875,11 +2372,16 @@ const MeltingLogSheet = () => {
           <div className="melting-log-form-group" style={{ maxWidth: '40%' }}>
             <label>Reason</label>
             <input
+              ref={reasonRef}
               type="text"
               value={table3.reason || ''}
               onChange={(e) => handleTableChange(3, 'reason', e.target.value)}
+              onKeyDown={(e) => handleTableEnterKey(e, tempCSgRef)}
+              onFocus={() => setFocusedField('table3.reason')}
+              onBlur={() => setFocusedField(null)}
               placeholder="Enter reason"
-              className={getValidationClass(reasonValid)}
+              className={getValidationClass('table3.reason', reasonValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
         </div>
@@ -1888,8 +2390,8 @@ const MeltingLogSheet = () => {
       </div>
 
       {/* Table 4 - Metal Tapping in Kgs */}
-      <div>
-        <h3 className="section-header">Table 4</h3>
+      <div style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, pointerEvents: isPrimaryDataSaved ? 'auto' : 'none' }}>
+        <h3 className="section-header">Table 4 {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked - Save Primary Data First)</span>}</h3>
         
         <div className="melting-log-form-grid">
         <div className="melting-log-form-group">
@@ -1897,89 +2399,102 @@ const MeltingLogSheet = () => {
           <CustomTimeInput
             value={createTimeFromHourMinute(table4.timeHour, table4.timeMinute)}
             onChange={(time) => handleTimeChange(4, 'timeHour', 'timeMinute', time)}
-            className={getValidationClass(table4TimeValid)}
+            className={getValidationClass('table4.time', table4TimeValid)}
+            disabled={!isPrimaryDataSaved}
           />
         </div>
 
         <div className="melting-log-form-group">
           <label>Temp C - SG (0-2000°C)</label>
           <input
+                ref={tempCSgRef}
                 type="number"
                 value={table4.tempCSg || ''}
                 onChange={(e) => handleTableChange(4, 'tempCSg', e.target.value)}
+                onKeyDown={(e) => handleTableEnterKey(e, directFurnaceRef)}
+                onFocus={() => setFocusedField('table4.tempCSg')}
+                onBlur={() => setFocusedField(null)}
                 placeholder="Enter temperature"
                 step="0.01"
-                className={getValidationClass(tempCSgValid)}
-          />
-        </div>
-
-        <div className="melting-log-form-group">
-          <label>Temp C - Grey (0-2000°C)</label>
-          <input
-                type="number"
-                value={table4.tempCGrey || ''}
-                onChange={(e) => handleTableChange(4, 'tempCGrey', e.target.value)}
-                placeholder="Enter temperature"
-                step="0.01"
-                className={getValidationClass(tempCGreyValid)}
+                className={getValidationClass('table4.tempCSg', tempCSgValid)}
+                disabled={!isPrimaryDataSaved}
           />
         </div>
 
         <div className="melting-log-form-group">
           <label>Direct Furnace (kgs)</label>
           <input
+                ref={directFurnaceRef}
                 type="number"
                 value={table4.directFurnace || ''}
                 onChange={(e) => handleTableChange(4, 'directFurnace', e.target.value)}
+                onKeyDown={(e) => handleTableEnterKey(e, holderToFurnaceRef)}
+                onFocus={() => setFocusedField('table4.directFurnace')}
+                onBlur={() => setFocusedField(null)}
                 placeholder="Enter value"
                 step="0.01"
-                className={getValidationClass(directFurnaceValid)}
+                className={getValidationClass('table4.directFurnace', directFurnaceValid)}
+                disabled={!isPrimaryDataSaved}
           />
         </div>
 
         <div className="melting-log-form-group">
           <label>Holder To Furnace (kgs)</label>
           <input
+                ref={holderToFurnaceRef}
                 type="number"
                 value={table4.holderToFurnace || ''}
                 onChange={(e) => handleTableChange(4, 'holderToFurnace', e.target.value)}
+                onKeyDown={(e) => handleTableEnterKey(e, furnaceToHolderRef)}
+                onFocus={() => setFocusedField('table4.holderToFurnace')}
+                onBlur={() => setFocusedField(null)}
                 placeholder="Enter value"
                 step="0.01"
-                className={getValidationClass(holderToFurnaceValid)}
+                className={getValidationClass('table4.holderToFurnace', holderToFurnaceValid)}
+                disabled={!isPrimaryDataSaved}
           />
         </div>
 
         <div className="melting-log-form-group">
           <label>Furnace To Holder (kgs)</label>
           <input
+                ref={furnaceToHolderRef}
                 type="number"
                 value={table4.furnaceToHolder || ''}
                 onChange={(e) => handleTableChange(4, 'furnaceToHolder', e.target.value)}
+                onKeyDown={(e) => handleTableEnterKey(e, itemRef)}
+                onFocus={() => setFocusedField('table4.furnaceToHolder')}
+                onBlur={() => setFocusedField(null)}
                 placeholder="Enter value"
                 step="0.01"
-                className={getValidationClass(furnaceToHolderValid)}
+                className={getValidationClass('table4.furnaceToHolder', furnaceToHolderValid)}
+                disabled={!isPrimaryDataSaved}
           />
         </div>
 
         <div className="melting-log-form-group">
           <label>Disa No.</label>
-          <input
-                type="text"
+          <DisaDropdown
                 value={table4.disaNo || ''}
                 onChange={(e) => handleTableChange(4, 'disaNo', e.target.value)}
-                placeholder="Enter Disa No."
-                className={getValidationClass(disaNoValid)}
+                className={getValidationClass('table4.disaNo', disaNoValid)}
+                disabled={!isPrimaryDataSaved}
           />
         </div>
 
         <div className="melting-log-form-group">
           <label>Item</label>
           <input
+                ref={itemRef}
                 type="text"
                 value={table4.item || ''}
                 onChange={(e) => handleTableChange(4, 'item', e.target.value)}
+                onKeyDown={(e) => handleTableEnterKey(e, furnace1KwRef)}
+                onFocus={() => setFocusedField('table4.item')}
+                onBlur={() => setFocusedField(null)}
                 placeholder="Enter item"
-                className={getValidationClass(itemValid)}
+                className={getValidationClass('table4.item', itemValid)}
+                disabled={!isPrimaryDataSaved}
           />
         </div>
       </div>
@@ -1988,8 +2503,8 @@ const MeltingLogSheet = () => {
       </div>
 
       {/* Table 5 - Electrical Readings */}
-      <div>
-        <h3 className="section-header">Table 5</h3>
+      <div style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, pointerEvents: isPrimaryDataSaved ? 'auto' : 'none' }}>
+        <h3 className="section-header">Table 5 {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked - Save Primary Data First)</span>}</h3>
 
         {/* Furnace 1,2,3 combined section */}
         <h4 className="melting-log-sub-section-title">Furnace 1,2,3</h4>
@@ -1997,36 +2512,51 @@ const MeltingLogSheet = () => {
           <div className="melting-log-form-group">
             <label>Kw</label>
             <input
+              ref={furnace1KwRef}
               type="number"
               value={table5.furnace1Kw || ''}
               onChange={(e) => handleTableChange(5, 'furnace1Kw', e.target.value)}
+              onKeyDown={(e) => handleTableEnterKey(e, furnace1ARef)}
+              onFocus={() => setFocusedField('table5.furnace1Kw')}
+              onBlur={() => setFocusedField(null)}
               placeholder="Enter Kw"
               step="0.01"
-              className={getValidationClass(furnace1KwValid)}
+              className={getValidationClass('table5.furnace1Kw', furnace1KwValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
 
           <div className="melting-log-form-group">
             <label>A (2000-3500)</label>
             <input
+              ref={furnace1ARef}
               type="number"
               value={table5.furnace1A || ''}
               onChange={(e) => handleTableChange(5, 'furnace1A', e.target.value)}
+              onKeyDown={(e) => handleTableEnterKey(e, furnace1VRef)}
+              onFocus={() => setFocusedField('table5.furnace1A')}
+              onBlur={() => setFocusedField(null)}
               placeholder="Enter A"
               step="0.01"
-              className={getValidationClass(furnace1AValid)}
+              className={getValidationClass('table5.furnace1A', furnace1AValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
 
           <div className="melting-log-form-group">
             <label>V (500-1000)</label>
             <input
+              ref={furnace1VRef}
               type="number"
               value={table5.furnace1V || ''}
               onChange={(e) => handleTableChange(5, 'furnace1V', e.target.value)}
+              onKeyDown={(e) => handleTableEnterKey(e, furnace4HzRef)}
+              onFocus={() => setFocusedField('table5.furnace1V')}
+              onBlur={() => setFocusedField(null)}
               placeholder="Enter V"
               step="0.01"
-              className={getValidationClass(furnace1VValid)}
+              className={getValidationClass('table5.furnace1V', furnace1VValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
         </div>
@@ -2037,71 +2567,87 @@ const MeltingLogSheet = () => {
           <div className="melting-log-form-group">
             <label>Hz</label>
             <input
+              ref={furnace4HzRef}
               type="number"
               value={table5.furnace4Hz || ''}
               onChange={(e) => handleTableChange(5, 'furnace4Hz', e.target.value)}
+              onKeyDown={(e) => handleTableEnterKey(e, furnace4GldRef)}
+              onFocus={() => setFocusedField('table5.furnace4Hz')}
+              onBlur={() => setFocusedField(null)}
               placeholder="Enter Hz"
               step="0.01"
-              className={getValidationClass(furnace4HzValid)}
+              className={getValidationClass('table5.furnace4Hz', furnace4HzValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
 
           <div className="melting-log-form-group">
             <label>GLD (0.6-95)</label>
             <input
+              ref={furnace4GldRef}
               type="number"
               value={table5.furnace4Gld || ''}
               onChange={(e) => handleTableChange(5, 'furnace4Gld', e.target.value)}
+              onKeyDown={(e) => handleTableEnterKey(e, furnace4KwHrRef)}
+              onFocus={() => setFocusedField('table5.furnace4Gld')}
+              onBlur={() => setFocusedField(null)}
               placeholder="Enter GLD"
               step="0.01"
-              className={getValidationClass(furnace4GldValid)}
+              className={getValidationClass('table5.furnace4Gld', furnace4GldValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
 
           <div className="melting-log-form-group">
             <label>Kw/Hr</label>
             <input
+              ref={furnace4KwHrRef}
               type="number"
               value={table5.furnace4KwHr || ''}
               onChange={(e) => handleTableChange(5, 'furnace4KwHr', e.target.value)}
+              onFocus={() => setFocusedField('table5.furnace4KwHr')}
+              onBlur={() => setFocusedField(null)}
               placeholder="Enter Kw/Hr"
               step="0.01"
-              className={getValidationClass(furnace4KwHrValid)}
+              className={getValidationClass('table5.furnace4KwHr', furnace4KwHrValid)}
+              disabled={!isPrimaryDataSaved}
             />
           </div>
         </div>
       </div>
 
-      {/* All Tables Submit and Reset Buttons */}
-      <div className="melting-log-submit-container" style={{ marginTop: '2rem' }}>
-        <button
-          className="melting-log-reset-btn"
-          onClick={handleAllTablesReset}
-          type="button"
-        >
-          <RotateCcw size={16} />
-          Reset All Tables
-        </button>
+      {/* All Tables Submit Button */}
+      <div className="melting-log-submit-container" style={{ marginTop: '2rem', display: 'flex', alignItems: 'center', gap: '1rem', justifyContent: 'flex-end' }}>
+        {validationErrorMessage && (
+          <span style={{ 
+            color: '#ef4444', 
+            fontSize: '0.875rem',
+            fontWeight: 500
+          }}>
+            {validationErrorMessage}
+          </span>
+        )}
         <button
           className="cupola-holder-submit-btn"
           onClick={handleAllTablesSubmit}
-          disabled={loadingStates.table1 || loadingStates.table2 || loadingStates.table3 || loadingStates.table4 || loadingStates.table5 || !primaryData.date}
-          title={!primaryData.date ? 'Please enter a date first' : 'Save All Tables'}
+          disabled={loadingStates.table1 || loadingStates.table2 || loadingStates.table3 || loadingStates.table4 || loadingStates.table5 || !isPrimaryDataSaved}
+          title={!isPrimaryDataSaved ? 'Please save primary data first' : 'Save Entry'}
         >
           {(loadingStates.table1 || loadingStates.table2 || loadingStates.table3 || loadingStates.table4 || loadingStates.table5) ? (
             <>
               <Loader2 size={20} className="animate-spin" />
-              Saving All Tables...
+              Saving Entry...
             </>
           ) : (
             <>
               <Save size={18} />
-              Save All Tables
+              Save Entry
             </>
           )}
         </button>
       </div>
     </div>
+    </>
   );
 };
 

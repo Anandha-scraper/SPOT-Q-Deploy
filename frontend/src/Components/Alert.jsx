@@ -1,4 +1,5 @@
 import React from 'react';
+import { Check } from 'lucide-react';
 import '../styles/ComponentStyles/Alert.css';
 
 // DELETING STATUS COMPONENT
@@ -60,6 +61,23 @@ const CreatingEmployeeStatus = () => {
           </p>
         </div>
       </div>
+    </div>
+  );
+};
+
+// Success Alert component
+export const SuccessAlert = ({
+  isVisible,
+  message = 'Success!'
+}) => {
+  if (!isVisible) return null;
+
+  return (
+    <div className="success-alert">
+      <div className="success-alert-icon">
+        <Check size={20} strokeWidth={3} />
+      </div>
+      <span className="success-alert-text">{message}</span>
     </div>
   );
 };

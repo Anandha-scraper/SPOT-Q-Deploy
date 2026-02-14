@@ -4,10 +4,8 @@ import { FilterButton, ClearButton, MachineDropdown, CustomPagination } from '..
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import '../../styles/PageStyles/Moulding/DisamaticProductReport.css';
 import '../../styles/ComponentStyles/Buttons.css';
-
 // Redesigned to mirror TensileReport: one consolidated table showing all parameter rows across shifts.
 // Each parameter row gains Date + Machine + Shift context columns.
-
 const DmmSettingParametersReport = () => {
   // Use LOCAL date (not UTC) to avoid off-by-one issues
   const formatDate = (d) => {
@@ -26,8 +24,8 @@ const DmmSettingParametersReport = () => {
     return `${y}-${m}-${d}`;
   };
   const todayStr = getTodayLocal();
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
+  const [fromDate, setFromDate] = useState(todayStr);
+  const [toDate, setToDate] = useState(todayStr);
   const [selectedMachine, setSelectedMachine] = useState('');
   const [selectedShift, setSelectedShift] = useState('');
   const [reports, setReports] = useState([]);
@@ -67,7 +65,14 @@ const DmmSettingParametersReport = () => {
       if (data.success) {
         const all = data.data || [];
         setReports(all);
-        // Don't auto-filter on fetch - wait for user to click Filter button
+        // Auto-filter to show today's data by default
+        const todayDate = getTodayLocal();
+        let filtered = all.filter(r => {
+          if (!r.date) return false;
+          const reportDate = formatDate(r.date);
+          return reportDate >= todayDate && reportDate <= todayDate;
+        });
+        setFilteredReports(filtered);
       }
     } catch (err) {
       console.error('Failed to fetch dmm settings', err);
@@ -251,7 +256,8 @@ const DmmSettingParametersReport = () => {
                   <th style={{ padding: '14px 18px', textAlign: 'center', fontWeight: 600, fontSize: '0.875rem', background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>SP Thickness (mm)</th>
                   <th style={{ padding: '14px 18px', textAlign: 'center', fontWeight: 600, fontSize: '0.875rem', background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>SP Height (mm)</th>
                   <th style={{ padding: '14px 18px', textAlign: 'center', fontWeight: 600, fontSize: '0.875rem', background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>Core Mask Thickness (mm)</th>
-                  <th style={{ padding: '14px 18px', textAlign: 'center', fontWeight: 600, fontSize: '0.875rem', background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>Core Mask Height (mm)</th>
+                  <th style={{ padding: '14px 18px', textAlign: 'center', fontWeight: 600, fontSize: '0.875rem', background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>Core Mask Height Outside (mm)</th>
+                  <th style={{ padding: '14px 18px', textAlign: 'center', fontWeight: 600, fontSize: '0.875rem', background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>Core Mask Height Inside (mm)</th>
                   <th style={{ padding: '14px 18px', textAlign: 'center', fontWeight: 600, fontSize: '0.875rem', background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>Sand Shot Pressure (Bar)</th>
                   <th style={{ padding: '14px 18px', textAlign: 'center', fontWeight: 600, fontSize: '0.875rem', background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>Correction Shot Time (s)</th>
                   <th style={{ padding: '14px 18px', textAlign: 'center', fontWeight: 600, fontSize: '0.875rem', background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>Squeeze Pressure (Kg/cm²)</th>
@@ -523,7 +529,7 @@ const DmmSettingParametersReport = () => {
                         }}
                         onMouseLeave={(e) => {
                           e.target.closest('tr').style.backgroundColor = '';
-                        }}>{row.CoreMaskThickness ?? '-'}</td>
+                        }}>{row.coreMaskThickness ?? '-'}</td>
                         <td style={{ 
                           padding: '12px 18px', 
                           textAlign: 'center',
@@ -536,7 +542,7 @@ const DmmSettingParametersReport = () => {
                         }}
                         onMouseLeave={(e) => {
                           e.target.closest('tr').style.backgroundColor = '';
-                        }}>{row.CoreMaskHeight ?? '-'}</td>
+                        }}>{row.coreMaskHeightOutside ?? '-'}</td>
                         <td style={{ 
                           padding: '12px 18px', 
                           textAlign: 'center',
@@ -549,7 +555,20 @@ const DmmSettingParametersReport = () => {
                         }}
                         onMouseLeave={(e) => {
                           e.target.closest('tr').style.backgroundColor = '';
-                        }}>{row.sandShotPressurebar ?? '-'}</td>
+                        }}>{row.coreMaskHeightInside ?? '-'}</td>
+                        <td style={{ 
+                          padding: '12px 18px', 
+                          textAlign: 'center',
+                          borderTop: isFirstInGroup && idx > 0 ? '2px solid #e2e8f0' : 'none',
+                          borderBottom: isLastInGroup ? '2px solid #e2e8f0' : 'none',
+                          transition: 'background-color 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.closest('tr').style.backgroundColor = '#e0f2fe';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.closest('tr').style.backgroundColor = '';
+                        }}>{row.sandShotPressureBar ?? '-'}</td>
                         <td style={{ 
                           padding: '12px 18px', 
                           textAlign: 'center',
@@ -640,7 +659,7 @@ const DmmSettingParametersReport = () => {
                         }}
                         onMouseLeave={(e) => {
                           e.target.closest('tr').style.backgroundColor = '';
-                        }}>{row.mouldThickness ?? '-'}</td>
+                        }}>{row.mouldThicknessPlus10 ?? '-'}</td>
                         <td style={{ 
                           padding: '12px 18px', 
                           textAlign: 'center',

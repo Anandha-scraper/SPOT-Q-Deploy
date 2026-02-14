@@ -33,15 +33,19 @@ const ParameterEntrySchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
-    CoreMaskThickness: {
+    coreMaskThickness: {
         type: Number,
         default: 0
     },
-    CoreMaskHeight: {
+    coreMaskHeightOutside: {
         type: Number,
         default: 0
     },
-    sandShotPressurebar: {
+    coreMaskHeightInside: {
+        type: Number,
+        default: 0
+    },
+    sandShotPressureBar: {
         type: Number,
         default: 0
     },
@@ -69,7 +73,7 @@ const ParameterEntrySchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
-    mouldThickness: {
+    mouldThicknessPlus10: {
         type: Number,
         default: 0
     },
