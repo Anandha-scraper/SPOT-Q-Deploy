@@ -3,6 +3,7 @@ import { Save, Loader2, CheckCircle } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { CustomTimeInput, Time, ShiftDropdown, HolderDropdown, PlusButton, MinusButton } from '../../Components/Buttons';
 import { SuccessAlert } from '../../Components/Alert';
+import { buildApiUrl } from '../../config/api';
 import '../../styles/PageStyles/Melting/CupolaHolderLogSheet.css';
 
 const CupolaHolderLogSheet = () => {
@@ -283,7 +284,7 @@ const CupolaHolderLogSheet = () => {
     try {
       const dateStr = date instanceof Date ? date.toISOString().split('T')[0] : date;
       const res = await fetch(
-        `http://localhost:5000/api/v1/cupola-logs/primary/${dateStr}?shift=${encodeURIComponent(shift)}&holderNumber=${encodeURIComponent(holderNumber)}`,
+        buildApiUrl(`/api/v1/cupola-logs/primary/${dateStr}?shift=${encodeURIComponent(shift)}&holderNumber=${encodeURIComponent(holderNumber)}`),
         { method: 'GET', credentials: 'include', headers: { 'Content-Type': 'application/json' } }
       );
       const response = await res.json();
@@ -382,7 +383,7 @@ const CupolaHolderLogSheet = () => {
 
     setPrimaryLoading(true);
     try {
-      const res = await fetch('http://localhost:5000/api/v1/cupola-logs/primary', {
+      const res = await fetch(buildApiUrl('/api/v1/cupola-logs/primary'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -483,7 +484,7 @@ const CupolaHolderLogSheet = () => {
         remarks: row.remarks || ''
       }));
 
-      const response = await fetch('http://localhost:5000/api/v1/cupola-logs/table-update', {
+      const response = await fetch(buildApiUrl('/api/v1/cupola-logs/table-update'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

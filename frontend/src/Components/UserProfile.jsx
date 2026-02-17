@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { API_ENDPOINTS } from '../config/api';
 import '../styles/ComponentStyles/UserProfile.css';
 
 const UserProfile = () => {
@@ -15,7 +16,7 @@ const UserProfile = () => {
   const fetchLoginHistory = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:5000/api/v1/auth/login-history', {
+      const response = await fetch(API_ENDPOINTS.loginHistory, {
         credentials: 'include'
       });
       

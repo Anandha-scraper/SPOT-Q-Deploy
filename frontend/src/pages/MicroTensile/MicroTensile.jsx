@@ -3,6 +3,7 @@ import { Save, Loader2, FileText } from 'lucide-react';
 import { SubmitButton, ResetButton, DisaDropdown, LockPrimaryButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import Sakthi from '../../Components/Sakthi';
+import { buildApiUrl, API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/MicroTensile/MicroTensile.css';
 
 const MicroTensile = () => {
@@ -79,7 +80,7 @@ const MicroTensile = () => {
       }
 
       try {
-        const response = await fetch(`http://localhost:5000/api/v1/micro-tensile/check?date=${formData.date}&disa=${encodeURIComponent(formData.disa)}`, {
+        const response = await fetch(buildApiUrl(`/api/v1/micro-tensile/check?date=${formData.date}&disa=${encodeURIComponent(formData.disa)}`), {
           method: 'GET',
           credentials: 'include'
         });
@@ -228,7 +229,7 @@ const MicroTensile = () => {
     try {
       setSavePrimaryLoading(true);
       
-      const response = await fetch('http://localhost:5000/api/v1/micro-tensile/save-primary', {
+      const response = await fetch(buildApiUrl('/api/v1/micro-tensile/save-primary'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -401,7 +402,7 @@ const MicroTensile = () => {
       };
       delete payload.itemSecond;
 
-      const resp = await fetch('http://localhost:5000/api/v1/micro-tensile', {
+      const resp = await fetch(API_ENDPOINTS.microTensile, {
         method: 'POST',
         credentials: 'include',
         headers: {

@@ -4,6 +4,7 @@ import { FilterButton, ClearButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import Table from '../../Components/Table';
 import { RemarksCard } from '../../Components/PopUp';
+import { buildApiUrl } from '../../config/api';
 import '../../styles/PageStyles/MicroTensile/MicroTensileReport.css';
 
 
@@ -46,7 +47,7 @@ const MicroTensileReport = () => {
     try {
       const start = startDate;
       const end = endDate || startDate;
-      const resp = await fetch(`http://localhost:5000/api/v1/micro-tensile/filter?startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}`, {
+      const resp = await fetch(buildApiUrl(`/api/v1/micro-tensile/filter?startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}`), {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -83,7 +84,7 @@ const MicroTensileReport = () => {
       const day = String(today.getDate()).padStart(2, '0');
       const todayString = `${year}-${month}-${day}`;
       
-      const resp = await fetch(`http://localhost:5000/api/v1/micro-tensile/filter?startDate=${encodeURIComponent(todayString)}&endDate=${encodeURIComponent(todayString)}`, {
+      const resp = await fetch(buildApiUrl(`/api/v1/micro-tensile/filter?startDate=${encodeURIComponent(todayString)}&endDate=${encodeURIComponent(todayString)}`), {
         method: 'GET',
         credentials: 'include',
         headers: {

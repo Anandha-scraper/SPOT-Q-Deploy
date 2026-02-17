@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BookOpenCheck } from 'lucide-react';
 import { FilterButton, ClearButton, CustomPagination } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
+import { buildApiUrl } from '../../config/api';
 import '../../styles/PageStyles/Moulding/DisamaticProductReport.css';
 import '../../styles/ComponentStyles/Buttons.css';
 
@@ -60,7 +61,7 @@ const MeltingLogSheetReport = () => {
     }
     try {
       setLoading(true);
-      const resp = await fetch(`http://localhost:5000/api/v1/melting-logs/filter?startDate=${startDateStr}&endDate=${endDateStr}`, {
+      const resp = await fetch(buildApiUrl(`/api/v1/melting-logs/filter?startDate=${startDateStr}&endDate=${endDateStr}`), {
         method: 'GET',
         credentials: 'include',
         headers: {

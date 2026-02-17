@@ -1,32 +1,39 @@
 // Centralized API Configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-// Remove trailing /api/v1 if it exists in env to normalize
-const normalizedURL = API_BASE_URL.replace(/\/api\/v1$/, '');
-export const API_URL = normalizedURL;
+// Debug logging
+console.log('🔗 API URL:', API_BASE_URL);
+
+// Base URL for building custom endpoints  
+export const API_URL = API_BASE_URL;
+
+// Helper function to build API URLs
+export const buildApiUrl = (path) => `${API_BASE_URL}${path}`;
+
 export const API_ENDPOINTS = {
   // Auth
-  login: `${normalizedURL}/api/v1/auth/login`,
-  logout: `${normalizedURL}/api/v1/auth/logout`,
-  verify: `${normalizedURL}/api/v1/auth/verify`,
+  login: `${API_BASE_URL}/api/v1/auth/login`,
+  logout: `${API_BASE_URL}/api/v1/auth/logout`,
+  verify: `${API_BASE_URL}/api/v1/auth/verify`,
+  loginHistory: `${API_BASE_URL}/api/v1/auth/login-history`,
   
   // Admin
-  adminDepartments: `${normalizedURL}/api/v1/auth/admin/departments`,
-  adminUsers: `${normalizedURL}/api/v1/auth/admin/users`,
+  adminDepartments: `${API_BASE_URL}/api/v1/auth/admin/departments`,
+  adminUsers: `${API_BASE_URL}/api/v1/auth/admin/users`,
   
   // Departments
-  tensile: `${normalizedURL}/api/v1/tensile`,
-  impactTests: `${normalizedURL}/api/v1/impact-tests`,
-  microTensile: `${normalizedURL}/api/v1/micro-tensile`,
-  microStructure: `${normalizedURL}/api/v1/micro-structure`,
-  qcReports: `${normalizedURL}/api/v1/qc-reports`,
-  process: `${normalizedURL}/api/v1/process`,
-  sandTestingRecords: `${normalizedURL}/api/v1/sand-testing-records`,
-  foundrySandTestingNotes: `${normalizedURL}/api/v1/foundry-sand-testing-notes`,
-  mouldingDisa: `${normalizedURL}/api/v1/moulding-disa`,
-  mouldingDmm: `${normalizedURL}/api/v1/moulding-dmm`,
-  meltingLogs: `${normalizedURL}/api/v1/melting-logs`,
-  cupolaLogs: `${normalizedURL}/api/v1/cupola-logs`,
+  tensile: `${API_BASE_URL}/api/v1/tensile`,
+  impactTests: `${API_BASE_URL}/api/v1/impact-tests`,
+  microTensile: `${API_BASE_URL}/api/v1/micro-tensile`,
+  microStructure: `${API_BASE_URL}/api/v1/micro-structure`,
+  qcReports: `${API_BASE_URL}/api/v1/qc-reports`,
+  process: `${API_BASE_URL}/api/v1/process`,
+  sandTestingRecords: `${API_BASE_URL}/api/v1/sand-testing-records`,
+  foundrySandTestingNotes: `${API_BASE_URL}/api/v1/foundry-sand-testing-notes`,
+  mouldingDisa: `${API_BASE_URL}/api/v1/moulding-disa`,
+  mouldingDmm: `${API_BASE_URL}/api/v1/moulding-dmm`,
+  meltingLogs: `${API_BASE_URL}/api/v1/melting-logs`,
+  cupolaLogs: `${API_BASE_URL}/api/v1/cupola-logs`,
 };
 
 export default API_URL;

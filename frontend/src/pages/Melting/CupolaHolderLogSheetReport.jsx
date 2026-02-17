@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { BookOpenCheck, ChevronLeft, ChevronRight } from 'lucide-react';
 import { FilterButton, ClearButton, ShiftDropdown, HolderDropdown } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
+import { buildApiUrl } from '../../config/api';
 import '../../styles/PageStyles/Melting/CupolaHolderLogSheetReport.css';
 
 const ITEMS_PER_PAGE = 20;
@@ -46,7 +47,7 @@ const CupolaHolderLogSheetReport = () => {
     setLoading(true);
     try {
       const response = await fetch(
-        `http://localhost:5000/api/v1/cupola-logs/filter?startDate=${currentDate}&endDate=${currentDate}`,
+        buildApiUrl(`/api/v1/cupola-logs/filter?startDate=${currentDate}&endDate=${currentDate}`),
         { method: 'GET', credentials: 'include', headers: { 'Content-Type': 'application/json' } }
       );
       const data = await response.json();
@@ -73,7 +74,7 @@ const CupolaHolderLogSheetReport = () => {
     setLoading(true);
     try {
       const response = await fetch(
-        `http://localhost:5000/api/v1/cupola-logs/filter?startDate=${encodeURIComponent(filterStart)}&endDate=${encodeURIComponent(filterEnd)}`,
+        buildApiUrl(`/api/v1/cupola-logs/filter?startDate=${encodeURIComponent(filterStart)}&endDate=${encodeURIComponent(filterEnd)}`),
         { method: 'GET', credentials: 'include', headers: { 'Content-Type': 'application/json' } }
       );
       const data = await response.json();
