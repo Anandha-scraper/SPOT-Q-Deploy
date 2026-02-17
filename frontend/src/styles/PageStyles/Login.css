@@ -477,6 +477,8 @@ form {
   font-weight: 500;
   z-index: 1000;
   animation: slideInFromRight 0.3s ease-out;
+  max-width: 250px;
+  white-space: nowrap;
 }
 
 @keyframes slideInFromRight {

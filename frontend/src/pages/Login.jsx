@@ -21,13 +21,23 @@ const Login = () => {
   
   // Server connection status
   const [serverStatus, setServerStatus] = useState("connecting"); // connecting, connected, error
+  const [connectionMessage, setConnectionMessage] = useState("Waking up server...");
 
   // Check server health on component mount
   useEffect(() => {
+    let isMounted = true;
+    let retryCount = 0;
+    const maxRetries = 3;
+    
     const checkServerHealth = async () => {
+      if (!isMounted) return;
+      
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+        // 60 second timeout for cold start
+        const timeoutId = setTimeout(() => controller.abort(), 60000);
+        
+        setConnectionMessage(retryCount > 0 ? `Retrying... (${retryCount}/${maxRetries})` : "Waking up server...");
         
         const response = await fetch(`${API_URL}/health`, {
           method: 'GET',
@@ -36,19 +46,42 @@ const Login = () => {
         
         clearTimeout(timeoutId);
         
-        if (response.ok) {
+        if (response.ok && isMounted) {
           setServerStatus("connected");
-          setTimeout(() => setServerStatus(null), 3000); // Hide after 3 seconds
-        } else {
-          setServerStatus("error");
+          setConnectionMessage("Connected!");
+          setTimeout(() => {
+            if (isMounted) setServerStatus(null);
+          }, 3000);
+        } else if (isMounted) {
+          throw new Error('Health check failed');
         }
       } catch (err) {
-        console.error('Server health check failed:', err);
-        setServerStatus("error");
+        console.warn('Server health check attempt failed:', err.message);
+        
+        if (!isMounted) return;
+        
+        retryCount++;
+        
+        if (retryCount < maxRetries) {
+          // Retry after 2 seconds
+          setConnectionMessage(`Connection delayed, retrying...`);
+          setTimeout(() => checkServerHealth(), 2000);
+        } else {
+          setServerStatus("error");
+          setConnectionMessage("Server slow to respond");
+          // Still hide after some time even on error
+          setTimeout(() => {
+            if (isMounted) setServerStatus(null);
+          }, 8000);
+        }
       }
     };
     
     checkServerHealth();
+    
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const handleSubmit = async (e) => {
@@ -117,11 +150,7 @@ const Login = () => {
         {serverStatus && (
           <div className={`server-status-indicator ${serverStatus}`}>
             <div className="status-dot"></div>
-            <span className="status-text">
-              {serverStatus === "connecting" && "Connecting to server..."}
-              {serverStatus === "connected" && "Connected"}
-              {serverStatus === "error" && "Connection issue"}
-            </span>
+            <span className="status-text">{connectionMessage}</span>
           </div>
         )}
         
