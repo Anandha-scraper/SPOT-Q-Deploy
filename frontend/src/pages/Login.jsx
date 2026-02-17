@@ -2,6 +2,7 @@ import React, { useState, useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { EyeButton } from "../Components/Buttons";
 import Loader from "../Components/Loader";
+import { API_ENDPOINTS } from "../config/api";
 import "../styles/PageStyles/Login.css";
 
 const Login = () => {
@@ -31,7 +32,7 @@ const Login = () => {
     
     try {
       // Call login API directly
-      const response = await fetch('http://localhost:5000/api/v1/auth/login', {
+      const response = await fetch(API_ENDPOINTS.login, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

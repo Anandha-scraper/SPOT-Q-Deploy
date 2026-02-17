@@ -1,10 +1,8 @@
 import React, { createContext, useState, useEffect, useCallback, useContext } from 'react';
+import { API_URL, API_ENDPOINTS } from '../config/api';
 
 // Brain of authentication
 export const AuthContext = createContext();
-
-// API URL from environment variable
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export const AuthProvider = ({ children }) => {
     // Initialize state from localStorage (no token - it's in httpOnly cookie)
@@ -25,7 +23,7 @@ export const AuthProvider = ({ children }) => {
         
         // Call backend to clear cookie
         try {
-            await fetch(`${API_URL}/api/v1/auth/logout`, {
+            await fetch(API_ENDPOINTS.logout, {
                 method: 'POST',
                 credentials: 'include' // Important: sends cookie
             });
@@ -73,7 +71,7 @@ export const AuthProvider = ({ children }) => {
             if (!user) return;
 
             try {
-                const response = await fetch(`${API_URL}/api/v1/auth/verify`, {
+                const response = await fetch(API_ENDPOINTS.verify, {
                     credentials: 'include'
                 });
 
@@ -95,7 +93,7 @@ export const AuthProvider = ({ children }) => {
     const login = async (employeeId, password) => {
         setLoading(true);
         try {
-            const response = await fetch(`${API_URL}/api/v1/auth/login`, {
+            const response = await fetch(API_ENDPOINTS.login, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
