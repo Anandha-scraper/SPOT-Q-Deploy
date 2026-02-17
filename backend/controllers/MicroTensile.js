@@ -21,6 +21,99 @@ exports.getCurrentDate = async (req, res) => {
     }
 };
 
+/** CHECK DATE+DISA ENTRIES COUNT **/
+exports.checkDateDisaEntries = async (req, res) => {
+    try {
+        const { date, disa } = req.query;
+
+        if (!date || !disa) {
+            return res.status(400).json({ success: false, message: 'Date and DISA are required.' });
+        }
+
+        // Convert date string (YYYY-MM-DD) to Date object for proper matching
+        const [year, month, day] = date.split('-').map(Number);
+        const startOfDay = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+        const endOfDay = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
+
+        // Find document using date range to handle any timezone variations
+        const document = await MicroTensile.findOne({ 
+            date: { 
+                $gte: startOfDay, 
+                $lte: endOfDay 
+            } 
+        });
+
+        if (!document) {
+            return res.status(200).json({ success: true, exists: false, count: 0 });
+        }
+
+        // Check if this disa is in savedDisas array
+        const exists = document.savedDisas && document.savedDisas.includes(disa);
+        
+        // Count entries for this specific disa
+        const count = document.entries.filter(entry => entry.disa === disa).length;
+
+        return res.status(200).json({ success: true, exists, count });
+    } catch (error) {
+        console.error('Error checking date+disa:', error);
+        res.status(500).json({ success: false, message: 'Error checking entries.' });
+    }
+};
+
+/** SAVE PRIMARY DATA (Date + DISA) **/
+exports.savePrimary = async (req, res) => {
+    try {
+        const { date, disa } = req.body;
+
+        if (!date || !disa) {
+            return res.status(400).json({ success: false, message: 'Date and DISA are required.' });
+        }
+
+        // Convert date string (YYYY-MM-DD) to Date object for proper matching
+        const [year, month, day] = date.split('-').map(Number);
+        const startOfDay = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+        const endOfDay = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
+
+        // Find document using date range to handle any timezone variations
+        let document = await MicroTensile.findOne({ 
+            date: { 
+                $gte: startOfDay, 
+                $lte: endOfDay 
+            } 
+        });
+
+        if (!document) {
+            // Create new document with this disa in savedDisas
+            document = await MicroTensile.create({
+                date: startOfDay,
+                savedDisas: [disa],
+                entries: []
+            });
+        } else {
+            // Add disa to savedDisas if not already present
+            if (!document.savedDisas) {
+                document.savedDisas = [];
+            }
+            if (!document.savedDisas.includes(disa)) {
+                document.savedDisas.push(disa);
+                await document.save();
+            }
+        }
+
+        // Count entries for this specific disa
+        const count = document.entries.filter(entry => entry.disa === disa).length;
+
+        return res.status(200).json({ 
+            success: true, 
+            count,
+            message: 'Primary data saved successfully.' 
+        });
+    } catch (error) {
+        console.error('Error saving primary:', error);
+        res.status(500).json({ success: false, message: 'Error saving primary data.' });
+    }
+};
+
 /** 2. DATA RETRIEVAL & REPORTING **/
 
 exports.getGroupedByDate = async (req, res) => {

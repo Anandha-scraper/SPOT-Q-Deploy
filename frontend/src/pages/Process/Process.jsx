@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Loader2, FileText } from 'lucide-react';
 import { SubmitButton, LockPrimaryButton, DisaDropdown, CustomTimeInput, Time } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
+import Sakthi from '../../Components/Sakthi';
+import { ErrorAlert } from '../../Components/Alert';
 import '../../styles/PageStyles/Process/Process.css';
 
 export default function ProcessControl() {
@@ -30,6 +32,9 @@ export default function ProcessControl() {
   const [submitError, setSubmitError] = useState('');
   const [savePrimaryLoading, setSavePrimaryLoading] = useState(false);
   const [entryCount, setEntryCount] = useState(0);
+  const [showSakthi, setShowSakthi] = useState(false);
+  const [showErrorAlert, setShowErrorAlert] = useState(false);
+  const [alertMessage, setAlertMessage] = useState('');
 
   /* 
    * VALIDATION STATES
@@ -655,7 +660,8 @@ export default function ProcessControl() {
       const data = await response.json();
 
       if (data.success) {
-        alert('Process control entry saved successfully!');
+        // Show Sakthi loader
+        setShowSakthi(true);
 
         // Get current date
         const today = new Date();
@@ -718,8 +724,7 @@ export default function ProcessControl() {
         setPTimeValid(null);
         setRemarksValid(null);
         
-        // Reset focus and error states
-        setFocusedField(null);
+        // Reset error states
         setSubmitErrorMessage('');
         
         // Increment entry count
@@ -732,7 +737,9 @@ export default function ProcessControl() {
       }
     } catch (error) {
       console.error('Error saving process control entry:', error);
-      alert('Failed to save entry: ' + error.message);
+      setAlertMessage('Failed to save entry: ' + error.message);
+      setShowErrorAlert(true);
+      setTimeout(() => setShowErrorAlert(false), 3000);
     } finally {
       setSubmitLoading(false);
     }
@@ -745,8 +752,28 @@ export default function ProcessControl() {
     }
   };
 
+  const handleSakthiComplete = () => {
+    setShowSakthi(false);
+  };
+
   return (
     <>
+      {showSakthi && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999
+        }}>
+          <Sakthi onComplete={handleSakthiComplete} />
+        </div>
+      )}
       <div className="process-header">
         <div className="process-header-text">
           <h2>
@@ -1368,6 +1395,7 @@ export default function ProcessControl() {
             {submitErrorMessage}
           </span>
         )}
+        <ErrorAlert isVisible={showErrorAlert} message={alertMessage} />
         <SubmitButton
           ref={el => inputRefs.current.submitBtn = el}
           onClick={handleSubmit}

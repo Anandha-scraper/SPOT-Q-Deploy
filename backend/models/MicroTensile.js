@@ -2,10 +2,11 @@ const mongoose = require('mongoose');
 
 // Sub-schema for individual micro tensile test entries
 const MicroTensileEntrySchema = new mongoose.Schema({
-    // Disa as array for multiple selections
+    // Disa as string for single selection
     disa: {
-        type: [String],
-        default: []
+        type: String,
+        required: true,
+        trim: true
     },
 
     item: {
@@ -93,6 +94,10 @@ const MicroTensileSchema = new mongoose.Schema({
         required: true,
         unique: true,  // Only one document per date
         index: true
+    },
+    savedDisas: {
+        type: [String],
+        default: []  // Array of disa values that have been locked/saved
     },
     entries: {
         type: [MicroTensileEntrySchema],

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Save, Loader2, FileText } from 'lucide-react';
-import { SubmitButton, ResetButton } from '../../Components/Buttons';
+import { SubmitButton, ResetButton, DisaDropdown, LockPrimaryButton } from '../../Components/Buttons';
+import CustomDatePicker from '../../Components/CustomDatePicker';
 import Sakthi from '../../Components/Sakthi';
 import '../../styles/PageStyles/MicroTensile/MicroTensile.css';
 
@@ -8,7 +9,7 @@ const MicroTensile = () => {
   const inputRefs = useRef({});
   const [formData, setFormData] = useState({
     date: '',
-    disa: [],
+    disa: '',
     item: '',
     itemSecond: '',
     dateCode: '',
@@ -29,6 +30,11 @@ const MicroTensile = () => {
   const [submitError, setSubmitError] = useState('');
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
 
+  // Primary save states
+  const [isPrimarySaved, setIsPrimarySaved] = useState(false);
+  const [savePrimaryLoading, setSavePrimaryLoading] = useState(false);
+  const [entryCount, setEntryCount] = useState(0);
+
   // VALIDATION STATES
   const [itemValid, setItemValid] = useState(null);
   const [itemSecondValid, setItemSecondValid] = useState(null);
@@ -43,57 +49,61 @@ const MicroTensile = () => {
   const [elongationValid, setElongationValid] = useState(null);
   const [testedByValid, setTestedByValid] = useState(null);
 
-  const disaOptions = ['DISA 1', 'DISA 2', 'DISA 3', 'DISA 4'];
-
   // Field order for keyboard navigation
-  const fieldOrder = ['disa', 'item', 'itemSecond', 'dateCode', 'heatCode', 'barDia', 'gaugeLength',
+  const fieldOrder = ['date', 'disa', 'item', 'itemSecond', 'dateCode', 'heatCode', 'barDia', 'gaugeLength',
                      'maxLoad', 'yieldLoad', 'tensileStrength', 'yieldStrength', 'elongation', 'remarks', 'testedBy'];
 
   // Only these fields must be filled before moving on Enter
-  const requiredFields = ['disa', 'item', 'dateCode', 'heatCode', 'barDia', 'gaugeLength',
+  const requiredFields = ['date', 'disa', 'item', 'dateCode', 'heatCode', 'barDia', 'gaugeLength',
                           'maxLoad', 'yieldLoad', 'tensileStrength', 'yieldStrength', 'elongation'];
 
-  // Fetch current date from backend on mount
+  // Set current date on mount
   useEffect(() => {
-    const fetchCurrentDate = async () => {
-      try {
-        const resp = await fetch('http://localhost:5000/api/v1/micro-tensile/current-date', {
-          method: 'GET',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
-          }
-        });
-        const data = await resp.json();
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const d = String(today.getDate()).padStart(2, '0');
+    setFormData(prev => ({
+      ...prev,
+      date: `${y}-${m}-${d}`
+    }));
+  }, []);
 
-        if (data.success && data.date) {
-          setFormData(prev => ({
-            ...prev,
-            date: data.date
-          }));
+  // Check if date+disa combination exists in database
+  useEffect(() => {
+    const checkDateDisaExists = async () => {
+      if (!formData.date || !formData.disa) {
+        setIsPrimarySaved(false);
+        setEntryCount(0);
+        return;
+      }
+
+      try {
+        const response = await fetch(`http://localhost:5000/api/v1/micro-tensile/check?date=${formData.date}&disa=${encodeURIComponent(formData.disa)}`, {
+          method: 'GET',
+          credentials: 'include'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+          setIsPrimarySaved(data.exists);
+          setEntryCount(data.count || 0);
         }
       } catch (error) {
-        console.error('Error fetching current date:', error);
-        // Fallback to local date if backend fails
-        const today = new Date();
-        const y = today.getFullYear();
-        const m = String(today.getMonth() + 1).padStart(2, '0');
-        const d = String(today.getDate()).padStart(2, '0');
-        setFormData(prev => ({
-          ...prev,
-          date: `${y}-${m}-${d}`
-        }));
+        console.error('Error checking date+disa:', error);
       }
     };
 
-    fetchCurrentDate();
-  }, []);
+    checkDateDisaExists();
+  }, [formData.date, formData.disa]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    // Prevent programmatic/user changes to date
-    if (name === 'date') return;
+
+    // Reset primary saved state when date or disa changes
+    if (name === 'date' || name === 'disa') {
+      setIsPrimarySaved(false);
+    }
 
     // --- VALIDATE ITEM: text required ---
     if (name === 'item') {
@@ -209,20 +219,39 @@ const MicroTensile = () => {
     setErrors(prev => ({ ...prev, [name]: false }));
   };
 
-  const handleDisaChange = (disaValue) => {
-    setFormData(prev => {
-      const currentDisa = prev.disa || [];
-      const isSelected = currentDisa.includes(disaValue);
-      const newDisa = isSelected
-        ? currentDisa.filter(d => d !== disaValue)
-        : [...currentDisa, disaValue];
+  const handlePrimarySubmit = async () => {
+    if (!formData.date || !formData.disa) {
+      alert('Please fill in Date and DISA');
+      return;
+    }
 
-      return {
-        ...prev,
-        disa: newDisa
-      };
-    });
-    setErrors(prev => ({ ...prev, disa: false }));
+    try {
+      setSavePrimaryLoading(true);
+      
+      const response = await fetch('http://localhost:5000/api/v1/micro-tensile/save-primary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ date: formData.date, disa: formData.disa })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setIsPrimarySaved(true);
+        setEntryCount(data.count || 0);
+        setTimeout(() => {
+          inputRefs.current.item?.focus();
+        }, 100);
+      } else {
+        alert('Failed to save primary: ' + data.message);
+      }
+    } catch (error) {
+      console.error('Error saving primary:', error);
+      alert('Failed to save primary: ' + error.message);
+    } finally {
+      setSavePrimaryLoading(false);
+    }
   };
 
   const handleKeyDown = (e, field) => {
@@ -420,6 +449,9 @@ const MicroTensile = () => {
         setYieldStrengthValid(null);
         setElongationValid(null);
 
+        // Increment entry count
+        setEntryCount(prev => prev + 1);
+
         // Focus on Item for next entry
         setTimeout(() => {
           inputRefs.current.item?.focus();
@@ -495,54 +527,95 @@ const MicroTensile = () => {
             Micro Tensile Test - Entry Form
           </h2>
         </div>
+        <div aria-label="Date" style={{ fontWeight: 600, color: '#25424c' }}>
+          DATE : {formData.date ? (() => {
+            const [y, m, d] = formData.date.split('-');
+            return `${d} / ${m} / ${y}`;
+          })() : '-'}
+        </div>
       </div>
 
+      {/* Primary Data Section */}
+      <h3 style={{ marginTop: '1rem', marginBottom: '0.75rem', fontSize: '1.125rem', fontWeight: 600, color: '#25424c' }}>
+        Primary Data {isPrimarySaved && <span style={{ fontWeight: 400, fontSize: '0.875rem', color: '#5B9AA9' }}>(Entries: {entryCount})</span>}
+      </h3>
+
       <div className="microtensile-form-grid">
-            <div className={`microtensile-form-group ${errors.disa ? 'microtensile-error-outline' : ''}`} style={{ gridColumn: 'span 2' }}>
-              <label>DISA <span className="required-indicator">*</span></label>
-              <div className="microtensile-disa-checklist">
-                {disaOptions.map((option) => (
-                  <label key={option} className="microtensile-checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={formData.disa?.includes(option) || false}
-                      onChange={() => handleDisaChange(option)}
-                      onKeyDown={(e) => handleKeyDown(e, 'disa')}
-                      className="microtensile-checkbox"
-                    />
-                    <span>{option}</span>
-                  </label>
-                ))}
-              </div>
+            <div className="microtensile-form-group">
+              <label>Date <span className="required-indicator">*</span></label>
+              <CustomDatePicker
+                ref={el => inputRefs.current.date = el}
+                name="date"
+                value={formData.date}
+                onChange={handleChange}
+                onKeyDown={e => handleKeyDown(e, 'date')}
+                max={new Date().toISOString().split('T')[0]}
+              />
             </div>
 
-            {/* Force next items to new line */}
-            <div style={{ gridColumn: '1 / -1', height: 0 }}></div>
+            <div className="microtensile-form-group">
+              <label>DISA <span className="required-indicator">*</span></label>
+              <DisaDropdown
+                ref={el => inputRefs.current.disa = el}
+                name="disa"
+                value={formData.disa}
+                onChange={handleChange}
+                onKeyDown={e => handleKeyDown(e, 'disa')}
+              />
+            </div>
 
-            <div className="microtensile-form-group" >
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
-                <div className={`${errors.item ? 'microtensile-error-outline' : ''}`}>
-                  <label>Item <span className="required-indicator">*</span></label>
-                  <input
-                    ref={el => inputRefs.current.item = el}
-                    type="text"
-                    name="item"
-                    value={formData.item}
-                    onChange={handleChange}
-                    onKeyDown={e => handleKeyDown(e, 'item')}
-                    placeholder="e.g: Volvo Bkt 234"
-                    className={
-                      itemValid === null
-                        ? ""
-                        : itemValid
-                        ? "valid-input"
-                        : "invalid-input"
-                    }
-                  />
-                </div>
-                <div>
-                </div>
-              </div>
+            <div className="microtensile-form-group">
+              <label>&nbsp;</label>
+              <LockPrimaryButton
+                onClick={handlePrimarySubmit}
+                disabled={savePrimaryLoading || !formData.date || !formData.disa || isPrimarySaved}
+                isLocked={isPrimarySaved}
+              />
+            </div>
+
+            {/* Divider line */}
+            <div style={{ gridColumn: '1 / -1', marginTop: '1rem', marginBottom: '1rem', paddingTop: '1rem', borderTop: '2px solid #e2e8f0' }}></div>
+
+            <div className={`microtensile-form-group ${errors.item ? 'microtensile-error-outline' : ''}`}>
+              <label>Item <span className="required-indicator">*</span></label>
+              <input
+                ref={el => inputRefs.current.item = el}
+                type="text"
+                name="item"
+                value={formData.item}
+                onChange={handleChange}
+                onKeyDown={e => handleKeyDown(e, 'item')}
+                placeholder="e.g: Volvo Bkt 234"
+                disabled={!isPrimarySaved}
+                className={
+                  itemValid === null
+                    ? ""
+                    : itemValid
+                    ? "valid-input"
+                    : "invalid-input"
+                }
+              />
+            </div>
+
+            <div className={`microtensile-form-group ${errors.itemSecond ? 'microtensile-error-outline' : ''}`}>
+              <label>Item (Optional)</label>
+              <input
+                ref={el => inputRefs.current.itemSecond = el}
+                type="text"
+                name="itemSecond"
+                value={formData.itemSecond}
+                onChange={handleChange}
+                onKeyDown={e => handleKeyDown(e, 'itemSecond')}
+                placeholder="(Optional) e.g: 343/34/56"
+                disabled={!isPrimarySaved}
+                className={
+                  itemSecondValid === null
+                    ? ""
+                    : itemSecondValid
+                    ? "valid-input"
+                    : "invalid-input"
+                }
+              />
             </div>
 
             <div className={`microtensile-form-group ${errors.dateCode ? 'microtensile-error-outline' : ''}`}>
@@ -555,6 +628,7 @@ const MicroTensile = () => {
                 onChange={handleChange}
                 onKeyDown={e => handleKeyDown(e, 'dateCode')}
                 placeholder="e.g: 5E04"
+                disabled={!isPrimarySaved}
                 className={
                   dateCodeValid === null
                     ? ""
@@ -577,6 +651,7 @@ const MicroTensile = () => {
                 onChange={handleChange}
                 onKeyDown={e => handleKeyDown(e, 'heatCode')}
                 placeholder="e.g: 1"
+                disabled={!isPrimarySaved}
                 className={
                   heatCodeValid === null
                     ? ""
@@ -598,6 +673,7 @@ const MicroTensile = () => {
                 onKeyDown={e => handleKeyDown(e, 'barDia')}
                 step="0.01"
                 placeholder="e.g: 6.0"
+                disabled={!isPrimarySaved}
                 className={
                   barDiaValid === null
                     ? ""
@@ -619,6 +695,7 @@ const MicroTensile = () => {
                 onKeyDown={e => handleKeyDown(e, 'gaugeLength')}
                 step="0.01"
                 placeholder="e.g: 30.0"
+                disabled={!isPrimarySaved}
                 className={
                   gaugeLengthValid === null
                     ? ""
@@ -640,6 +717,7 @@ const MicroTensile = () => {
                 onKeyDown={e => handleKeyDown(e, 'maxLoad')}
                 step="0.01"
                 placeholder="e.g: 1560"
+                disabled={!isPrimarySaved}
                 className={
                   maxLoadValid === null
                     ? ""
@@ -661,6 +739,7 @@ const MicroTensile = () => {
                 onKeyDown={e => handleKeyDown(e, 'yieldLoad')}
                 step="0.01"
                 placeholder="e.g: 1290"
+                disabled={!isPrimarySaved}
                 className={
                   yieldLoadValid === null
                     ? ""
@@ -682,6 +761,7 @@ const MicroTensile = () => {
                 onKeyDown={e => handleKeyDown(e, 'tensileStrength')}
                 step="0.01"
                 placeholder="e.g: 550"
+                disabled={!isPrimarySaved}
                 className={
                   tensileStrengthValid === null
                     ? ""
@@ -703,6 +783,7 @@ const MicroTensile = () => {
                 onKeyDown={e => handleKeyDown(e, 'yieldStrength')}
                 step="0.01"
                 placeholder="e.g: 455"
+                disabled={!isPrimarySaved}
                 className={
                   yieldStrengthValid === null
                     ? ""
@@ -724,6 +805,7 @@ const MicroTensile = () => {
                 onKeyDown={e => handleKeyDown(e, 'elongation')}
                 step="0.01"
                 placeholder="e.g: 18.5"
+                disabled={!isPrimarySaved}
                 className={
                   elongationValid === null
                     ? ""
@@ -745,6 +827,7 @@ const MicroTensile = () => {
                 onKeyDown={e => handleKeyDown(e, 'remarks')}
                 placeholder="Enter any additional notes or observations..."
                 maxLength={80}
+                disabled={!isPrimarySaved}
                 style={{
                   width: '100%',
                   maxWidth: '500px',
@@ -763,6 +846,7 @@ const MicroTensile = () => {
                 onChange={handleChange}
                 onKeyDown={e => handleKeyDown(e, 'testedBy')}
                 placeholder="e.g: John Smith"
+                disabled={!isPrimarySaved}
               />
             </div>
           </div>
@@ -778,7 +862,7 @@ const MicroTensile = () => {
           )}
           <SubmitButton
             onClick={handleSubmit}
-            disabled={submitLoading}
+            disabled={!isPrimarySaved || submitLoading}
           >
             {submitLoading ? (
               <>

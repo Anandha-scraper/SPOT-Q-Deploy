@@ -35,7 +35,11 @@ const QcProductionDetails = () => {
 
   const [submitLoading, setSubmitLoading] = useState(false);
 
-  // VALIDATION STATES (null = neutral/default, true = green/valid, false = red/invalid)
+  /* 
+   * VALIDATION STATES
+   * null = neutral/default (no border color)
+   * false = invalid (red border) - shown after submit when field is empty/invalid
+   */
   const [dateValid, setDateValid] = useState(null);
   const [partNameValid, setPartNameValid] = useState(null);
   const [noOfMouldsValid, setNoOfMouldsValid] = useState(null);
@@ -59,6 +63,16 @@ const QcProductionDetails = () => {
   const submitButtonRef = useRef(null);
   const firstInputRef = useRef(null);
 
+  /*
+   * Returns the appropriate CSS class for an input field based on validation state:
+   * - Red border (invalid-input) when field is invalid/empty after submit
+   * - Neutral (no color) otherwise
+   */
+  const getInputClassName = (validationState) => {
+    if (validationState === false) return 'invalid-input';
+    return '';
+  };
+
   // Helper function to validate range format (e.g., "3.50-3.75" or "3.50")
   const isValidRange = (value) => {
     if (!value || value.trim() === '') return false;
@@ -69,147 +83,73 @@ const QcProductionDetails = () => {
     return rangePattern.test(trimmed) || numberPattern.test(trimmed);
   };
 
+  /*
+   * Handle input change
+   * When user starts typing, reset validation state to null (neutral)
+   * This removes the red border as user begins correcting the field
+   */
+
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    // Validate Date
-    if (name === 'date') {
-      if (value.trim() === '') {
+    // Reset validation to neutral when user starts typing
+    switch (name) {
+      case 'date':
         setDateValid(null);
-      } else {
-        setDateValid(value.trim().length > 0);
-      }
-    }
-
-    // Validate Part Name
-    if (name === 'partName') {
-      if (value.trim() === '') {
+        break;
+      case 'partName':
         setPartNameValid(null);
-      } else {
-        setPartNameValid(value.trim().length > 0);
-      }
-    }
-
-    // Validate No. of Moulds (number >= 1)
-    if (name === 'noOfMoulds') {
-      if (value.trim() === '') {
+        break;
+      case 'noOfMoulds':
         setNoOfMouldsValid(null);
-      } else {
-        setNoOfMouldsValid(!isNaN(value) && parseFloat(value) >= 1);
-      }
-    }
-
-    // Validate percentage fields (range format: "X.XX-Y.YY" or single number)
-    if (name === 'cPercent') {
-      if (value.trim() === '') {
+        break;
+      case 'cPercent':
         setCPercentValid(null);
-      } else {
-        setCPercentValid(isValidRange(value));
-      }
-    }
-    if (name === 'siPercent') {
-      if (value.trim() === '') {
+        break;
+      case 'siPercent':
         setSiPercentValid(null);
-      } else {
-        setSiPercentValid(isValidRange(value));
-      }
-    }
-    if (name === 'mnPercent') {
-      if (value.trim() === '') {
+        break;
+      case 'mnPercent':
         setMnPercentValid(null);
-      } else {
-        setMnPercentValid(isValidRange(value));
-      }
-    }
-    if (name === 'pPercent') {
-      if (value.trim() === '') {
+        break;
+      case 'pPercent':
         setPPercentValid(null);
-      } else {
-        setPPercentValid(isValidRange(value));
-      }
-    }
-    if (name === 'sPercent') {
-      if (value.trim() === '') {
+        break;
+      case 'sPercent':
         setSPercentValid(null);
-      } else {
-        setSPercentValid(isValidRange(value));
-      }
-    }
-    if (name === 'mgPercent') {
-      if (value.trim() === '') {
+        break;
+      case 'mgPercent':
         setMgPercentValid(null);
-      } else {
-        setMgPercentValid(isValidRange(value));
-      }
-    }
-    if (name === 'cuPercent') {
-      if (value.trim() === '') {
+        break;
+      case 'cuPercent':
         setCuPercentValid(null);
-      } else {
-        setCuPercentValid(isValidRange(value));
-      }
-    }
-    if (name === 'crPercent') {
-      if (value.trim() === '') {
+        break;
+      case 'crPercent':
         setCrPercentValid(null);
-      } else {
-        setCrPercentValid(isValidRange(value));
-      }
-    }
-
-    // Validate text fields
-    if (name === 'nodularity') {
-      if (value.trim() === '') {
+        break;
+      case 'nodularity':
         setNodularityValid(null);
-      } else {
-        setNodularityValid(value.trim().length > 0);
-      }
-    }
-    if (name === 'graphiteType') {
-      if (value.trim() === '') {
+        break;
+      case 'graphiteType':
         setGraphiteTypeValid(null);
-      } else {
-        setGraphiteTypeValid(value.trim().length > 0);
-      }
-    }
-    if (name === 'pearliteFerrite') {
-      if (value.trim() === '') {
+        break;
+      case 'pearliteFerrite':
         setPearliteFertiteValid(null);
-      } else {
-        setPearliteFertiteValid(value.trim().length > 0);
-      }
-    }
-
-    // Validate Hardness BHN (range format)
-    if (name === 'hardnessBHN') {
-      if (value.trim() === '') {
+        break;
+      case 'hardnessBHN':
         setHardnessBHNValid(null);
-      } else {
-        setHardnessBHNValid(isValidRange(value));
-      }
-    }
-
-    // Validate TS, YS, EL (text fields)
-    if (name === 'ts') {
-      if (value.trim() === '') {
+        break;
+      case 'ts':
         setTsValid(null);
-      } else {
-        setTsValid(value.trim().length > 0);
-      }
-    }
-    if (name === 'ys') {
-      if (value.trim() === '') {
+        break;
+      case 'ys':
         setYsValid(null);
-      } else {
-        setYsValid(value.trim().length > 0);
-      }
-    }
-    if (name === 'el') {
-      if (value.trim() === '') {
+        break;
+      case 'el':
         setElValid(null);
-      } else {
-        setElValid(value.trim().length > 0);
-      }
+        break;
+      default:
+        break;
     }
 
     setFormData(prev => ({
@@ -338,6 +278,26 @@ const QcProductionDetails = () => {
       return;
     }
 
+    // Clear all validation states on successful validation
+    setDateValid(null);
+    setPartNameValid(null);
+    setNoOfMouldsValid(null);
+    setCPercentValid(null);
+    setSiPercentValid(null);
+    setMnPercentValid(null);
+    setPPercentValid(null);
+    setSPercentValid(null);
+    setMgPercentValid(null);
+    setCuPercentValid(null);
+    setCrPercentValid(null);
+    setNodularityValid(null);
+    setGraphiteTypeValid(null);
+    setPearliteFertiteValid(null);
+    setHardnessBHNValid(null);
+    setTsValid(null);
+    setYsValid(null);
+    setElValid(null);
+
     // Helper: save entry locally if backend fails
     const saveLocalEntry = () => {
       try {
@@ -458,11 +418,10 @@ const QcProductionDetails = () => {
     setElValid(null);
   };
 
-  // Helper to get input style class based on validation state
-  const getInputStyle = (validState) => {
-    if (validState === true) return 'valid-input';
-    if (validState === false) return 'invalid-input';
-    return '';
+  // Helper to get current date
+  const getTodayDate = () => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
   };
 
   return (
@@ -491,7 +450,7 @@ const QcProductionDetails = () => {
                 onKeyDown={handleKeyDown}
                 max={new Date().toISOString().split('T')[0]}
                 style={{
-                  border: dateValid === null ? '2px solid #cbd5e1' : dateValid ? '2px solid #10b981' : '2px solid #ef4444',
+                  border: dateValid === false ? '2px solid #ef4444' : '2px solid #cbd5e1',
                   width: '100%',
                   padding: '0.625rem 0.875rem',
                   borderRadius: '8px',
@@ -511,7 +470,7 @@ const QcProductionDetails = () => {
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g: Brake Disc"
-                className={getInputStyle(partNameValid)}
+                className={getInputClassName(partNameValid)}
               />
             </div>
 
@@ -525,7 +484,7 @@ const QcProductionDetails = () => {
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g: 5"
-                className={getInputStyle(noOfMouldsValid)}
+                className={getInputClassName(noOfMouldsValid)}
               />
             </div>
 
@@ -539,7 +498,7 @@ const QcProductionDetails = () => {
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g: 3.54-3.75"
-                className={getInputStyle(cPercentValid)}
+                className={getInputClassName(cPercentValid)}
               />
             </div>
 
@@ -553,7 +512,7 @@ const QcProductionDetails = () => {
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g: 2.40-2.80"
-                className={getInputStyle(siPercentValid)}
+                className={getInputClassName(siPercentValid)}
               />
             </div>
 
@@ -567,7 +526,7 @@ const QcProductionDetails = () => {
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g: 0.40-0.60"
-                className={getInputStyle(mnPercentValid)}
+                className={getInputClassName(mnPercentValid)}
               />
             </div>
 
@@ -581,7 +540,7 @@ const QcProductionDetails = () => {
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g: 0.02-0.05"
-                className={getInputStyle(pPercentValid)}
+                className={getInputClassName(pPercentValid)}
               />
             </div>
 
@@ -595,7 +554,7 @@ const QcProductionDetails = () => {
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g: 0.01-0.05"
-                className={getInputStyle(sPercentValid)}
+                className={getInputClassName(sPercentValid)}
               />
             </div>
 
@@ -609,7 +568,7 @@ const QcProductionDetails = () => {
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g: 0.03-0.05"
-                className={getInputStyle(mgPercentValid)}
+                className={getInputClassName(mgPercentValid)}
               />
             </div>
 
@@ -623,7 +582,7 @@ const QcProductionDetails = () => {
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g: 0.30-0.80"
-                className={getInputStyle(cuPercentValid)}
+                className={getInputClassName(cuPercentValid)}
               />
             </div>
 
@@ -637,7 +596,7 @@ const QcProductionDetails = () => {
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g: 0.05-0.15"
-                className={getInputStyle(crPercentValid)}
+                className={getInputClassName(crPercentValid)}
               />
             </div>
 
@@ -650,7 +609,7 @@ const QcProductionDetails = () => {
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g: 85"
-                className={getInputStyle(nodularityValid)}
+                className={getInputClassName(nodularityValid)}
               />
             </div>
 
@@ -663,7 +622,7 @@ const QcProductionDetails = () => {
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g: 23-45"
-                className={getInputStyle(graphiteTypeValid)}
+                className={getInputClassName(graphiteTypeValid)}
               />
             </div>
 
@@ -676,7 +635,7 @@ const QcProductionDetails = () => {
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g: 55-65P"
-                className={getInputStyle(pearliteFertiteValid)}
+                className={getInputClassName(pearliteFertiteValid)}
               />
             </div>
 
@@ -689,7 +648,7 @@ const QcProductionDetails = () => {
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g: 25-48"
-                className={getInputStyle(hardnessBHNValid)}
+                className={getInputClassName(hardnessBHNValid)}
               />
             </div>
 
@@ -702,7 +661,7 @@ const QcProductionDetails = () => {
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g: 550.23"
-                className={getInputStyle(tsValid)}
+                className={getInputClassName(tsValid)}
               />
             </div>
 
@@ -715,7 +674,7 @@ const QcProductionDetails = () => {
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g: 460.23"
-                className={getInputStyle(ysValid)}
+                className={getInputClassName(ysValid)}
               />
             </div>
 
@@ -728,7 +687,7 @@ const QcProductionDetails = () => {
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g: 18.5"
-                className={getInputStyle(elValid)}
+                className={getInputClassName(elValid)}
               />
             </div>
       </form>
