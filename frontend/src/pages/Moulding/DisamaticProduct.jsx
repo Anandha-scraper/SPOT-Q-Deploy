@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef } from "react";
 import { Save, Plus, X } from "lucide-react";
 import CustomDatePicker from "../../Components/CustomDatePicker";
 import { CustomTimeInput, Time, PlusButton, MinusButton, SubmitButton, ShiftDropdown } from "../../Components/Buttons";
+import { API_ENDPOINTS } from "../../config/api";
 import "../../styles/PageStyles/Moulding/DisamaticProduct.css";
 
-const API_BASE_URL = 'http://localhost:5000/api/v1/moulding-disa';
+const API_BASE_URL = API_ENDPOINTS.mouldingDisa;
 
 const initialFormData = {
   date: "",

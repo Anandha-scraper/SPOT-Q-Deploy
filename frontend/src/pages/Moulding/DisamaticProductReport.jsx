@@ -3,9 +3,10 @@ import { BookOpenCheck } from 'lucide-react';
 import { FilterButton, ClearButton, ShiftDropdown } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import Table from '../../Components/Table';
+import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Moulding/DisamaticProductReport.css';
 
-const API_BASE_URL = 'http://localhost:5000/api/v1/moulding-disa';
+const API_BASE_URL = API_ENDPOINTS.mouldingDisa;
 
 const DisamaticProductReport = () => {
   const [currentDate, setCurrentDate] = useState('');

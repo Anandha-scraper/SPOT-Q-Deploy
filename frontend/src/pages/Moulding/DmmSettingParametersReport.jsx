@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BookOpenCheck } from 'lucide-react';
 import { FilterButton, ClearButton, MachineDropdown, CustomPagination } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
+import { buildApiUrl } from '../../config/api';
 import '../../styles/PageStyles/Moulding/DisamaticProductReport.css';
 import '../../styles/ComponentStyles/Buttons.css';
 // Redesigned to mirror TensileReport: one consolidated table showing all parameter rows across shifts.
@@ -53,7 +54,7 @@ const DmmSettingParametersReport = () => {
   const fetchReports = async () => {
     try {
       setLoading(true);
-      const resp = await fetch('http://localhost:5000/api/v1/moulding-dmm/all', {
+      const resp = await fetch(buildApiUrl('/api/v1/moulding-dmm/all'), {
         method: 'GET',
         credentials: 'include',
         headers: {

@@ -3,9 +3,10 @@ import { BookOpenCheck, ChevronDown, ChevronUp } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { FilterButton, ClearButton, ShiftDropdown, DisaDropdown } from '../../Components/Buttons';
 import Table from '../../Components/Table';
+import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Sandlab/FoundrySandTestingReport.css';
 
-const API_BASE_URL = 'http://localhost:5000/api/v1/foundry-sand-testing-notes';
+const API_BASE_URL = API_ENDPOINTS.foundrySandTestingNotes;
 
 const FoundrySandTestingReport = () => {
   const [entries, setEntries] = useState([]);

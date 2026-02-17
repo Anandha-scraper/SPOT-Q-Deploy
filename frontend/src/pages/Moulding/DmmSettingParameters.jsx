@@ -5,6 +5,7 @@ import CustomDatePicker from '../../Components/CustomDatePicker';
 import { CustomTimeInput, Time, MachineDropdown } from '../../Components/Buttons';
 import { SuccessAlert } from '../../Components/Alert';
 import Sakthi from '../../Components/Sakthi';
+import { buildApiUrl, API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Moulding/DmmSettingParameters.css';
 
 const initialRow = {
@@ -291,7 +292,7 @@ const DmmSettingParameters = () => {
       }
 
       try {
-        const resp = await fetch(`http://localhost:5000/api/v1/moulding-dmm/search/primary?date=${encodeURIComponent(primaryData.date)}&machine=${encodeURIComponent(primaryData.machine)}&shift=${encodeURIComponent(primaryData.shift)}`, {
+        const resp = await fetch(buildApiUrl(`/api/v1/moulding-dmm/search/primary?date=${encodeURIComponent(primaryData.date)}&machine=${encodeURIComponent(primaryData.machine)}&shift=${encodeURIComponent(primaryData.shift)}`), {
           method: 'GET',
           credentials: 'include',
           headers: {
@@ -543,7 +544,7 @@ const DmmSettingParameters = () => {
     }
 
     try {
-      const resp = await fetch(`http://localhost:5000/api/v1/moulding-dmm/search/primary?date=${encodeURIComponent(primaryData.date)}&machine=${encodeURIComponent(primaryData.machine)}`, {
+      const resp = await fetch(buildApiUrl(`/api/v1/moulding-dmm/search/primary?date=${encodeURIComponent(primaryData.date)}&machine=${encodeURIComponent(primaryData.machine)}`), {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -795,7 +796,7 @@ const DmmSettingParameters = () => {
           }
         }
       };
-      const opResp = await fetch('http://localhost:5000/api/v1/moulding-dmm', {
+      const opResp = await fetch(API_ENDPOINTS.mouldingDmm, {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -820,7 +821,7 @@ const DmmSettingParameters = () => {
             [shiftKey]: rowForSave
           }
         };
-        const paramsResp = await fetch('http://localhost:5000/api/v1/moulding-dmm', {
+        const paramsResp = await fetch(API_ENDPOINTS.mouldingDmm, {
           method: 'POST',
           credentials: 'include',
           headers: {
