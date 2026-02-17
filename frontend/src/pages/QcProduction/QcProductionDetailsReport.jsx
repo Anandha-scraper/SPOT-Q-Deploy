@@ -3,6 +3,7 @@ import { PencilLine, BookOpenCheck } from 'lucide-react';
 import { FilterButton, ClearButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import Table from '../../Components/Table';
+import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/QcProduction/QcProductionDetailsReport.css';
 
 const QcProductionDetailsReport = () => {
@@ -40,7 +41,7 @@ const QcProductionDetailsReport = () => {
       const todayStr = `${year}-${month}-${day}`;
       setCurrentDate(todayStr);
       
-      const response = await fetch('http://localhost:5000/api/v1/qc-reports', { credentials: 'include' });
+      const response = await fetch(API_ENDPOINTS.qcReports, { credentials: 'include' });
       const data = await response.json();
 
       let serverItems = [];

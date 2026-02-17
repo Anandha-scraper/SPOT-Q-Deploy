@@ -3,7 +3,7 @@ import { BookOpenCheck } from 'lucide-react';
 import { FilterButton, ClearButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import Table from '../../Components/Table';
-
+import { buildApiUrl } from '../../config/api';
 import '../../styles/PageStyles/Tensile/TensileReport.css';
 
 const TensileReport = () => {
@@ -52,7 +52,7 @@ const TensileReport = () => {
         query += `&endDate=${endDate}`;
       }
 
-      const response = await fetch(`/v1/tensile/filter?${query}`, {
+      const response = await fetch(buildApiUrl(`/api/v1/tensile/filter?${query}`), {
         credentials: 'include'
       });
       const data = await response.json();
@@ -80,7 +80,7 @@ const TensileReport = () => {
       setCurrentDate(todayStr);
 
       // Fetch entries for current date
-      const response = await fetch(`/v1/tensile/by-date?date=${todayStr}`, {
+      const response = await fetch(buildApiUrl(`/api/v1/tensile/by-date?date=${todayStr}`), {
         credentials: 'include'
       });
       const data = await response.json();

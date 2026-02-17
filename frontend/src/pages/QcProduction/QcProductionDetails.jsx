@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Save, Loader2, FileText } from 'lucide-react';
 import { SubmitButton, ResetButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
+import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/QcProduction/QcProductionDetails.css';
 
 const QcProductionDetails = () => {
@@ -317,7 +318,7 @@ const QcProductionDetails = () => {
 
     try {
       setSubmitLoading(true);
-      const response = await fetch('http://localhost:5000/api/v1/qc-reports', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(formData) });
+      const response = await fetch(API_ENDPOINTS.qcReports, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(formData) });
       const data = await response.json();
 
       if (data.success) {

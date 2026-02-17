@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { BookOpenCheck, ChevronLeft, ChevronRight } from 'lucide-react';
 import { FilterButton, ClearButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
+import { buildApiUrl } from '../../config/api';
 import '../../styles/PageStyles/Process/ProcessReport.css';
 
 const ProcessReport = () => {
@@ -23,7 +24,7 @@ const ProcessReport = () => {
   const fetchItems = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/v1/process', {
+      const response = await fetch(buildApiUrl('/api/v1/process'), {
         credentials: 'include'
       });
       const data = await response.json();

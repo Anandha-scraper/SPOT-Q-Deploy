@@ -4,6 +4,7 @@ import { SubmitButton, LockPrimaryButton, DisaDropdown, CustomTimeInput, Time } 
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import Sakthi from '../../Components/Sakthi';
 import { ErrorAlert } from '../../Components/Alert';
+import { buildApiUrl } from '../../config/api';
 import '../../styles/PageStyles/Process/Process.css';
 
 export default function ProcessControl() {
@@ -137,7 +138,7 @@ export default function ProcessControl() {
       }
 
       try {
-        const response = await fetch(`/v1/process/check?date=${formData.date}&disa=${encodeURIComponent(formData.disa)}`, {
+        const response = await fetch(buildApiUrl(`/api/v1/process/check?date=${formData.date}&disa=${encodeURIComponent(formData.disa)}`), {
           method: 'GET',
           credentials: 'include'
         });
@@ -324,7 +325,7 @@ export default function ProcessControl() {
       setSavePrimaryLoading(true);
       
       // Call save-primary API to save date+disa and get entry count
-      const response = await fetch('/v1/process/save-primary', {
+      const response = await fetch(buildApiUrl('/api/v1/process/save-primary'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -649,7 +650,7 @@ export default function ProcessControl() {
 
       // Send all data (primary + other fields) combined to backend
       // Backend will find existing document by date+disa and update it, or create new one
-      const response = await fetch('/v1/process', {
+      const response = await fetch(buildApiUrl('/api/v1/process'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

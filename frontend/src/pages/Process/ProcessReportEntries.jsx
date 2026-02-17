@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { BookOpenCheck, ArrowLeft } from 'lucide-react';
 import Table from '../../Components/Table';
+import { buildApiUrl } from '../../config/api';
 import '../../styles/PageStyles/Process/ProcessReportEntries.css';
 
 const ProcessReportEntries = () => {
-  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
   const location = useLocation();
   const navigate = useNavigate();
   const { date, disa } = location.state || {};
@@ -18,7 +18,7 @@ const ProcessReportEntries = () => {
     const fetchInitialData = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/v1/process', {
+        const response = await fetch(buildApiUrl('/api/v1/process'), {
           credentials: 'include'
         });
         const data = await response.json();
@@ -56,7 +56,7 @@ const ProcessReportEntries = () => {
   const refreshData = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/v1/process', {
+      const response = await fetch(buildApiUrl('/api/v1/process'), {
         credentials: 'include'
       });
       const data = await response.json();

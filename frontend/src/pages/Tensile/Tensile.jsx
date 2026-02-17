@@ -4,6 +4,7 @@ import { SubmitButton } from '../../Components/Buttons';
 import { ErrorAlert } from '../../Components/Alert';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import Sakthi from '../../Components/Sakthi';
+import { buildApiUrl } from '../../config/api';
 import '../../styles/PageStyles/Tensile/Tensile.css';
 
 const Tensile = () => {
@@ -327,7 +328,7 @@ const Tensile = () => {
         testedBy: formData.testedBy
       };
 
-      const response = await fetch('/v1/tensile', {
+      const response = await fetch(buildApiUrl('/api/v1/tensile'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

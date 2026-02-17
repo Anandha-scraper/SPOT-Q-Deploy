@@ -3,6 +3,7 @@ import { Save, Loader2 } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { DisaDropdown, SubmitButton, LockPrimaryButton } from '../../Components/Buttons';
 import Sakthi from '../../Components/Sakthi';
+import { buildApiUrl } from '../../config/api';
 import '../../styles/PageStyles/MicroStructure/MicroStructure.css';
 
 const MicroStructure = () => {
@@ -80,7 +81,7 @@ const MicroStructure = () => {
       }
 
       try {
-        const response = await fetch(`/v1/micro-structure/check?date=${date}&disa=${encodeURIComponent(disa)}`, {
+        const response = await fetch(buildApiUrl(`/api/v1/micro-structure/check?date=${date}&disa=${encodeURIComponent(disa)}`), {
           method: 'GET',
           credentials: 'include'
         });
@@ -189,7 +190,7 @@ const MicroStructure = () => {
     try {
       setSavePrimaryLoading(true);
       
-      const response = await fetch('/v1/micro-structure/save-primary', {
+      const response = await fetch(buildApiUrl('/api/v1/micro-structure/save-primary'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -365,7 +366,7 @@ const MicroStructure = () => {
         remarks
       };
 
-      const response = await fetch('/v1/micro-structure', {
+      const response = await fetch(buildApiUrl('/api/v1/micro-structure'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
