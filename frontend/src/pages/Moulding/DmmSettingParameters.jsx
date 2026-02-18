@@ -122,6 +122,8 @@ const DmmSettingParameters = () => {
   const [primaryErrorMessage, setPrimaryErrorMessage] = useState('');
   const [primarySuccessAlert, setPrimarySuccessAlert] = useState(false);
   const [dynamicCheckAlert, setDynamicCheckAlert] = useState(false);
+  const [dynamicCheckLoading, setDynamicCheckLoading] = useState(false);
+  const [dynamicCheckKey, setDynamicCheckKey] = useState(0); // for remounting
   
   // Track focused field for visual feedback
   const [focusedField, setFocusedField] = useState(null);
@@ -283,14 +285,20 @@ const DmmSettingParameters = () => {
 
   // Check if primary data exists when date/machine/shift changes
   useEffect(() => {
+    let isMounted = true;
+    setDynamicCheckLoading(true);
+    setDynamicCheckAlert(false);
+    setDynamicCheckKey(prev => prev + 1); // force remount for smooth loader
     const checkExistingPrimaryData = async () => {
       if (!primaryData.date || !primaryData.machine || !primaryData.shift) {
-        // Clear locks if incomplete
         setPrimaryFieldLocked({ operatorName: false, operatedBy: false });
         setIsPrimaryLocked(false);
+        if (isMounted) {
+          setDynamicCheckLoading(false);
+          setDynamicCheckAlert(false);
+        }
         return;
       }
-
       try {
         const resp = await fetch(buildApiUrl(`/api/v1/moulding-dmm/search/primary?date=${encodeURIComponent(primaryData.date)}&machine=${encodeURIComponent(primaryData.machine)}&shift=${encodeURIComponent(primaryData.shift)}`), {
           method: 'GET',
@@ -301,56 +309,39 @@ const DmmSettingParameters = () => {
           }
         });
         const response = await resp.json();
-        
         if (response.success && response.data && response.data.length > 0) {
           const record = response.data[0];
-          const entry = record.entries?.[0]; // First entry for this machine+shift
-          
-          // Check if operator fields have existing data
+          const entry = record.entries?.[0];
           const hasOperatorName = entry?.operatorName && String(entry.operatorName).trim() !== '';
           const hasOperatedBy = entry?.checkedBy && String(entry.checkedBy).trim() !== '';
-          
-          // Lock only the fields that have existing data
-          setPrimaryFieldLocked({
-            operatorName: hasOperatorName,
-            operatedBy: hasOperatedBy
-          });
-          
-          // Populate operator fields if they exist
+          setPrimaryFieldLocked({ operatorName: hasOperatorName, operatedBy: hasOperatedBy });
           setPrimaryData(prev => ({
             ...prev,
             operatorName: hasOperatorName ? String(entry.operatorName).trim() : '',
             operatedBy: hasOperatedBy ? String(entry.checkedBy).trim() : ''
           }));
-          
-          // Set primary as locked if all fields have data
           setIsPrimaryLocked(hasOperatorName && hasOperatedBy);
         } else {
-          // No existing data - unlock all and clear operator fields
           setPrimaryFieldLocked({ operatorName: false, operatedBy: false });
           setIsPrimaryLocked(false);
-          setPrimaryData(prev => ({
-            ...prev,
-            operatorName: '',
-            operatedBy: ''
-          }));
+          setPrimaryData(prev => ({ ...prev, operatorName: '', operatedBy: '' }));
         }
-        
-        // Show success alert after data check
-        setDynamicCheckAlert(true);
+        setTimeout(() => {
+          if (isMounted) {
+            setDynamicCheckLoading(false);
+            setDynamicCheckAlert(true);
+          }
+        }, 700);
       } catch (error) {
+        if (isMounted) setDynamicCheckLoading(false);
         console.error('Error checking primary data:', error);
         setPrimaryFieldLocked({ operatorName: false, operatedBy: false });
         setIsPrimaryLocked(false);
-        setPrimaryData(prev => ({
-          ...prev,
-          operatorName: '',
-          operatedBy: ''
-        }));
+        setPrimaryData(prev => ({ ...prev, operatorName: '', operatedBy: '' }));
       }
     };
-
     checkExistingPrimaryData();
+    return () => { isMounted = false; };
   }, [primaryData.date, primaryData.machine, primaryData.shift]);
 
   // Handle primary data submission
@@ -1368,13 +1359,38 @@ const DmmSettingParameters = () => {
             </div>
           </div>
           
-          {/* Dynamic Check Alert */}
-          {dynamicCheckAlert && (
-            <div style={{ marginTop: '1rem' }}>
-              <SuccessAlert
-                isVisible={dynamicCheckAlert}
-                message="Data check completed successfully!"
-              />
+          {/* Dynamic Check Alert with loader, styled green and fixed size */}
+          {(dynamicCheckLoading || dynamicCheckAlert) && (
+            <div
+              key={dynamicCheckKey}
+              style={{
+                marginTop: '1rem',
+                minHeight: 44,
+                maxWidth: 250,
+                background: '#ff9100',
+                color: '#fff',
+                borderRadius: 8,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 500,
+                fontSize: '1rem',
+                gap: 10,
+                boxShadow: '0 2px 8px rgba(34,197,94,0.08)'
+              }}
+            >
+              {dynamicCheckLoading && (
+                <>
+                  <Loader2 size={20} className="animate-spin" style={{ color: '#fff' }} />
+                  Fetching primary...
+                </>
+              )}
+              {dynamicCheckAlert && !dynamicCheckLoading && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" style={{ color: '#fff' }}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                  Data check completed!
+                </span>
+              )}
             </div>
           )}
           

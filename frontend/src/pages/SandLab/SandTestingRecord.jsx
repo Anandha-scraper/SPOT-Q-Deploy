@@ -4,6 +4,7 @@ import { BookOpen} from 'lucide-react';
 import Table from '../../Components/Table';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { PlusButton, MinusButton, SubmitButton, CustomTimeInput, Time } from '../../Components/Buttons';
+import Sakthi from '../../Components/Sakthi';
 import { buildApiUrl, API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Sandlab/SandTestingRecord.css';
 
@@ -17,6 +18,7 @@ const SandTestingRecord = () => {
   const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState(getTodaysDate());
   const [isLoading, setIsLoading] = useState(false);
+  const isInitialMount = useRef(true);
   
   // Lock state for each table
   const [table1Locked, setTable1Locked] = useState(false);
@@ -894,10 +896,16 @@ const SandTestingRecord = () => {
     }
   };
   const checkExistingData = async (date) => {
+    const MINIMUM_LOADING_TIME = 1500; // 1.5 seconds minimum for full animation
+    const startTime = Date.now();
+    
     try {
+      setIsLoading(true);
+      
       // Validate date format before making API call
       if (!date || date.trim() === '' || !/\d{4}-\d{2}-\d{2}/.test(date)) {
         console.error('Invalid date format:', date);
+        setIsLoading(false);
         return;
       }
       
@@ -1195,6 +1203,14 @@ const SandTestingRecord = () => {
       }
     } catch (error) {
       console.error('Error checking existing data:', error);
+    } finally {
+      // Ensure minimum loading time has passed before hiding loader
+      const elapsedTime = Date.now() - startTime;
+      const remainingTime = Math.max(0, MINIMUM_LOADING_TIME - elapsedTime);
+      
+      setTimeout(() => {
+        setIsLoading(false);
+      }, remainingTime);
     }
   };
 
@@ -1202,6 +1218,11 @@ const SandTestingRecord = () => {
   useEffect(() => {
     if (selectedDate && selectedDate.trim() !== '' && /\d{4}-\d{2}-\d{2}/.test(selectedDate)) {
       checkExistingData(selectedDate);
+      
+      // Track initial mount
+      if (isInitialMount.current) {
+        isInitialMount.current = false;
+      }
     } else if (selectedDate === '') {
       // Reset all tables when no date selected
       resetAllTables();
@@ -1532,6 +1553,29 @@ const SandTestingRecord = () => {
 
   return (
     <>
+      {/* Sakthi Loader */}
+      {isLoading && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'white',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 10000
+        }}>
+          <Sakthi 
+            loopAnimation={true} 
+            showMessage={true} 
+            message="Loading data..." 
+            onComplete={() => {}}
+          />
+        </div>
+      )}
+
       {/* Header */}
       <div className="sand-header">
         <div className="sand-header-text">

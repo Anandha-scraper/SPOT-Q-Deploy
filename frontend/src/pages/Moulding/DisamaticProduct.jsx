@@ -2041,6 +2041,7 @@ const DisamaticProduct = () => {
           onMouseDownCapture={(e) => {
             if (!formData.date && e.target.tagName !== 'SELECT') {
               setDateErrorHighlight(true);
+              setTimeout(() => setDateErrorHighlight(false), 600);
             }
           }}
         >
@@ -2066,10 +2067,12 @@ const DisamaticProduct = () => {
                 setDateErrorHighlight(true);
                 setInchargeErrorHighlight(true);
                 setTimeout(() => setInchargeErrorHighlight(false), 600);
+                setTimeout(() => setDateErrorHighlight(false), 600);
               } else if (!formData.shift) {
                 setShiftErrorHighlight(true);
                 setInchargeErrorHighlight(true);
                 setTimeout(() => setInchargeErrorHighlight(false), 600);
+                setTimeout(() => setShiftErrorHighlight(false), 600);
               }
             }
           }}
@@ -2108,10 +2111,12 @@ const DisamaticProduct = () => {
                 setDateErrorHighlight(true);
                 setPpOperatorErrorHighlight(true);
                 setTimeout(() => setPpOperatorErrorHighlight(false), 600);
+                setTimeout(() => setDateErrorHighlight(false), 600);
               } else if (!formData.shift) {
                 setShiftErrorHighlight(true);
                 setPpOperatorErrorHighlight(true);
                 setTimeout(() => setPpOperatorErrorHighlight(false), 600);
+                setTimeout(() => setShiftErrorHighlight(false), 600);
               }
             }
           }}
@@ -2155,10 +2160,12 @@ const DisamaticProduct = () => {
                 setDateErrorHighlight(true);
                 setMembersErrorHighlight(true);
                 setTimeout(() => setMembersErrorHighlight(false), 600);
+                setTimeout(() => setDateErrorHighlight(false), 600);
               } else if (!formData.shift) {
                 setShiftErrorHighlight(true);
                 setMembersErrorHighlight(true);
                 setTimeout(() => setMembersErrorHighlight(false), 600);
+                setTimeout(() => setShiftErrorHighlight(false), 600);
               }
             }
           }}

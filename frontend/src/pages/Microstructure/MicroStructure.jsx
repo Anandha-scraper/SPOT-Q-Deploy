@@ -3,6 +3,7 @@ import { Save, Loader2 } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { DisaDropdown, SubmitButton, LockPrimaryButton } from '../../Components/Buttons';
 import Sakthi from '../../Components/Sakthi';
+// import { FetchingPrimaryStatus } from '../../Components/Alert';
 import { buildApiUrl } from '../../config/api';
 import '../../styles/PageStyles/MicroStructure/MicroStructure.css';
 
@@ -36,10 +37,12 @@ const MicroStructure = () => {
   // Primary data states
   const [isPrimarySaved, setIsPrimarySaved] = useState(false);
   const [savePrimaryLoading, setSavePrimaryLoading] = useState(false);
+  const [checkingPrimary, setCheckingPrimary] = useState(false);
   const [entryCount, setEntryCount] = useState(0);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitErrorMessage, setSubmitErrorMessage] = useState('');
   const [showSakthiLoader, setShowSakthiLoader] = useState(false);
+  // Removed FetchingPrimaryStatus loader state
 
   // Validation states (null = neutral, false = invalid)
   const [partNameValid, setPartNameValid] = useState(null);
@@ -77,25 +80,26 @@ const MicroStructure = () => {
       if (!date || !disa) {
         setIsPrimarySaved(false);
         setEntryCount(0);
+        setCheckingPrimary(false);
         return;
       }
-
+      setCheckingPrimary(true);
       try {
         const response = await fetch(buildApiUrl(`/api/v1/micro-structure/check?date=${date}&disa=${encodeURIComponent(disa)}`), {
           method: 'GET',
           credentials: 'include'
         });
         const data = await response.json();
-        
         if (data.success) {
           setIsPrimarySaved(data.exists);
           setEntryCount(data.count || 0);
         }
       } catch (error) {
         console.error('Error checking date+disa:', error);
+      } finally {
+        setCheckingPrimary(false);
       }
     };
-
     checkDateDisaExists();
   }, [date, disa]);
 

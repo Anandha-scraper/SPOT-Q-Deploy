@@ -65,6 +65,7 @@ const CreatingEmployeeStatus = () => {
   );
 };
 
+
 // Success Alert component
 export const SuccessAlert = ({
   isVisible,

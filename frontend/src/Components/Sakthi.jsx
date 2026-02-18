@@ -5,15 +5,44 @@ const SPIN_DURATION = 1000; // 1 second spin
 const MESSAGE_DURATION = 500; // 0.5 second message display
 const TOTAL_DURATION = SPIN_DURATION + MESSAGE_DURATION; // 1.5 seconds total
 
-const Sakthi = ({ onComplete }) => {
+const Sakthi = ({ onComplete, message = 'Entry updated', showMessage: showMessageProp = true, keepSpinning = false, loopAnimation = false }) => {
   const [isSpinning, setIsSpinning] = useState(true);
   const [showMessage, setShowMessage] = useState(false);
+  const [animationCount, setAnimationCount] = useState(0);
 
   useEffect(() => {
-    // Stop spinning and show message
+    // If keepSpinning is true, don't stop spinning or show message
+    if (keepSpinning) {
+      return;
+    }
+
+    // If loopAnimation is true, restart animation after completion
+    if (loopAnimation) {
+      const loopTimer = setTimeout(() => {
+        setAnimationCount(prev => prev + 1);
+        setIsSpinning(true);
+        setShowMessage(false);
+      }, TOTAL_DURATION);
+
+      const spinTimer = setTimeout(() => {
+        setIsSpinning(false);
+        if (showMessageProp) {
+          setShowMessage(true);
+        }
+      }, SPIN_DURATION);
+
+      return () => {
+        clearTimeout(loopTimer);
+        clearTimeout(spinTimer);
+      };
+    }
+
+    // Stop spinning and show message (one-time animation)
     const spinTimer = setTimeout(() => {
       setIsSpinning(false);
-      setShowMessage(true);
+      if (showMessageProp) {
+        setShowMessage(true);
+      }
     }, SPIN_DURATION);
 
     // Call onComplete callback when animation finishes
@@ -27,7 +56,7 @@ const Sakthi = ({ onComplete }) => {
       clearTimeout(spinTimer);
       clearTimeout(completeTimer);
     };
-  }, [onComplete]);
+  }, [onComplete, showMessageProp, keepSpinning, loopAnimation, animationCount]);
 
   return (
     <div className="sakthi-card">
@@ -42,13 +71,13 @@ const Sakthi = ({ onComplete }) => {
           cy="160"
         />
       </svg>
-      <div className={`logo-container ${isSpinning ? 'spinning' : 'stopped'}`}>
+      <div className={`logo-container ${isSpinning || keepSpinning ? 'spinning' : 'stopped'}`}>
         <svg width="98" height="147" viewBox="0 0 98 147" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M18.1429 6C27.2467 13.2547 33.5505 16.0469 22.7113 44.5C15.2114 79 22.6686 84.5721 40.2113 78.5C47.5955 67.2555 47.7992 57.9945 36.2113 32.5L49.2113 0L61.7113 32.5C53.0536 55.5485 50.1338 67.2224 59.7113 78.5C76.0068 82.313 81.7121 79.2239 72.7113 44.5C64.9542 18.5655 69.307 13.2373 79.2113 6C72.7113 21 80.7113 31 90.2113 44.5C109.211 78 86.2113 96 59.7113 96V146.5H40.2113V96C2.21136 99 -9.7886 68 8.21136 44.5C26.2113 21 21.9549 23.8217 18.1429 6Z" fill="#FF9100"/>
         </svg>
       </div>
-      {showMessage && (
-        <div className="message">Entry updated</div>
+      {showMessage && showMessageProp && (
+        <div className="message">{message}</div>
       )}
     </div>
   );
