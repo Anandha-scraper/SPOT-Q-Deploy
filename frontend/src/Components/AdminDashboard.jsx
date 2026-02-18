@@ -82,7 +82,10 @@ const AdminDashboard = () => {
 
     const handleViewChange = (view) => {
         setCurrentView(view);
-        if (view === 'view') fetchUsers();
+        if (view === 'view') {
+            setLoading(true);
+            fetchUsers();
+        }
     };
 
     const handleInputChange = (e) => {
@@ -103,6 +106,7 @@ const AdminDashboard = () => {
             return;
         }
         try {
+            setIsCreating(true);
             setFormLoading(true);
             const payload = {
                 employeeId: formData.employeeId,
@@ -121,7 +125,6 @@ const AdminDashboard = () => {
             const data = await response.json();
             if (data.success) {
                 setFormLoading(false);
-                setIsCreating(true);
                 setFormData({ employeeId: '', name: '', department: '', password: '' });
                 if (currentView === 'view') fetchUsers();
                 setTimeout(() => {
@@ -130,9 +133,11 @@ const AdminDashboard = () => {
                     setTimeout(() => setFormSuccess(''), 2000);
                 }, 3000);
             } else {
+                setIsCreating(false);
                 setFormError(data.message || 'Failed to create employee.');
             }
         } catch (error) {
+            setIsCreating(false);
             setFormError('Error connecting to server.');
         } finally {
             if (!isCreating) setFormLoading(false);
