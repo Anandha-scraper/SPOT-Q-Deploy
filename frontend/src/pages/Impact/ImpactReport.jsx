@@ -1,26 +1,45 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BookOpenCheck } from 'lucide-react';
 import { FilterButton, ClearButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import Table from '../../Components/Table';
+import Loader from '../../Components/Loader';
 import '../../styles/PageStyles/Impact/ImpactReport.css';
 
 const ImpactReport = () => {
   const [currentDate, setCurrentDate] = useState('');
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [showLoader, setShowLoader] = useState(false);
 
   // Filter states
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
   const [isFiltered, setIsFiltered] = useState(false);
 
+  // Ref for loader timeout
+  const loaderTimeoutRef = useRef(null);
+
   useEffect(() => {
     fetchCurrentDateAndEntries();
+    
+    // Cleanup timeout on unmount
+    return () => {
+      if (loaderTimeoutRef.current) {
+        clearTimeout(loaderTimeoutRef.current);
+      }
+    };
   }, []);
 
   const fetchCurrentDateAndEntries = async () => {
     setLoading(true);
+    setShowLoader(false);
+    
+    // Set timeout to show loader after 2 seconds
+    loaderTimeoutRef.current = setTimeout(() => {
+      setShowLoader(true);
+    }, 2000);
+    
     try {
       // Get today's date in local timezone (YYYY-MM-DD format)
       const today = new Date();
@@ -50,7 +69,12 @@ const ImpactReport = () => {
       const todayStr = `${year}-${month}-${day}`;
       setCurrentDate(todayStr);
     } finally {
+      // Clear timeout and hide loader
+      if (loaderTimeoutRef.current) {
+        clearTimeout(loaderTimeoutRef.current);
+      }
       setLoading(false);
+      setShowLoader(false);
     }
   };
 
@@ -68,6 +92,12 @@ const ImpactReport = () => {
 
     try {
       setLoading(true);
+      setShowLoader(false);
+      
+      // Set timeout to show loader after 2 seconds
+      loaderTimeoutRef.current = setTimeout(() => {
+        setShowLoader(true);
+      }, 2000);
       const response = await fetch(`http://localhost:5000/api/v1/impact-tests/by-date?date=${startDate}`, {
         credentials: 'include'
       });
@@ -114,7 +144,12 @@ const ImpactReport = () => {
       console.error('Error fetching entries by date:', error);
       alert('Failed to fetch entries');
     } finally {
+      // Clear timeout and hide loader
+      if (loaderTimeoutRef.current) {
+        clearTimeout(loaderTimeoutRef.current);
+      }
       setLoading(false);
+      setShowLoader(false);
     }
   };
 
@@ -177,9 +212,13 @@ const ImpactReport = () => {
         </ClearButton>
       </div>
 
-      {loading ? (
+      {loading && showLoader ? (
         <div className="impact-loader-container">
-          <div>Loading...</div>
+          <Loader cycles="infinite" />
+        </div>
+      ) : loading ? (
+        <div className="impact-loader-container">
+          <div style={{ color: '#64748b', fontSize: '0.9rem' }}>Loading...</div>
         </div>
       ) : (
         <Table

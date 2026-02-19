@@ -379,8 +379,10 @@ const Impact = () => {
       <div className="impact-submit-container">
         <div className="impact-submit-right">
           <SubmitButton
+            ref={submitButtonRef}
             onClick={handleSubmit}
             disabled={submitLoading}
+            onKeyDown={handleSubmitButtonKeyDown}
           >
             {submitLoading ? 'Saving...' : 'Submit Entry'}
           </SubmitButton>
