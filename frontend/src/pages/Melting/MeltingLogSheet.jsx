@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Save, Loader2 } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { CustomTimeInput, Time, ShiftDropdown, FurnaceDropdown, PanelDropdown, DisaDropdown } from '../../Components/Buttons';
-import { SuccessAlert } from '../../Components/Alert';
 import Sakthi from '../../Components/Sakthi';
 import '../../styles/PageStyles/Melting/MeltingLogSheet.css';
 
@@ -26,7 +25,6 @@ const MeltingLogSheet = () => {
   const [isPrimaryDataSaved, setIsPrimaryDataSaved] = useState(false);
   const [primaryDataOriginal, setPrimaryDataOriginal] = useState(null);
   const [entryCount, setEntryCount] = useState(0);
-  const [primarySuccessAlert, setPrimarySuccessAlert] = useState(false);
   const [dynamicCheckAlert, setDynamicCheckAlert] = useState(false);
   const [showSakthi, setShowSakthi] = useState(false);
   
@@ -132,16 +130,6 @@ const MeltingLogSheet = () => {
       }));
     }
   }, [primaryData.date, primaryData.shift, primaryData.furnaceNo, primaryData.panel]);
-
-  // Auto-dismiss success alert
-  useEffect(() => {
-    if (primarySuccessAlert) {
-      const timer = setTimeout(() => {
-        setPrimarySuccessAlert(false);
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [primarySuccessAlert]);
 
   // Auto-dismiss dynamic check alert
   useEffect(() => {
@@ -1368,8 +1356,6 @@ const MeltingLogSheet = () => {
           totalUnits: primaryData.totalUnits,
           cumulativeUnits: primaryData.cumulativeUnits
         });
-        
-        setPrimarySuccessAlert(true);
       } else {
         alert('Error: ' + response.message);
       }
@@ -1556,7 +1542,7 @@ const MeltingLogSheet = () => {
 
       {/* Primary Section */}
       <div>
-        <h3 className="section-header" style={{ display: 'flex', alignItems: 'center' }}>Primary Data {isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 500, color: '#5B9AA9', marginLeft: '0.75rem' }}>( Entries : {entryCount} )</span>}{dynamicCheckAlert && <div style={{ marginLeft: 'auto' }}><SuccessAlert isVisible={dynamicCheckAlert} message="Data check completed successfully!" /></div>}</h3>
+        <h3 className="section-header" style={{ display: 'flex', alignItems: 'center' }}>Primary Data {isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 500, color: '#5B9AA9', marginLeft: '0.75rem' }}>( Entries : {entryCount} )</span>}</h3>
         
         <div className="melting-log-form-grid">
           <div className={`melting-log-form-group ${classFor(primaryData.date, primarySubmitted, true)} ${dateErrorHighlight ? 'error-highlight' : ''}`}>
@@ -1837,7 +1823,6 @@ const MeltingLogSheet = () => {
         </div>
 
         <div className="melting-log-submit-container" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          {primarySuccessAlert && <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#fff', background: 'linear-gradient(135deg, #10b981, #059669)', padding: '0.35rem 0.85rem', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', boxShadow: '0 2px 6px rgba(16,185,129,0.3)' }}>✓ Primary data saved successfully!</span>}
           <button
             ref={primarySaveButtonRef}
             className="cupola-holder-submit-btn"

@@ -1,8 +1,8 @@
 import React from 'react';
-import { Check, AlertCircle } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertTriangle, AlertCircle } from 'lucide-react';
 import '../styles/ComponentStyles/Alert.css';
 
-// DELETING STATUS COMPONENT
+// Deleting Employee Status Component
 const DeletingStatus = () => {
   return (
     <div className="delete-alert-overlay">
@@ -26,7 +26,7 @@ const DeletingStatus = () => {
   );
 };
 
-// CreATING EMPLOYEE STATUS COMPONENT
+// Creating Employee Status Component
 
 const CreatingEmployeeStatus = () => {
   return (
@@ -65,36 +65,28 @@ const CreatingEmployeeStatus = () => {
   );
 };
 
-// Success Alert component
-export const SuccessAlert = ({
-  isVisible,
-  message = 'Success!'
+// Inline Loader Component
+export const InlineLoader = ({ 
+  message = 'Loading...', 
+  size = 'medium',
+  variant = 'primary' 
 }) => {
-  if (!isVisible) return null;
+  // Icon mapping based on variant
+  const iconMap = {
+    primary: <Loader2 className="inline-loader-icon" />,
+    success: <CheckCircle2 className="inline-loader-icon" />,
+    warning: <AlertTriangle className="inline-loader-icon" />,
+    danger: <AlertCircle className="inline-loader-icon" />
+  };
+
+  const Icon = iconMap[variant] || iconMap.primary;
 
   return (
-    <div className="success-alert">
-      <div className="success-alert-icon">
-        <Check size={20} strokeWidth={3} />
+    <div className={`inline-loader inline-loader-${size} inline-loader-variant-${variant}`}>
+      <div className={`inline-loader-icon-wrapper inline-loader-${variant}`}>
+        {Icon}
       </div>
-      <span className="success-alert-text">{message}</span>
-    </div>
-  );
-};
-
-// Error Alert component
-export const ErrorAlert = ({
-  isVisible,
-  message = 'Error occurred'
-}) => {
-  if (!isVisible) return null;
-
-  return (
-    <div className="error-alert">
-      <div className="error-alert-icon">
-        <AlertCircle size={18} strokeWidth={2.5} />
-      </div>
-      <span className="error-alert-text">{message}</span>
+      <span className="inline-loader-message">{message}</span>
     </div>
   );
 };

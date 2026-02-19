@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Save, Loader2, CheckCircle } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { CustomTimeInput, Time, ShiftDropdown, HolderDropdown, PlusButton, MinusButton } from '../../Components/Buttons';
-import { SuccessAlert } from '../../Components/Alert';
 import '../../styles/PageStyles/Melting/CupolaHolderLogSheet.css';
 
 const CupolaHolderLogSheet = () => {
@@ -646,7 +645,6 @@ const CupolaHolderLogSheet = () => {
       <div>
         <h3 className="section-header" style={{ display: 'flex', alignItems: 'center' }}>
           Primary Data
-          {dynamicCheckAlert && <div style={{ marginLeft: 'auto' }}><SuccessAlert isVisible={dynamicCheckAlert} message="Data check completed successfully!" /></div>}
         </h3>
 
         <div className="cupola-holder-form-grid">

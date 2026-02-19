@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { Save, RefreshCw, FileText, Loader2, RotateCcw, Info } from "lucide-react";
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { CustomTimeInput, Time, MachineDropdown } from '../../Components/Buttons';
-import { SuccessAlert } from '../../Components/Alert';
 import Sakthi from '../../Components/Sakthi';
 import '../../styles/PageStyles/Moulding/DmmSettingParameters.css';
 
@@ -119,7 +118,6 @@ const DmmSettingParameters = () => {
     operatedBy: false
   });
   const [primaryErrorMessage, setPrimaryErrorMessage] = useState('');
-  const [primarySuccessAlert, setPrimarySuccessAlert] = useState(false);
   const [dynamicCheckAlert, setDynamicCheckAlert] = useState(false);
   
   // Track focused field for visual feedback
@@ -148,16 +146,6 @@ const DmmSettingParameters = () => {
       return () => clearTimeout(timer);
     }
   }, [primaryErrorMessage]);
-  
-  // Clear primary success alert after 3 seconds
-  useEffect(() => {
-    if (primarySuccessAlert) {
-      const timer = setTimeout(() => {
-        setPrimarySuccessAlert(false);
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [primarySuccessAlert]);
   
   // Clear dynamic check alert after 3 seconds
   useEffect(() => {
@@ -435,7 +423,6 @@ const DmmSettingParameters = () => {
           operatedBy: true
         });
         setIsPrimaryLocked(true);
-        setPrimarySuccessAlert(true);
         
         // Refresh shift counts
         await fetchShiftCounts();
@@ -1367,16 +1354,6 @@ const DmmSettingParameters = () => {
             </div>
           </div>
           
-          {/* Dynamic Check Alert */}
-          {dynamicCheckAlert && (
-            <div style={{ marginTop: '1rem' }}>
-              <SuccessAlert
-                isVisible={dynamicCheckAlert}
-                message="Data check completed successfully!"
-              />
-            </div>
-          )}
-          
           {/* Operator Fields Row */}
           <div className="primary-fields-row" style={{ marginTop: '1rem' }}>
             <div 
@@ -1554,10 +1531,6 @@ const DmmSettingParameters = () => {
                 </div>
               )}
             </div>
-            <SuccessAlert
-              isVisible={primarySuccessAlert}
-              message="Primary data saved successfully!"
-            />
           </div>
         </div>
 

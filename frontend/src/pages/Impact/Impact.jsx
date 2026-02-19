@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Save } from 'lucide-react';
 import { SubmitButton } from '../../Components/Buttons';
-import { ErrorAlert } from '../../Components/Alert';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import Sakthi from '../../Components/Sakthi';
 import '../../styles/PageStyles/Impact/Impact.css';
@@ -379,10 +378,6 @@ const Impact = () => {
 
       <div className="impact-submit-container">
         <div className="impact-submit-right">
-          <ErrorAlert 
-            isVisible={!!submitErrorMessage} 
-            message={submitErrorMessage} 
-          />
           <SubmitButton
             onClick={handleSubmit}
             disabled={submitLoading}

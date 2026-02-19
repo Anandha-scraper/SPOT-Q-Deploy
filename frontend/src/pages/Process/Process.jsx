@@ -3,7 +3,7 @@ import { Loader2, FileText } from 'lucide-react';
 import { SubmitButton, LockPrimaryButton, DisaDropdown, CustomTimeInput, Time } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import Sakthi from '../../Components/Sakthi';
-import { ErrorAlert } from '../../Components/Alert';
+import { InlineLoader } from '../../Components/Alert';
 import '../../styles/PageStyles/Process/Process.css';
 
 export default function ProcessControl() {
@@ -27,14 +27,16 @@ export default function ProcessControl() {
 
 
   const inputRefs = useRef({});
+  const primarySectionRef = useRef(null);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [isPrimarySaved, setIsPrimarySaved] = useState(false);
-  const [submitError, setSubmitError] = useState('');
   const [savePrimaryLoading, setSavePrimaryLoading] = useState(false);
   const [entryCount, setEntryCount] = useState(0);
   const [showSakthi, setShowSakthi] = useState(false);
-  const [showErrorAlert, setShowErrorAlert] = useState(false);
-  const [alertMessage, setAlertMessage] = useState('');
+  const [showCombinationFound, setShowCombinationFound] = useState(false);
+  const [showCombinationAdded, setShowCombinationAdded] = useState(false);
+  const [showPrimaryWarning, setShowPrimaryWarning] = useState(false);
+  const [highlightPrimaryFields, setHighlightPrimaryFields] = useState(false);
 
   /* 
    * VALIDATION STATES
@@ -115,15 +117,20 @@ export default function ProcessControl() {
     return '';
   };
 
-  // Set current date on mount as default
+  // Set current date and load previous DISA on mount as default
   useEffect(() => {
     const today = new Date();
     const y = today.getFullYear();
     const m = String(today.getMonth() + 1).padStart(2, '0');
     const d = String(today.getDate()).padStart(2, '0');
+    
+    // Load previously saved DISA from localStorage
+    const savedDisa = localStorage.getItem('process_last_disa');
+    
     setFormData(prev => ({
       ...prev,
-      date: `${y}-${m}-${d}`
+      date: `${y}-${m}-${d}`,
+      disa: savedDisa || ''
     }));
   }, []);
 
@@ -133,37 +140,62 @@ export default function ProcessControl() {
       if (!formData.date || !formData.disa) {
         setIsPrimarySaved(false);
         setEntryCount(0);
+        setSavePrimaryLoading(false);
+        setShowCombinationFound(false);
+        setShowCombinationAdded(false);
         return;
       }
 
       try {
+        setSavePrimaryLoading(true);
+        setShowCombinationFound(false);
+        
+        const startTime = Date.now();
+        
         const response = await fetch(`/v1/process/check?date=${formData.date}&disa=${encodeURIComponent(formData.disa)}`, {
           method: 'GET',
           credentials: 'include'
         });
         const data = await response.json();
         
-        if (data.success) {
-          setIsPrimarySaved(data.exists);
-          setEntryCount(data.count || 0);
+        // Ensure minimum 1 second loading time
+        const elapsedTime = Date.now() - startTime;
+        const remainingTime = Math.max(0, 1000 - elapsedTime);
+        await new Promise(resolve => setTimeout(resolve, remainingTime));
+        
+        setSavePrimaryLoading(false);
+        
+        if (data.success && data.exists) {
+          // Save DISA to localStorage for future use
+          localStorage.setItem('process_last_disa', formData.disa);
+          
+          setShowCombinationFound(true);
+          
+          // Hide "Combination found" message after 1.5 seconds
+          setTimeout(() => {
+            setShowCombinationFound(false);
+            setIsPrimarySaved(true);
+            setEntryCount(data.count || 0);
+          }, 1500);
+        } else {
+          // Combination not found, just update states
+          setIsPrimarySaved(false);
+          setEntryCount(0);
         }
       } catch (error) {
         console.error('Error checking date+disa:', error);
+        setSavePrimaryLoading(false);
       }
     };
 
     checkDateDisaExists();
   }, [formData.date, formData.disa]);
 
-  // Validate pouring time when time values change
+  // Reset pouring time validation when time values change (validation only happens on submit)
   useEffect(() => {
-    if (pouringFromTime && pouringToTime) {
-      setPouringTimeValid(null);
-    } else if (!pouringFromTime && !pouringToTime) {
-      setPouringTimeValid(null);
-    } else {
-      setPouringTimeValid(false);
-    }
+    // Only reset to neutral, never set to invalid during input
+    setPouringTimeValid(null);
+    setSubmitErrorMessage('');
   }, [pouringFromTime, pouringToTime]);
 
   // Validate tapping time when time value changes
@@ -175,22 +207,122 @@ export default function ProcessControl() {
     }
   }, [tappingTime]);
 
+  // Add click listeners to all disabled fields to show warning
+  useEffect(() => {
+    const handleDisabledClick = (e) => {
+      const target = e.target;
+      
+      // Check if clicked element is a disabled input or select
+      if ((target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA') && target.disabled) {
+        handleDisabledFieldClick(e);
+        return;
+      }
+      
+      // Check if clicked on process-form-grid (the main grid container)
+      if (target.classList && target.classList.contains('process-form-grid') && !isPrimarySaved) {
+        handleDisabledFieldClick(e);
+        return;
+      }
+      
+      // Check if clicked on a form-group div that contains a disabled field
+      let formGroup = null;
+      if (target.classList && target.classList.contains('process-form-group')) {
+        formGroup = target;
+      } else {
+        formGroup = target.closest('.process-form-group');
+      }
+      
+      if (formGroup) {
+        const input = formGroup.querySelector('input, select, textarea');
+        if (input && input.disabled) {
+          handleDisabledFieldClick(e);
+          return;
+        }
+      }
+    };
+
+    // Add event listener to document to catch all clicks
+    document.addEventListener('mousedown', handleDisabledClick, true);
+
+    return () => {
+      document.removeEventListener('mousedown', handleDisabledClick, true);
+    };
+  }, [isPrimarySaved]);
+
   const fieldOrder = ['date', 'disa', 'partName', 'datecode', 'heatcode', 'quantityOfMoulds', 'metalCompositionC', 'metalCompositionSi',
     'metalCompositionMn', 'metalCompositionP', 'metalCompositionS', 'metalCompositionMgFL', 'metalCompositionCu',
-    'metalCompositionCr', 'pouringTemperature', 'ppCode', 'treatmentNo', 'fcNo', 'heatNo', 'conNo',
+    'metalCompositionCr', 'pouringTemperature', 'ppCode', 'treatmentNo', 'fcNo', 'heatNo', 'conNo', 'tappingTime',
     'correctiveAdditionC', 'correctiveAdditionSi', 'correctiveAdditionMn', 'correctiveAdditionS',
     'correctiveAdditionCr', 'correctiveAdditionCu', 'correctiveAdditionSn', 'tappingWt', 'mg', 'resMgConvertor',
     'recOfMg', 'streamInoculant', 'pTime', 'remarks'];
 
-  /*
-   * Handle input change
-   * When user starts typing, reset validation state to null (neutral)
-   * This removes the red border as user begins correcting the field
-   */
   const handleChange = (e) => {
     const { name, value } = e.target;
 
     switch (name) {
+      case 'date':
+      case 'disa':
+        // Reset primary saved state when date or disa changes
+        setIsPrimarySaved(false);
+        
+        // Clear all form fields except date and disa
+        setFormData(prev => ({
+          date: name === 'date' ? value : prev.date,
+          disa: name === 'disa' ? value : prev.disa,
+          partName: '', datecode: '', heatcode: '', quantityOfMoulds: '',
+          metalCompositionC: '', metalCompositionSi: '', metalCompositionMn: '',
+          metalCompositionP: '', metalCompositionS: '', metalCompositionMgFL: '',
+          metalCompositionCr: '', metalCompositionCu: '',
+          pouringTemperature: '', ppCode: '', treatmentNo: '', fcNo: '',
+          heatNo: '', conNo: '', correctiveAdditionC: '', correctiveAdditionSi: '',
+          correctiveAdditionMn: '', correctiveAdditionS: '', correctiveAdditionCr: '',
+          correctiveAdditionCu: '', correctiveAdditionSn: '', tappingWt: '',
+          mg: '', resMgConvertor: '', recOfMg: '', streamInoculant: '',
+          pTime: '', remarks: ''
+        }));
+        
+        // Reset all time fields
+        setPouringFromTime(null);
+        setPouringToTime(null);
+        setTappingTime(null);
+        
+        // Reset all validation states
+        setPartNameValid(null);
+        setDatecodeValid(null);
+        setHeatcodeValid(null);
+        setQuantityOfMouldsValid(null);
+        setMetalCValid(null);
+        setMetalSiValid(null);
+        setMetalMnValid(null);
+        setMetalPValid(null);
+        setMetalSValid(null);
+        setMetalMgFLValid(null);
+        setMetalCuValid(null);
+        setMetalCrValid(null);
+        setPouringTempValid(null);
+        setPouringTimeValid(null);
+        setPpCodeValid(null);
+        setTreatmentNoValid(null);
+        setFcNoValid(null);
+        setHeatNoValid(null);
+        setConNoValid(null);
+        setCorrCValid(null);
+        setCorrSiValid(null);
+        setCorrMnValid(null);
+        setCorrSValid(null);
+        setCorrCrValid(null);
+        setCorrCuValid(null);
+        setCorrSnValid(null);
+        setTappingWtValid(null);
+        setTappingTimeValid(null);
+        setMgValid(null);
+        setResMgConvertorValid(null);
+        setRecOfMgValid(null);
+        setStreamInoculantValid(null);
+        setPTimeValid(null);
+        setRemarksValid(null);
+        setSubmitErrorMessage('');
+        return;
       case 'partName':
         setPartNameValid(null);
         break;
@@ -304,12 +436,46 @@ export default function ProcessControl() {
       e.preventDefault();
       const idx = fieldOrder.indexOf(field);
       
+      // Special case: from Cr field to Pouring From Time
+      if (field === 'metalCompositionCr') {
+        inputRefs.current.pouringFromTime?.focus();
+        return;
+      }
+      
+      // Special case: from conNo to tappingTime
+      if (field === 'conNo') {
+        inputRefs.current.tappingTime?.focus();
+        return;
+      }
+      
       // If on remarks field (last field), move to submit button
       if (field === 'remarks') {
         inputRefs.current.submitBtn?.focus();
       } else if (idx < fieldOrder.length - 1) {
         inputRefs.current[fieldOrder[idx + 1]]?.focus();
       }
+    }
+  };
+
+  const handleDisabledFieldClick = (e) => {
+    if (!isPrimarySaved) {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Show warning
+      setShowPrimaryWarning(true);
+      setHighlightPrimaryFields(true);
+      
+      // Scroll to primary section
+      if (primarySectionRef.current) {
+        primarySectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      
+      // Hide warning and remove highlight after 3 seconds
+      setTimeout(() => {
+        setShowPrimaryWarning(false);
+        setHighlightPrimaryFields(false);
+      }, 3000);
     }
   };
 
@@ -320,8 +486,15 @@ export default function ProcessControl() {
       return;
     }
 
+    // If already processing, don't submit again
+    if (savePrimaryLoading || showCombinationFound || showCombinationAdded) {
+      return;
+    }
+
     try {
       setSavePrimaryLoading(true);
+      
+      const startTime = Date.now();
       
       // Call save-primary API to save date+disa and get entry count
       const response = await fetch('/v1/process/save-primary', {
@@ -338,21 +511,36 @@ export default function ProcessControl() {
       
       const data = await response.json();
       
+      // Ensure minimum 1 second for consistent UX
+      const elapsedTime = Date.now() - startTime;
+      const remainingTime = Math.max(0, 1000 - elapsedTime);
+      await new Promise(resolve => setTimeout(resolve, remainingTime));
+      
+      setSavePrimaryLoading(false);
+      
       if (data.success) {
-        setIsPrimarySaved(true);
-        setEntryCount(data.count || 0);
-        // Focus on Part Name field after primary is saved
+        // Save DISA to localStorage for future use
+        localStorage.setItem('process_last_disa', formData.disa);
+        
+        setShowCombinationAdded(true);
+        
+        // Hide "Combination Added" message after 1 second
         setTimeout(() => {
-          inputRefs.current.partName?.focus();
-        }, 100);
+          setShowCombinationAdded(false);
+          setIsPrimarySaved(true);
+          setEntryCount(data.count || 0);
+          // Focus on Part Name field after primary is saved
+          setTimeout(() => {
+            inputRefs.current.partName?.focus();
+          }, 100);
+        }, 1000);
       } else {
         alert('Failed to save primary: ' + data.message);
       }
     } catch (error) {
       console.error('Error saving primary:', error);
-      alert('Failed to save primary: ' + error.message);
-    } finally {
       setSavePrimaryLoading(false);
+      alert('Failed to save primary: ' + error.message);
     }
   };
 
@@ -400,56 +588,56 @@ export default function ProcessControl() {
       setQuantityOfMouldsValid(null);
     }
 
-    if (!formData.metalCompositionC || formData.metalCompositionC.trim() === '' || isNaN(formData.metalCompositionC) || parseFloat(formData.metalCompositionC) < 0) {
+    if (!formData.metalCompositionC || formData.metalCompositionC.trim() === '' || isNaN(formData.metalCompositionC) || parseFloat(formData.metalCompositionC) < 0 || parseFloat(formData.metalCompositionC) > 100) {
       setMetalCValid(false);
       hasErrors = true;
     } else {
       setMetalCValid(null);
     }
 
-    if (!formData.metalCompositionSi || formData.metalCompositionSi.trim() === '' || isNaN(formData.metalCompositionSi) || parseFloat(formData.metalCompositionSi) < 0) {
+    if (!formData.metalCompositionSi || formData.metalCompositionSi.trim() === '' || isNaN(formData.metalCompositionSi) || parseFloat(formData.metalCompositionSi) < 0 || parseFloat(formData.metalCompositionSi) > 100) {
       setMetalSiValid(false);
       hasErrors = true;
     } else {
       setMetalSiValid(null);
     }
 
-    if (!formData.metalCompositionMn || formData.metalCompositionMn.trim() === '' || isNaN(formData.metalCompositionMn) || parseFloat(formData.metalCompositionMn) < 0) {
+    if (!formData.metalCompositionMn || formData.metalCompositionMn.trim() === '' || isNaN(formData.metalCompositionMn) || parseFloat(formData.metalCompositionMn) < 0 || parseFloat(formData.metalCompositionMn) > 100) {
       setMetalMnValid(false);
       hasErrors = true;
     } else {
       setMetalMnValid(null);
     }
 
-    if (!formData.metalCompositionP || formData.metalCompositionP.trim() === '' || isNaN(formData.metalCompositionP) || parseFloat(formData.metalCompositionP) < 0) {
+    if (!formData.metalCompositionP || formData.metalCompositionP.trim() === '' || isNaN(formData.metalCompositionP) || parseFloat(formData.metalCompositionP) < 0 || parseFloat(formData.metalCompositionP) > 100) {
       setMetalPValid(false);
       hasErrors = true;
     } else {
       setMetalPValid(null);
     }
 
-    if (!formData.metalCompositionS || formData.metalCompositionS.trim() === '' || isNaN(formData.metalCompositionS) || parseFloat(formData.metalCompositionS) < 0) {
+    if (!formData.metalCompositionS || formData.metalCompositionS.trim() === '' || isNaN(formData.metalCompositionS) || parseFloat(formData.metalCompositionS) < 0 || parseFloat(formData.metalCompositionS) > 100) {
       setMetalSValid(false);
       hasErrors = true;
     } else {
       setMetalSValid(null);
     }
 
-    if (!formData.metalCompositionMgFL || formData.metalCompositionMgFL.trim() === '' || isNaN(formData.metalCompositionMgFL) || parseFloat(formData.metalCompositionMgFL) < 0) {
+    if (!formData.metalCompositionMgFL || formData.metalCompositionMgFL.trim() === '' || isNaN(formData.metalCompositionMgFL) || parseFloat(formData.metalCompositionMgFL) < 0 || parseFloat(formData.metalCompositionMgFL) > 100) {
       setMetalMgFLValid(false);
       hasErrors = true;
     } else {
       setMetalMgFLValid(null);
     }
 
-    if (!formData.metalCompositionCu || formData.metalCompositionCu.trim() === '' || isNaN(formData.metalCompositionCu) || parseFloat(formData.metalCompositionCu) < 0) {
+    if (!formData.metalCompositionCu || formData.metalCompositionCu.trim() === '' || isNaN(formData.metalCompositionCu) || parseFloat(formData.metalCompositionCu) < 0 || parseFloat(formData.metalCompositionCu) > 100) {
       setMetalCuValid(false);
       hasErrors = true;
     } else {
       setMetalCuValid(null);
     }
 
-    if (!formData.metalCompositionCr || formData.metalCompositionCr.trim() === '' || isNaN(formData.metalCompositionCr) || parseFloat(formData.metalCompositionCr) < 0) {
+    if (!formData.metalCompositionCr || formData.metalCompositionCr.trim() === '' || isNaN(formData.metalCompositionCr) || parseFloat(formData.metalCompositionCr) < 0 || parseFloat(formData.metalCompositionCr) > 100) {
       setMetalCrValid(false);
       hasErrors = true;
     } else {
@@ -502,7 +690,24 @@ export default function ProcessControl() {
       setPouringTimeValid(false);
       hasErrors = true;
     } else {
-      setPouringTimeValid(null);
+      // Convert Time objects to minutes for comparison
+      const fromMinutes = pouringFromTime.hour * 60 + pouringFromTime.minute;
+      const toMinutes = pouringToTime.hour * 60 + pouringToTime.minute;
+      
+      // Check if from time is greater than to time
+      if (fromMinutes >= toMinutes) {
+        setPouringTimeValid(false);
+        setSubmitErrorMessage('Time of Pouring: Start time must be less than end time');
+        hasErrors = true;
+      } 
+      // Check if difference is more than 1 hour (60 minutes)
+      else if ((toMinutes - fromMinutes) > 60) {
+        setPouringTimeValid(false);
+        setSubmitErrorMessage('Time of Pouring: Maximum allowed difference is 1 hour');
+        hasErrors = true;
+      } else {
+        setPouringTimeValid(null);
+      }
     }
 
     if (!tappingTime) {
@@ -737,9 +942,6 @@ export default function ProcessControl() {
       }
     } catch (error) {
       console.error('Error saving process control entry:', error);
-      setAlertMessage('Failed to save entry: ' + error.message);
-      setShowErrorAlert(true);
-      setTimeout(() => setShowErrorAlert(false), 3000);
     } finally {
       setSubmitLoading(false);
     }
@@ -791,7 +993,7 @@ export default function ProcessControl() {
 
       <div className="process-form-grid">
             {/* Primary Data Section */}
-            <div className="section-header primary-data-header">
+            <div ref={primarySectionRef} className="section-header primary-data-header">
               <h3>Primary Data {isPrimarySaved && <span style={{ fontWeight: 400, fontSize: '0.875rem', color: '#5B9AA9' }}>(Entries: {entryCount})</span>}</h3>
             </div>
 
@@ -805,17 +1007,18 @@ export default function ProcessControl() {
                 onKeyDown={e => handleKeyDown(e, 'date')}
                 max={new Date().toISOString().split('T')[0]}
                 style={{
-                  border: '2px solid #cbd5e1',
+                  border: highlightPrimaryFields ? '2px solid #ef4444' : '2px solid #cbd5e1',
                   width: '100%',
                   padding: '0.625rem 0.875rem',
                   borderRadius: '8px',
                   fontSize: '0.875rem',
-                  backgroundColor: '#fff'
+                  backgroundColor: highlightPrimaryFields ? '#fee2e2' : '#fff',
+                  transition: 'all 0.3s ease'
                 }}
               />
             </div>
 
-            <div className="process-form-group">
+            <div className="process-form-group" style={{ minHeight: 'auto' }}>
               <label>DISA </label>
               <DisaDropdown
                 ref={el => inputRefs.current.disa = el}
@@ -823,17 +1026,57 @@ export default function ProcessControl() {
                 value={formData.disa}
                 onChange={handleChange}
                 onKeyDown={e => handleKeyDown(e, 'disa')}
+                style={{
+                  border: highlightPrimaryFields ? '2px solid #ef4444' : undefined,
+                  backgroundColor: highlightPrimaryFields ? '#fee2e2' : undefined,
+                  transition: 'all 0.3s ease'
+                }}
               />
+              {(savePrimaryLoading || showCombinationFound || showCombinationAdded || showPrimaryWarning) && (
+                <div style={{ 
+                  marginTop: '0.75rem',
+                  display: 'flex',
+                  alignItems: 'flex-start'
+                }}>
+                  {savePrimaryLoading && (
+                    <InlineLoader 
+                      message="Fetching Date, Disa" 
+                      size="medium" 
+                      variant="primary" 
+                    />
+                  )}
+                  {showCombinationFound && (
+                    <InlineLoader 
+                      message="Combination found" 
+                      size="medium" 
+                      variant="success" 
+                    />
+                  )}
+                  {showCombinationAdded && (
+                    <InlineLoader 
+                      message="Combination Added" 
+                      size="medium" 
+                      variant="success" 
+                    />
+                  )}
+                  {showPrimaryWarning && (
+                    <InlineLoader 
+                      message="Save Date, Disa" 
+                      size="medium" 
+                      variant="danger" 
+                    />
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="process-form-group">
               <label>&nbsp;</label>
               <LockPrimaryButton
                 onClick={handlePrimarySubmit}
-                disabled={savePrimaryLoading || !formData.date || !formData.disa || isPrimarySaved}
+                disabled={savePrimaryLoading || showCombinationFound || showCombinationAdded || !formData.date || !formData.disa || isPrimarySaved}
                 isLocked={isPrimarySaved}
               />
-              {savePrimaryLoading && <span style={{ fontSize: '0.75rem', color: '#5B9AA9' }}>Saving...</span>}
             </div>
 
             {/* Divider line to separate primary data from other inputs */}
@@ -1032,6 +1275,7 @@ export default function ProcessControl() {
                 <div>
                   <label>From Time</label>
                   <CustomTimeInput
+                    ref={el => inputRefs.current.pouringFromTime = el}
                     value={pouringFromTime}
                     onChange={setPouringFromTime}
                     disabled={!isPrimarySaved}
@@ -1041,6 +1285,7 @@ export default function ProcessControl() {
                 <div>
                   <label>To Time</label>
                   <CustomTimeInput
+                    ref={el => inputRefs.current.pouringToTime = el}
                     value={pouringToTime}
                     onChange={setPouringToTime}
                     disabled={!isPrimarySaved}
@@ -1150,6 +1395,7 @@ export default function ProcessControl() {
             <div className="process-form-group">
               <label>Tapping Time </label>
               <CustomTimeInput
+                ref={el => inputRefs.current.tappingTime = el}
                 value={tappingTime}
                 onChange={setTappingTime}
                 disabled={!isPrimarySaved}
@@ -1391,11 +1637,10 @@ export default function ProcessControl() {
       <div className="process-submit-container" style={{ justifyContent: 'flex-end', alignItems: 'center', gap: '1rem' }}>
         {/* Error message display near submit button */}
         {submitErrorMessage && (
-          <span className="submit-error-message">
+          <div className="submit-error-message">
             {submitErrorMessage}
-          </span>
+          </div>
         )}
-        <ErrorAlert isVisible={showErrorAlert} message={alertMessage} />
         <SubmitButton
           ref={el => inputRefs.current.submitBtn = el}
           onClick={handleSubmit}

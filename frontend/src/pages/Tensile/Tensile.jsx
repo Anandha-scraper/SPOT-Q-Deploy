@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Save } from 'lucide-react';
 import { SubmitButton } from '../../Components/Buttons';
-import { ErrorAlert } from '../../Components/Alert';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import Sakthi from '../../Components/Sakthi';
 import '../../styles/PageStyles/Tensile/Tensile.css';
@@ -629,10 +628,6 @@ const Tensile = () => {
 
       <div className="tensile-submit-container">
         <div className="tensile-submit-right">
-          <ErrorAlert 
-            isVisible={!!submitErrorMessage} 
-            message={submitErrorMessage} 
-          />
           <SubmitButton
             onClick={handleSubmit}
             disabled={submitLoading}
