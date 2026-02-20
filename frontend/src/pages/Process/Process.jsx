@@ -4,9 +4,299 @@ import { SubmitButton, LockPrimaryButton, DisaDropdown, CustomTimeInput, Time } 
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import Sakthi from '../../Components/Sakthi';
 import { InlineLoader } from '../../Components/Alert';
+import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import '../../styles/PageStyles/Process/Process.css';
 
 export default function ProcessControl() {
+  // Info modal hook
+  const { isOpen, openModal, closeModal } = useInfoModal();
+
+  // ====================== Validation Ranges ======================
+  const validationRanges = [
+    {
+      field: 'Date',
+      required: true,
+      type: 'Date',
+      pattern: 'DD/MM/YYYY',
+      description: 'Select a valid date for process control. Cannot be in the future.'
+    },
+    {
+      field: 'DISA',
+      required: true,
+      type: 'Select',
+      allowedValues: ['DISA 1', 'DISA 2', 'DISA 3', 'DISA 4'],
+      description: 'Select the DISA machine used for production'
+    },
+    {
+      field: 'Part Name',
+      required: true,
+      type: 'Text',
+      maxLength: 100,
+      pattern: 'e.g., ABC-123',
+      description: 'Enter the name of the part being produced'
+    },
+    {
+      field: 'Date Code',
+      required: true,
+      type: 'Text',
+      pattern: 'e.g., 6F25',
+      description: 'Enter the date code for the part'
+    },
+    {
+      field: 'Heat Code',
+      required: true,
+      type: 'Number',
+      description: 'Enter heat code - Number only'
+    },
+    {
+      field: 'Qty. Of Moulds',
+      required: true,
+      type: 'Number',
+      min: 1,
+      description: 'Enter the quantity of moulds produced'
+    },
+    {
+      field: 'Metal Composition - C',
+      required: true,
+      type: 'Number',
+      min: 0,
+      max: 100,
+      unit: '%',
+      description: 'Carbon percentage in metal composition'
+    },
+    {
+      field: 'Metal Composition - Si',
+      required: true,
+      type: 'Number',
+      min: 0,
+      max: 100,
+      unit: '%',
+      description: 'Silicon percentage in metal composition'
+    },
+    {
+      field: 'Metal Composition - Mn',
+      required: true,
+      type: 'Number',
+      min: 0,
+      max: 100,
+      unit: '%',
+      description: 'Manganese percentage in metal composition'
+    },
+    {
+      field: 'Metal Composition - P',
+      required: true,
+      type: 'Number',
+      min: 0,
+      max: 100,
+      unit: '%',
+      description: 'Phosphorus percentage in metal composition'
+    },
+    {
+      field: 'Metal Composition - S',
+      required: true,
+      type: 'Number',
+      min: 0,
+      max: 100,
+      unit: '%',
+      description: 'Sulfur percentage in metal composition'
+    },
+    {
+      field: 'Metal Composition - Mg F/L',
+      required: true,
+      type: 'Number',
+      min: 0,
+      max: 100,
+      unit: '%',
+      description: 'Magnesium F/L percentage in metal composition'
+    },
+    {
+      field: 'Metal Composition - Cu',
+      required: true,
+      type: 'Number',
+      min: 0,
+      max: 100,
+      unit: '%',
+      description: 'Copper percentage in metal composition'
+    },
+    {
+      field: 'Metal Composition - Cr',
+      required: true,
+      type: 'Number',
+      min: 0,
+      max: 100,
+      unit: '%',
+      description: 'Chromium percentage in metal composition'
+    },
+    {
+      field: 'Time of Pouring (Range)',
+      required: true,
+      type: 'Time Range',
+      pattern: 'HH:MM - HH:MM',
+      description: 'Enter the start and end time of pouring operation'
+    },
+    {
+      field: 'Pouring Temp',
+      required: true,
+      type: 'Number',
+      min: 0,
+      unit: '°C',
+      pattern: 'e.g., 1450',
+      description: 'Temperature at which pouring was performed in Celsius'
+    },
+    {
+      field: 'PP Code',
+      required: true,
+      type: 'Number',
+      description: 'Production Process code - Number only'
+    },
+    {
+      field: 'Treatment No',
+      required: true,
+      type: 'Number',
+      description: 'Treatment number - Number only'
+    },
+    {
+      field: 'F/C No.',
+      required: true,
+      type: 'Select',
+      allowedValues: ['I', 'II', 'III', 'IV', 'V', 'VI'],
+      description: 'Select the F/C number from the list'
+    },
+    {
+      field: 'Heat No',
+      required: true,
+      type: 'Text',
+      description: 'Enter the heat number for tracking'
+    },
+    {
+      field: 'Con No',
+      required: false,
+      type: 'Number',
+      description: 'Container number (Optional) - Number only'
+    },
+    {
+      field: 'Tapping Time',
+      required: false,
+      type: 'Time',
+      pattern: 'HH:MM',
+      description: 'Time when tapping was performed (Optional)'
+    },
+    {
+      field: 'Corrective Addition - C',
+      required: true,
+      type: 'Number',
+      min: 0,
+      unit: 'Kgs',
+      description: 'Carbon corrective addition weight in kilograms'
+    },
+    {
+      field: 'Corrective Addition - Si',
+      required: true,
+      type: 'Number',
+      min: 0,
+      unit: 'Kgs',
+      description: 'Silicon corrective addition weight in kilograms'
+    },
+    {
+      field: 'Corrective Addition - Mn',
+      required: true,
+      type: 'Number',
+      min: 0,
+      unit: 'Kgs',
+      description: 'Manganese corrective addition weight in kilograms'
+    },
+    {
+      field: 'Corrective Addition - S',
+      required: true,
+      type: 'Number',
+      min: 0,
+      unit: 'Kgs',
+      description: 'Sulfur corrective addition weight in kilograms'
+    },
+    {
+      field: 'Corrective Addition - Cr',
+      required: true,
+      type: 'Number',
+      min: 0,
+      unit: 'Kgs',
+      description: 'Chromium corrective addition weight in kilograms'
+    },
+    {
+      field: 'Corrective Addition - Cu',
+      required: true,
+      type: 'Number',
+      min: 0,
+      unit: 'Kgs',
+      description: 'Copper corrective addition weight in kilograms'
+    },
+    {
+      field: 'Corrective Addition - Sn',
+      required: true,
+      type: 'Number',
+      min: 0,
+      unit: 'Kgs',
+      description: 'Tin corrective addition weight in kilograms'
+    },
+    {
+      field: 'Tapping Wt',
+      required: true,
+      type: 'Number',
+      min: 0,
+      unit: 'Kgs',
+      description: 'Total tapping weight in kilograms'
+    },
+    {
+      field: 'Mg',
+      required: false,
+      type: 'Number',
+      min: 0,
+      unit: 'Kgs',
+      description: 'Magnesium weight in kilograms (Optional)'
+    },
+    {
+      field: 'Res. Mg. Convertor',
+      required: false,
+      type: 'Number',
+      min: 0,
+      max: 100,
+      unit: '%',
+      description: 'Residual Magnesium Convertor percentage (Optional)'
+    },
+    {
+      field: 'Rec. Of Mg',
+      required: false,
+      type: 'Number',
+      min: 0,
+      max: 100,
+      unit: '%',
+      description: 'Recovery of Magnesium percentage (Optional)'
+    },
+    {
+      field: 'Stream Inoculant',
+      required: true,
+      type: 'Number',
+      min: 0,
+      unit: 'gm/Sec',
+      pattern: 'e.g., 5.5',
+      description: 'Stream inoculant flow rate in grams per second'
+    },
+    {
+      field: 'P.Time',
+      required: false,
+      type: 'Number',
+      min: 0,
+      unit: 'sec',
+      pattern: 'e.g., 120',
+      description: 'Processing time in seconds (Optional)'
+    },
+    {
+      field: 'Remarks',
+      required: true,
+      type: 'Text',
+      maxLength: 200,
+      description: 'Additional notes or observations (Max 200 characters)'
+    }
+  ];
 
   const [formData, setFormData] = useState({
     date: '', disa: '', partName: '', datecode: '', heatcode: '', quantityOfMoulds: '', metalCompositionC: '', metalCompositionSi: '',
@@ -981,6 +1271,7 @@ export default function ProcessControl() {
           <h2>
             <FileText size={28} style={{ color: '#5B9AA9' }} />
             Process Control - Entry Form
+            <InfoIcon onClick={openModal} />
           </h2>
         </div>
         <div aria-label="Date" style={{ fontWeight: 600, color: '#25424c' }}>
@@ -990,6 +1281,14 @@ export default function ProcessControl() {
           })() : '-'}
         </div>
       </div>
+
+      {/* Info Modal */}
+      <InfoCard
+        isOpen={isOpen}
+        onClose={closeModal}
+        title="Process Control - Validation Ranges & Data Entry Flow"
+        validationRanges={validationRanges}
+      />
 
       <div className="process-form-grid">
             {/* Primary Data Section */}

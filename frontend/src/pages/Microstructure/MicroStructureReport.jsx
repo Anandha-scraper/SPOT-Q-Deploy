@@ -219,7 +219,7 @@ const MicroStructureReport = () => {
               render: (item) => formatDate(item.date)
             },
             { key: 'disa', label: 'DISA', width: '100px', align: 'center' },
-            { key: 'partName', label: 'Part Name', width: '180px' },
+            { key: 'partName', label: 'Part Name', width: '150px', align: 'center' },
             { key: 'dateCode', label: 'Date Code', width: '110px', align: 'center' },
             { key: 'heatCode', label: 'Heat Code', width: '110px', align: 'center' },
             { 
@@ -232,34 +232,91 @@ const MicroStructureReport = () => {
             { 
               key: 'graphiteType', 
               label: 'Graphite Type %', 
-              width: '140px',
+              width: '150px',
               align: 'center',
               render: (item) => item.graphiteType !== undefined && item.graphiteType !== null ? item.graphiteType : '-'
             },
-            { key: 'countNos', label: 'Count Nos/mm²', width: '130px', align: 'center' },
-            { key: 'size', label: 'Size', width: '90px', align: 'center' },
+            { 
+              key: 'count', 
+              label: 'Count Nos/mm²', 
+              width: '140px', 
+              align: 'center',
+              render: (item) => {
+                const min = item.countMin;
+                const max = item.countMax;
+                if (min !== undefined && min !== null && max !== undefined && max !== null) {
+                  return `${min} - ${max}`;
+                } else if (min !== undefined && min !== null) {
+                  return min;
+                }
+                return '-';
+              }
+            },
+            { 
+              key: 'size', 
+              label: 'Size', 
+              width: '90px', 
+              align: 'center',
+              render: (item) => {
+                const min = item.sizeMin;
+                const max = item.sizeMax;
+                if (min !== undefined && min !== null && max !== undefined && max !== null) {
+                  return `${min} - ${max}`;
+                } else if (min !== undefined && min !== null) {
+                  return min;
+                }
+                return '-';
+              }
+            },
             { 
               key: 'ferrite', 
               label: 'Ferrite %', 
               width: '100px',
               align: 'center',
-              render: (item) => item.ferrite !== undefined && item.ferrite !== null ? item.ferrite : '-'
+              render: (item) => {
+                const min = item.ferriteMin;
+                const max = item.ferriteMax;
+                if (min !== undefined && min !== null && max !== undefined && max !== null) {
+                  return `${min} - ${max}`;
+                } else if (min !== undefined && min !== null) {
+                  return min;
+                }
+                return '-';
+              }
             },
             { 
               key: 'pearlite', 
               label: 'Pearlite %', 
               width: '100px',
               align: 'center',
-              render: (item) => item.pearlite !== undefined && item.pearlite !== null ? item.pearlite : '-'
+              render: (item) => {
+                const min = item.pearliteMin;
+                const max = item.pearliteMax;
+                if (min !== undefined && min !== null && max !== undefined && max !== null) {
+                  return `${min} - ${max}`;
+                } else if (min !== undefined && min !== null) {
+                  return min;
+                }
+                return '-';
+              }
             },
             { 
               key: 'carbide', 
               label: 'Carbide %', 
-              width: '100px',
+              width: '110px',
               align: 'center',
-              render: (item) => item.carbide !== undefined && item.carbide !== null ? item.carbide : '-'
+              render: (item) => {
+                const min = item.carbideMin;
+                const max = item.carbideMax;
+                if (min !== undefined && min !== null && max !== undefined && max !== null) {
+                  return `${min} - ${max}`;
+                } else if (min !== undefined && min !== null) {
+                  return min;
+                }
+                return '-';
+              }
             },
-            { key: 'remarks', label: 'Remarks', width: '200px' }
+            { key: 'remarks', label: 'Remarks', width: '200px',align: 'center' },
           ]}
           data={filteredItems}
           minWidth={1700}
