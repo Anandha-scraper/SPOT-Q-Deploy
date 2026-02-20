@@ -3,9 +3,65 @@ import { Save } from 'lucide-react';
 import { SubmitButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import Sakthi from '../../Components/Sakthi';
+import { InlineLoader } from '../../Components/Alert';
+import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import '../../styles/PageStyles/Impact/Impact.css';
 
 const Impact = () => {
+  // Info modal hook
+  const { isOpen, openModal, closeModal } = useInfoModal();
+
+  // ====================== Validation Ranges ======================
+  const validationRanges = [
+    {
+      field: 'Date',
+      required: true,
+      type: 'Date',
+      pattern: 'DD/MM/YYYY',
+      description: 'Select a valid date for impact test. Cannot be in the future.'
+    },
+    {
+      field: 'Part Name',
+      required: true,
+      type: 'Text',
+      maxLength: 100,
+      pattern: 'Alphanumeric',
+      description: 'Enter the name of the part being tested'
+    },
+    {
+      field: 'Date Code',
+      required: true,
+      type: 'Text',
+      pattern: 'e.g., 6F25',
+      maxLength: 50,
+      description: 'Enter the date code for the part'
+    },
+    {
+      field: 'Specification',
+      required: true,
+      type: 'Number',
+      min: 0,
+      unit: 'J (Joules)',
+      pattern: 'e.g., 15',
+      description: 'Enter the impact test specification value in Joules'
+    },
+    {
+      field: 'Observed Value',
+      required: true,
+      type: 'Number',
+      min: 0,
+      unit: 'J (Joules)',
+      pattern: 'e.g., 18.5',
+      description: 'Enter the actual observed impact value in Joules'
+    },
+    {
+      field: 'Remarks',
+      required: true,
+      type: 'Text',
+      maxLength: 200,
+      description: 'Enter any additional notes or observations (Max 200 characters)'
+    }
+  ];
 
   // Get current date in YYYY-MM-DD format
   const getCurrentDate = () => {
@@ -262,12 +318,21 @@ const Impact = () => {
           <h2>
             <Save size={28} style={{ color: '#5B9AA9' }} />
             Impact Test - Entry Form
+            <InfoIcon onClick={openModal} />
           </h2>
         </div>
         <div aria-label="Date" style={{ fontWeight: 600, color: '#25424c' }}>
           DATE : {formData.date ? formatDisplayDate(formData.date) : '-'}
         </div>
       </div>
+
+      {/* Info Modal */}
+      <InfoCard
+        isOpen={isOpen}
+        onClose={closeModal}
+        title="Impact Test - Validation Ranges & Guidelines"
+        validationRanges={validationRanges}
+      />
 
       <form className="impact-form-grid">
 
@@ -377,6 +442,13 @@ const Impact = () => {
       </form>
 
       <div className="impact-submit-container">
+        {submitErrorMessage && (
+          <InlineLoader 
+            message={submitErrorMessage}
+            variant="danger"
+            size="medium"
+          />
+        )}
         <div className="impact-submit-right">
           <SubmitButton
             ref={submitButtonRef}

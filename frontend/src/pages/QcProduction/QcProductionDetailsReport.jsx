@@ -134,6 +134,29 @@ const QcProductionDetailsReport = () => {
     }
   };
 
+  // Helper function to format range display - if max is 0, show only min
+  const formatRangeDisplay = (rangeStr) => {
+    if (!rangeStr) return '-';
+    const trimmed = rangeStr.trim();
+    
+    // Check if it contains a hyphen (range format)
+    if (trimmed.includes('-')) {
+      const parts = trimmed.split('-').map(p => p.trim());
+      if (parts.length === 2) {
+        const min = parts[0];
+        const max = parts[1];
+        // If max is 0 or empty, show only min
+        if (max === '0' || max === '0.0' || max === '') {
+          return min;
+        }
+        return `${min} - ${max}`;
+      }
+    }
+    
+    // Return as-is if not a range format
+    return trimmed;
+  };
+
   return (
     <>
       <div className="impact-report-header">
@@ -183,102 +206,120 @@ const QcProductionDetailsReport = () => {
             { 
               key: 'date', 
               label: 'Date', 
-              width: '120px',
+              width: '130px',
               align: 'center',
               render: (item) => formatDateDisplay(item.date)
             },
-            { key: 'partName', label: 'Part Name', width: '180px',align : "center"  },
+            { key: 'partName', label: 'Part Name', width: '180px', align: "center" },
             { key: 'noOfMoulds', label: 'No.Of Moulds', width: '130px', align: 'center' },
             { 
               key: 'cPercent', 
               label: 'C %', 
-              width: '80px',
+              width: '130px',
               align: 'center',
-              render: (item) => item.cPercent !== undefined && item.cPercent !== null ? item.cPercent : '-'
+              render: (item) => formatRangeDisplay(item.cPercent)
             },
             { 
               key: 'siPercent', 
               label: 'Si %', 
-              width: '80px',
+              width: '130px',
               align: 'center',
-              render: (item) => item.siPercent !== undefined && item.siPercent !== null ? item.siPercent : '-'
+              render: (item) => formatRangeDisplay(item.siPercent)
             },
             { 
               key: 'mnPercent', 
               label: 'Mn %', 
-              width: '80px',
+              width: '130px',
               align: 'center',
-              render: (item) => item.mnPercent !== undefined && item.mnPercent !== null ? item.mnPercent : '-'
+              render: (item) => formatRangeDisplay(item.mnPercent)
             },
             { 
               key: 'pPercent', 
               label: 'P %', 
-              width: '80px',
+              width: '130px',
               align: 'center',
-              render: (item) => item.pPercent !== undefined && item.pPercent !== null ? item.pPercent : '-'
+              render: (item) => formatRangeDisplay(item.pPercent)
             },
             { 
               key: 'sPercent', 
               label: 'S %', 
-              width: '80px',
+              width: '130px',
               align: 'center',
-              render: (item) => item.sPercent !== undefined && item.sPercent !== null ? item.sPercent : '-'
+              render: (item) => formatRangeDisplay(item.sPercent)
             },
             { 
               key: 'mgPercent', 
               label: 'Mg %', 
-              width: '80px',
+              width: '130px',
               align: 'center',
-              render: (item) => item.mgPercent !== undefined && item.mgPercent !== null ? item.mgPercent : '-'
+              render: (item) => formatRangeDisplay(item.mgPercent)
             },
             { 
               key: 'cuPercent', 
               label: 'Cu %', 
-              width: '80px',
+              width: '130px',
               align: 'center',
-              render: (item) => item.cuPercent !== undefined && item.cuPercent !== null ? item.cuPercent : '-'
+              render: (item) => formatRangeDisplay(item.cuPercent)
             },
             { 
               key: 'crPercent', 
               label: 'Cr %', 
-              width: '80px',
+              width: '130px',
               align: 'center',
-              render: (item) => item.crPercent !== undefined && item.crPercent !== null ? item.crPercent : '-'
+              render: (item) => formatRangeDisplay(item.crPercent)
             },
-            { key: 'nodularity', label: 'Nodularity', width: '110px', align: 'center' },
-            { key: 'graphiteType', label: 'Graphite Type', width: '130px', align: 'center' },
-            { key: 'pearliteFerrite', label: 'Pearlite Ferrite', width: '140px', align: 'center' },
+            { 
+              key: 'nodularity', 
+              label: 'Nodularity', 
+              width: '150px', 
+              align: 'center',
+              render: (item) => formatRangeDisplay(item.nodularity)
+            },
+            { 
+              key: 'graphiteType', 
+              label: 'Graphite Type', 
+              width: '150px', 
+              align: 'center',
+              render: (item) => formatRangeDisplay(item.graphiteType)
+            },
+            { 
+              key: 'pearliteFerrite', 
+              label: 'Pearlite Ferrite', 
+              width: '160px', 
+              align: 'center',
+              render: (item) => formatRangeDisplay(item.pearliteFerrite)
+            },
             { 
               key: 'hardnessBHN', 
               label: 'Hardness BHN', 
-              width: '130px',
+              width: '150px',
               align: 'center',
-              render: (item) => item.hardnessBHN !== undefined && item.hardnessBHN !== null ? item.hardnessBHN : '-'
+              render: (item) => formatRangeDisplay(item.hardnessBHN)
             },
             { 
               key: 'ts', 
               label: 'TS', 
-              width: '80px',
+              width: '130px',
               align: 'center',
-              render: (item) => item.ts !== undefined && item.ts !== null ? item.ts : '-'
+              render: (item) => formatRangeDisplay(item.ts)
             },
             { 
               key: 'ys', 
               label: 'YS', 
-              width: '80px',
+              width: '130px',
               align: 'center',
-              render: (item) => item.ys !== undefined && item.ys !== null ? item.ys : '-'
+              render: (item) => formatRangeDisplay(item.ys)
             },
             { 
               key: 'el', 
               label: 'EL', 
-              width: '80px',
+              width: '130px',
               align: 'center',
-              render: (item) => item.el !== undefined && item.el !== null ? item.el : '-'
+              render: (item) => formatRangeDisplay(item.el)
             }
           ]}
           data={filteredItems}
-          minWidth={2000}
+          minWidth={2400}
           defaultAlign="left"
           groupByColumn="date"
           noDataMessage="No records found"

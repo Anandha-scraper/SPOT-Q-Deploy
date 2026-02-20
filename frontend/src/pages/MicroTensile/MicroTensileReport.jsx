@@ -175,11 +175,12 @@ const MicroTensileReport = () => {
       { key: 'tensileStrength', label: 'Tensile Strength (Kg/mm² or MPa)', width: '14%', align: 'center', render: (r) => r.tensileStrength ?? '-' },
       { key: 'yieldStrength', label: 'Yield Strength (Kg/mm² or MPa)', width: '14%', align: 'center', render: (r) => r.yieldStrength ?? '-' },
       { key: 'elongation', label: 'Elongation', width: '8%', align: 'center', render: (r) => r.elongation ?? '-' },
-      { key: 'testedBy', label: 'Tested By', width: '9%', render: (r) => r.testedBy ?? '-' },
+      { key: 'testedBy', label: 'Tested By', width: '9%', align: 'center', render: (r) => r.testedBy ?? '-' },
       { 
         key: 'remarks', 
         label: 'Remarks', 
-        width: '10%',
+        align: 'center',
+        width: '12%',
         render: (r) => r.remarks || '-'
       },
     ];

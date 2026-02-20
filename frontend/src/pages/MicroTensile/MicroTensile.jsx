@@ -1,12 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Save, Loader2, FileText } from 'lucide-react';
-import { SubmitButton, ResetButton, DisaDropdown, LockPrimaryButton } from '../../Components/Buttons';
+import { SubmitButton, DisaDropdown, LockPrimaryButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import Sakthi from '../../Components/Sakthi';
+import { InlineLoader } from '../../Components/Alert';
 import '../../styles/PageStyles/MicroTensile/MicroTensile.css';
 
 const MicroTensile = () => {
   const inputRefs = useRef({});
+  const primarySectionRef = useRef(null);
   const [formData, setFormData] = useState({
     date: '',
     disa: '',
@@ -34,6 +36,10 @@ const MicroTensile = () => {
   const [isPrimarySaved, setIsPrimarySaved] = useState(false);
   const [savePrimaryLoading, setSavePrimaryLoading] = useState(false);
   const [entryCount, setEntryCount] = useState(0);
+  const [showCombinationFound, setShowCombinationFound] = useState(false);
+  const [showCombinationAdded, setShowCombinationAdded] = useState(false);
+  const [showPrimaryWarning, setShowPrimaryWarning] = useState(false);
+  const [highlightPrimaryFields, setHighlightPrimaryFields] = useState(false);
 
   // VALIDATION STATES
   const [itemValid, setItemValid] = useState(null);
@@ -47,6 +53,7 @@ const MicroTensile = () => {
   const [tensileStrengthValid, setTensileStrengthValid] = useState(null);
   const [yieldStrengthValid, setYieldStrengthValid] = useState(null);
   const [elongationValid, setElongationValid] = useState(null);
+  const [remarksValid, setRemarksValid] = useState(null);
   const [testedByValid, setTestedByValid] = useState(null);
 
   // Field order for keyboard navigation
@@ -75,27 +82,117 @@ const MicroTensile = () => {
       if (!formData.date || !formData.disa) {
         setIsPrimarySaved(false);
         setEntryCount(0);
+        setSavePrimaryLoading(false);
+        setShowCombinationFound(false);
+        setShowCombinationAdded(false);
         return;
       }
 
       try {
+        setSavePrimaryLoading(true);
+        setShowCombinationFound(false);
+        
+        const startTime = Date.now();
+        
         const response = await fetch(`http://localhost:5000/api/v1/micro-tensile/check?date=${formData.date}&disa=${encodeURIComponent(formData.disa)}`, {
           method: 'GET',
           credentials: 'include'
         });
         const data = await response.json();
         
-        if (data.success) {
-          setIsPrimarySaved(data.exists);
-          setEntryCount(data.count || 0);
+        // Ensure minimum 1 second loading time
+        const elapsedTime = Date.now() - startTime;
+        const remainingTime = Math.max(0, 1000 - elapsedTime);
+        await new Promise(resolve => setTimeout(resolve, remainingTime));
+        
+        setSavePrimaryLoading(false);
+        
+        if (data.success && data.exists) {
+          setShowCombinationFound(true);
+          
+          // Hide "Combination found" message after 1.5 seconds
+          setTimeout(() => {
+            setShowCombinationFound(false);
+            setIsPrimarySaved(true);
+            setEntryCount(data.count || 0);
+          }, 1500);
+        } else {
+          // Combination not found, just update states
+          setIsPrimarySaved(false);
+          setEntryCount(0);
         }
       } catch (error) {
         console.error('Error checking date+disa:', error);
+        setSavePrimaryLoading(false);
       }
     };
 
     checkDateDisaExists();
   }, [formData.date, formData.disa]);
+
+  // Add click listeners to all disabled fields to show warning
+  useEffect(() => {
+    const handleDisabledClick = (e) => {
+      const target = e.target;
+      
+      // Check if clicked element is a disabled input or select
+      if ((target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA') && target.disabled) {
+        handleDisabledFieldClick(e);
+        return;
+      }
+      
+      // Check if clicked on microtensile-form-grid (the main grid container)
+      if (target.classList && target.classList.contains('microtensile-form-grid') && !isPrimarySaved) {
+        handleDisabledFieldClick(e);
+        return;
+      }
+      
+      // Check if clicked on a form-group div that contains a disabled field
+      let formGroup = null;
+      if (target.classList && target.classList.contains('microtensile-form-group')) {
+        formGroup = target;
+      } else {
+        formGroup = target.closest('.microtensile-form-group');
+      }
+      
+      if (formGroup) {
+        const input = formGroup.querySelector('input, select, textarea');
+        if (input && input.disabled) {
+          handleDisabledFieldClick(e);
+          return;
+        }
+      }
+    };
+
+    // Add event listener to document to catch all clicks
+    document.addEventListener('mousedown', handleDisabledClick, true);
+
+    return () => {
+      document.removeEventListener('mousedown', handleDisabledClick, true);
+    };
+  }, [isPrimarySaved]);
+
+  const handleDisabledFieldClick = (e) => {
+    if (!isPrimarySaved) {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Show warning
+      setShowPrimaryWarning(true);
+      setHighlightPrimaryFields(true);
+      
+      // Scroll to primary section
+      if (primarySectionRef.current) {
+        primarySectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      
+      // Hide warning and remove highlight after 3 seconds
+      setTimeout(() => {
+        setShowPrimaryWarning(false);
+        setHighlightPrimaryFields(false);
+      }, 3000);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -105,19 +202,14 @@ const MicroTensile = () => {
       setIsPrimarySaved(false);
     }
 
-    // --- VALIDATE ITEM: text required ---
+    // --- RESET ITEM VALIDATION ---
     if (name === 'item') {
-      setItemValid(
-        value.trim() === "" ? null : value.trim().length > 0
-      );
+      setItemValid(null);
     }
 
-    // --- VALIDATE DATE CODE: specific format (e.g., 6F25) ---
+    // --- RESET DATE CODE VALIDATION ---
     if (name === 'dateCode') {
-      const pattern = /^[0-9][A-Z][0-9]{2}$/;
-      setDateCodeValid(
-        value.trim() === "" ? null : pattern.test(value)
-      );
+      setDateCodeValid(null);
       setFormData(prev => ({
         ...prev,
         [name]: value.toUpperCase()
@@ -131,59 +223,48 @@ const MicroTensile = () => {
       // strip any non-digit characters so the field contains only numbers
       const cleaned = String(value).replace(/\D/g, '');
       setFormData(prev => ({ ...prev, [name]: cleaned }));
-      setHeatCodeValid(cleaned === '' ? null : true);
+      setHeatCodeValid(null);
       setErrors(prev => ({ ...prev, [name]: false }));
       return;
     }
 
-    // --- VALIDATE BAR DIA: number ---
+    // --- RESET VALIDATION for numeric fields ---
     if (name === 'barDia') {
-      setBarDiaValid(
-        value.trim() === "" ? null : !isNaN(value) && parseFloat(value) > 0
-      );
+      setBarDiaValid(null);
     }
 
-    // --- VALIDATE GAUGE LENGTH: number ---
     if (name === 'gaugeLength') {
-      setGaugeLengthValid(
-        value.trim() === "" ? null : !isNaN(value) && parseFloat(value) > 0
-      );
+      setGaugeLengthValid(null);
     }
 
-    // --- VALIDATE MAX LOAD: number ---
     if (name === 'maxLoad') {
-      setMaxLoadValid(
-        value.trim() === "" ? null : !isNaN(value) && parseFloat(value) > 0
-      );
+      setMaxLoadValid(null);
     }
 
-    // --- VALIDATE YIELD LOAD: number ---
     if (name === 'yieldLoad') {
-      setYieldLoadValid(
-        value.trim() === "" ? null : !isNaN(value) && parseFloat(value) > 0
-      );
+      setYieldLoadValid(null);
     }
 
-    // --- VALIDATE TENSILE STRENGTH: number ---
     if (name === 'tensileStrength') {
-      setTensileStrengthValid(
-        value.trim() === "" ? null : !isNaN(value) && parseFloat(value) > 0
-      );
+      setTensileStrengthValid(null);
     }
 
-    // --- VALIDATE YIELD STRENGTH: number ---
     if (name === 'yieldStrength') {
-      setYieldStrengthValid(
-        value.trim() === "" ? null : !isNaN(value) && parseFloat(value) > 0
-      );
+      setYieldStrengthValid(null);
     }
 
-    // --- VALIDATE ELONGATION: number between 0-100 ---
     if (name === 'elongation') {
-      const num = parseFloat(value);
-      setElongationValid(
-        value.trim() === "" ? null : !isNaN(num) && num >= 0 && num <= 100
-      );
+      setElongationValid(null);
+    }
+
+    // --- VALIDATE REMARKS: reset to neutral ---
+    if (name === 'remarks') {
+      setRemarksValid(null);
+    }
+
+    // --- VALIDATE TESTED BY: reset to neutral ---
+    if (name === 'testedBy') {
+      setTestedByValid(null);
     }
 
     // Handle itemSecond field
@@ -199,7 +280,7 @@ const MicroTensile = () => {
           [name]: value
         }));
 
-        // Validate format if value is not empty
+        // Validate fo  mat if value is not empty
         if (value.trim() !== '') {
           const parts = value.split('/');
           const isValid = parts.length === 3 && parts.every(p => p.trim() !== '' && !isNaN(p));
@@ -219,14 +300,40 @@ const MicroTensile = () => {
     setErrors(prev => ({ ...prev, [name]: false }));
   };
 
+  // Format decimal values for numeric fields
+  const formatDecimalValue = (fieldName) => {
+    const value = formData[fieldName];
+    if (value && !isNaN(value) && value.trim() !== '') {
+      const num = parseFloat(value);
+      if (!isNaN(num)) {
+        setFormData(prev => ({
+          ...prev,
+          [fieldName]: num.toFixed(1)
+        }));
+      }
+    }
+  };
+
+  // Handle blur event for numeric fields with decimal formatting
+  const handleNumericBlur = (fieldName) => {
+    formatDecimalValue(fieldName);
+  };
+
   const handlePrimarySubmit = async () => {
     if (!formData.date || !formData.disa) {
       alert('Please fill in Date and DISA');
       return;
     }
 
+    // If already processing, don't submit again
+    if (savePrimaryLoading || showCombinationFound || showCombinationAdded) {
+      return;
+    }
+
     try {
       setSavePrimaryLoading(true);
+      
+      const startTime = Date.now();
       
       const response = await fetch('http://localhost:5000/api/v1/micro-tensile/save-primary', {
         method: 'POST',
@@ -237,20 +344,34 @@ const MicroTensile = () => {
       
       const data = await response.json();
       
+      // Ensure minimum 1 second for consistent UX
+      const elapsedTime = Date.now() - startTime;
+      const remainingTime = Math.max(0, 1000 - elapsedTime);
+      await new Promise(resolve => setTimeout(resolve, remainingTime));
+      
+      setSavePrimaryLoading(false);
+      
       if (data.success) {
-        setIsPrimarySaved(true);
-        setEntryCount(data.count || 0);
+        setShowCombinationAdded(true);
+        
+        // Hide "Combination Added" message after 1.5 seconds
         setTimeout(() => {
-          inputRefs.current.item?.focus();
-        }, 100);
+          setShowCombinationAdded(false);
+          setIsPrimarySaved(true);
+          setEntryCount(data.count || 0);
+          
+          // Focus on first input field
+          setTimeout(() => {
+            inputRefs.current.item?.focus();
+          }, 100);
+        }, 1500);
       } else {
         alert('Failed to save primary: ' + data.message);
       }
     } catch (error) {
       console.error('Error saving primary:', error);
-      alert('Failed to save primary: ' + error.message);
-    } finally {
       setSavePrimaryLoading(false);
+      alert('Failed to save primary: ' + error.message);
     }
   };
 
@@ -295,6 +416,12 @@ const MicroTensile = () => {
         }
       }
 
+      // Format decimal for numeric fields before moving to next
+      const decimalFields = ['barDia', 'gaugeLength', 'maxLoad', 'yieldLoad', 'tensileStrength', 'yieldStrength', 'elongation'];
+      if (decimalFields.includes(field)) {
+        formatDecimalValue(field);
+      }
+
       // If the current field is required, only proceed when it has a value
       if (requiredFields.includes(field)) {
         const isFilled = field === 'disa'
@@ -321,51 +448,112 @@ const MicroTensile = () => {
     setSubmitError('');
 
     // Validate required fields with validation states
-    const requiredFields = [
-      { name: 'item', value: formData.item, setState: setItemValid },
-      { name: 'dateCode', value: formData.dateCode, setState: setDateCodeValid },
-      { name: 'heatCode', value: formData.heatCode, setState: setHeatCodeValid },
-      { name: 'barDia', value: formData.barDia, setState: setBarDiaValid },
-      { name: 'gaugeLength', value: formData.gaugeLength, setState: setGaugeLengthValid },
-      { name: 'maxLoad', value: formData.maxLoad, setState: setMaxLoadValid },
-      { name: 'yieldLoad', value: formData.yieldLoad, setState: setYieldLoadValid },
-      { name: 'tensileStrength', value: formData.tensileStrength, setState: setTensileStrengthValid },
-      { name: 'yieldStrength', value: formData.yieldStrength, setState: setYieldStrengthValid },
-      { name: 'elongation', value: formData.elongation, setState: setElongationValid },
-      { name: 'testedBy', value: formData.testedBy, setState: setTestedByValid }
-    ];
+    // Validate all required fields
+    let hasErrors = false;
+    const dateCodePattern = /^[0-9][A-Z][0-9]{2}$/;
 
-    const emptyFields = requiredFields.filter(field => !field.value || field.value.toString().trim() === '');
-    const missing = emptyFields.map(f => f.name);
-
-    if (!formData.disa || formData.disa.length === 0) {
-      missing.push('disa');
+    // Validate Item
+    if (!formData.item || !formData.item.trim()) {
+      setItemValid(false);
+      hasErrors = true;
+    } else {
+      setItemValid(null);
     }
 
-    if (missing.length > 0 || emptyFields.length > 0) {
-      // Highlight all empty required fields in red
-      emptyFields.forEach(field => {
-        field.setState(false);
-      });
+    // Validate Date Code
+    if (!formData.dateCode || !formData.dateCode.trim() || !dateCodePattern.test(formData.dateCode)) {
+      setDateCodeValid(false);
+      hasErrors = true;
+    } else {
+      setDateCodeValid(null);
+    }
 
-      // Set old errors for compatibility
-      const nextErrors = missing.reduce((acc, key) => { acc[key] = true; return acc; }, {});
-      setErrors(nextErrors);
+    // Validate Heat Code
+    if (!formData.heatCode || !formData.heatCode.trim()) {
+      setHeatCodeValid(false);
+      hasErrors = true;
+    } else {
+      setHeatCodeValid(null);
+    }
 
-      // Set error message
-      setSubmitError('Please fill in all required fields');
+    // Validate Bar Dia
+    if (!formData.barDia || isNaN(formData.barDia) || parseFloat(formData.barDia) <= 0) {
+      setBarDiaValid(false);
+      hasErrors = true;
+    } else {
+      setBarDiaValid(null);
+    }
 
-      // Clear error message after 3 seconds
-      setTimeout(() => {
-        setSubmitError('');
-      }, 3000);
+    // Validate Gauge Length
+    if (!formData.gaugeLength || isNaN(formData.gaugeLength) || parseFloat(formData.gaugeLength) <= 0) {
+      setGaugeLengthValid(false);
+      hasErrors = true;
+    } else {
+      setGaugeLengthValid(null);
+    }
 
-      const first = missing[0];
-      if (first && first !== 'disa') {
-        inputRefs.current[first]?.focus();
-      }
+    // Validate Max Load
+    if (!formData.maxLoad || isNaN(formData.maxLoad) || parseFloat(formData.maxLoad) <= 0) {
+      setMaxLoadValid(false);
+      hasErrors = true;
+    } else {
+      setMaxLoadValid(null);
+    }
+
+    // Validate Yield Load
+    if (!formData.yieldLoad || isNaN(formData.yieldLoad) || parseFloat(formData.yieldLoad) <= 0) {
+      setYieldLoadValid(false);
+      hasErrors = true;
+    } else {
+      setYieldLoadValid(null);
+    }
+
+    // Validate Tensile Strength
+    if (!formData.tensileStrength || isNaN(formData.tensileStrength) || parseFloat(formData.tensileStrength) <= 0) {
+      setTensileStrengthValid(false);
+      hasErrors = true;
+    } else {
+      setTensileStrengthValid(null);
+    }
+
+    // Validate Yield Strength
+    if (!formData.yieldStrength || isNaN(formData.yieldStrength) || parseFloat(formData.yieldStrength) <= 0) {
+      setYieldStrengthValid(false);
+      hasErrors = true;
+    } else {
+      setYieldStrengthValid(null);
+    }
+
+    // Validate Elongation
+    if (!formData.elongation || isNaN(formData.elongation) || parseFloat(formData.elongation) < 0 || parseFloat(formData.elongation) > 100) {
+      setElongationValid(false);
+      hasErrors = true;
+    } else {
+      setElongationValid(null);
+    }
+
+    // Validate Remarks
+    if (!formData.remarks || !formData.remarks.trim()) {
+      setRemarksValid(false);
+      hasErrors = true;
+    } else {
+      setRemarksValid(null);
+    }
+
+    // Validate Tested By
+    if (!formData.testedBy || !formData.testedBy.trim()) {
+      setTestedByValid(false);
+      hasErrors = true;
+    } else {
+      setTestedByValid(null);
+    }
+
+    if (hasErrors) {
+      setSubmitError('Enter data in correct Format');
       return;
     }
+
+    setSubmitError('');
 
     // Validate itemSecond format if provided
     if (formData.itemSecond && formData.itemSecond.trim() !== '') {
@@ -448,6 +636,8 @@ const MicroTensile = () => {
         setTensileStrengthValid(null);
         setYieldStrengthValid(null);
         setElongationValid(null);
+        setRemarksValid(null);
+        setTestedByValid(null);
 
         // Increment entry count
         setEntryCount(prev => prev + 1);
@@ -465,41 +655,11 @@ const MicroTensile = () => {
     }
   };
 
-
-  const handleReset = () => {
-    // Reset all fields except DISA checklist and date
-    setFormData({
-      date: formData.date,
-      disa: formData.disa,
-      item: '',
-      itemSecond: '',
-      dateCode: '',
-      heatCode: '',
-      barDia: '',
-      gaugeLength: '',
-      maxLoad: '',
-      yieldLoad: '',
-      tensileStrength: '',
-      yieldStrength: '',
-      elongation: '',
-      remarks: '',
-      testedBy: ''
-    });
-    setErrors({});
-
-    // Reset validation states
-    setItemValid(null);
-    setItemSecondValid(null);
-    setDateCodeValid(null);
-    setHeatCodeValid(null);
-    setBarDiaValid(null);
-    setGaugeLengthValid(null);
-    setMaxLoadValid(null);
-    setYieldLoadValid(null);
-    setTensileStrengthValid(null);
-    setYieldStrengthValid(null);
-    setElongationValid(null);
-    setTestedByValid(null);
+  const getInputClassName = (fieldName, validationState) => {
+    // Show red border if invalid (validationState === false)
+    if (validationState === false) return 'invalid-input';
+    // Otherwise show neutral (no color)
+    return '';
   };
 
   return (
@@ -536,13 +696,15 @@ const MicroTensile = () => {
       </div>
 
       {/* Primary Data Section */}
-      <h3 style={{ marginTop: '1rem', marginBottom: '0.75rem', fontSize: '1.125rem', fontWeight: 600, color: '#25424c' }}>
-        Primary Data {isPrimarySaved && <span style={{ fontWeight: 400, fontSize: '0.875rem', color: '#5B9AA9' }}>(Entries: {entryCount})</span>}
-      </h3>
+      <div ref={primarySectionRef}>
+        <h3 style={{ marginTop: '1rem', marginBottom: '0.75rem', fontSize: '1.125rem', fontWeight: 600, color: '#25424c' }}>
+          Primary Data {isPrimarySaved && <span style={{ fontWeight: 400, fontSize: '0.875rem', color: '#5B9AA9' }}>(Entries: {entryCount})</span>}
+        </h3>
+      </div>
 
       <div className="microtensile-form-grid">
             <div className="microtensile-form-group">
-              <label>Date <span className="required-indicator">*</span></label>
+              <label>Date</label>
               <CustomDatePicker
                 ref={el => inputRefs.current.date = el}
                 name="date"
@@ -550,25 +712,71 @@ const MicroTensile = () => {
                 onChange={handleChange}
                 onKeyDown={e => handleKeyDown(e, 'date')}
                 max={new Date().toISOString().split('T')[0]}
+                style={{
+                  border: highlightPrimaryFields ? '2px solid #ef4444' : undefined,
+                  backgroundColor: highlightPrimaryFields ? '#fee2e2' : undefined,
+                  transition: 'all 0.3s ease'
+                }}
               />
             </div>
 
             <div className="microtensile-form-group">
-              <label>DISA <span className="required-indicator">*</span></label>
+              <label>DISA</label>
               <DisaDropdown
                 ref={el => inputRefs.current.disa = el}
                 name="disa"
                 value={formData.disa}
                 onChange={handleChange}
                 onKeyDown={e => handleKeyDown(e, 'disa')}
+                style={{
+                  border: highlightPrimaryFields ? '2px solid #ef4444' : undefined,
+                  backgroundColor: highlightPrimaryFields ? '#fee2e2' : undefined,
+                  transition: 'all 0.3s ease'
+                }}
               />
+              {(savePrimaryLoading || showCombinationFound || showCombinationAdded || showPrimaryWarning) && (
+                <div style={{ 
+                  marginTop: '0.75rem',
+                  display: 'flex',
+                  alignItems: 'flex-start'
+                }}>
+                  {savePrimaryLoading && (
+                    <InlineLoader 
+                      message="Fetching Date, Disa" 
+                      size="medium" 
+                      variant="primary" 
+                    />
+                  )}
+                  {showCombinationFound && (
+                    <InlineLoader 
+                      message="Combination found" 
+                      size="medium" 
+                      variant="success" 
+                    />
+                  )}
+                  {showCombinationAdded && (
+                    <InlineLoader 
+                      message="Combination Added" 
+                      size="medium" 
+                      variant="success" 
+                    />
+                  )}
+                  {showPrimaryWarning && (
+                    <InlineLoader 
+                      message="Save Date, Disa" 
+                      size="medium" 
+                      variant="danger" 
+                    />
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="microtensile-form-group">
               <label>&nbsp;</label>
               <LockPrimaryButton
                 onClick={handlePrimarySubmit}
-                disabled={savePrimaryLoading || !formData.date || !formData.disa || isPrimarySaved}
+                disabled={savePrimaryLoading || showCombinationFound || showCombinationAdded || !formData.date || !formData.disa || isPrimarySaved}
                 isLocked={isPrimarySaved}
               />
             </div>
@@ -577,7 +785,7 @@ const MicroTensile = () => {
             <div style={{ gridColumn: '1 / -1', marginTop: '1rem', marginBottom: '1rem', paddingTop: '1rem', borderTop: '2px solid #e2e8f0' }}></div>
 
             <div className={`microtensile-form-group ${errors.item ? 'microtensile-error-outline' : ''}`}>
-              <label>Item <span className="required-indicator">*</span></label>
+              <label>Item</label>
               <input
                 ref={el => inputRefs.current.item = el}
                 type="text"
@@ -587,13 +795,7 @@ const MicroTensile = () => {
                 onKeyDown={e => handleKeyDown(e, 'item')}
                 placeholder="e.g: Volvo Bkt 234"
                 disabled={!isPrimarySaved}
-                className={
-                  itemValid === null
-                    ? ""
-                    : itemValid
-                    ? "valid-input"
-                    : "invalid-input"
-                }
+                className={getInputClassName('item', itemValid)}
               />
             </div>
 
@@ -608,18 +810,12 @@ const MicroTensile = () => {
                 onKeyDown={e => handleKeyDown(e, 'itemSecond')}
                 placeholder="(Optional) e.g: 343/34/56"
                 disabled={!isPrimarySaved}
-                className={
-                  itemSecondValid === null
-                    ? ""
-                    : itemSecondValid
-                    ? "valid-input"
-                    : "invalid-input"
-                }
+                className={getInputClassName('itemSecond', itemSecondValid)}
               />
             </div>
 
             <div className={`microtensile-form-group ${errors.dateCode ? 'microtensile-error-outline' : ''}`}>
-              <label>Date Code <span className="required-indicator">*</span></label>
+              <label>Date Code</label>
               <input
                 ref={el => inputRefs.current.dateCode = el}
                 type="text"
@@ -629,18 +825,12 @@ const MicroTensile = () => {
                 onKeyDown={e => handleKeyDown(e, 'dateCode')}
                 placeholder="e.g: 5E04"
                 disabled={!isPrimarySaved}
-                className={
-                  dateCodeValid === null
-                    ? ""
-                    : dateCodeValid
-                    ? "valid-input"
-                    : "invalid-input"
-                }
+                className={getInputClassName('dateCode', dateCodeValid)}
               />
             </div>
 
             <div className={`microtensile-form-group ${errors.heatCode ? 'microtensile-error-outline' : ''}`}>
-              <label>Heat Code <span className="required-indicator">*</span></label>
+              <label>Heat Code</label>
               <input
                 ref={el => inputRefs.current.heatCode = el}
                 type="text"
@@ -652,18 +842,12 @@ const MicroTensile = () => {
                 onKeyDown={e => handleKeyDown(e, 'heatCode')}
                 placeholder="e.g: 1"
                 disabled={!isPrimarySaved}
-                className={
-                  heatCodeValid === null
-                    ? ""
-                    : heatCodeValid
-                    ? "valid-input"
-                    : "invalid-input"
-                }
+                className={getInputClassName('heatCode', heatCodeValid)}
               />
             </div>
 
             <div className={`microtensile-form-group ${errors.barDia ? 'microtensile-error-outline' : ''}`}>
-              <label>Bar Dia (mm) <span className="required-indicator">*</span></label>
+              <label>Bar Dia (mm)</label>
               <input
                 ref={el => inputRefs.current.barDia = el}
                 type="number"
@@ -671,21 +855,16 @@ const MicroTensile = () => {
                 value={formData.barDia}
                 onChange={handleChange}
                 onKeyDown={e => handleKeyDown(e, 'barDia')}
+                onBlur={() => handleNumericBlur('barDia')}
                 step="0.01"
                 placeholder="e.g: 6.0"
                 disabled={!isPrimarySaved}
-                className={
-                  barDiaValid === null
-                    ? ""
-                    : barDiaValid
-                    ? "valid-input"
-                    : "invalid-input"
-                }
+                className={getInputClassName('barDia', barDiaValid)}
               />
             </div>
 
             <div className={`microtensile-form-group ${errors.gaugeLength ? 'microtensile-error-outline' : ''}`}>
-              <label>Gauge Length (mm) <span className="required-indicator">*</span></label>
+              <label>Gauge Length (mm)</label>
               <input
                 ref={el => inputRefs.current.gaugeLength = el}
                 type="number"
@@ -693,21 +872,16 @@ const MicroTensile = () => {
                 value={formData.gaugeLength}
                 onChange={handleChange}
                 onKeyDown={e => handleKeyDown(e, 'gaugeLength')}
+                onBlur={() => handleNumericBlur('gaugeLength')}
                 step="0.01"
                 placeholder="e.g: 30.0"
                 disabled={!isPrimarySaved}
-                className={
-                  gaugeLengthValid === null
-                    ? ""
-                    : gaugeLengthValid
-                    ? "valid-input"
-                    : "invalid-input"
-                }
+                className={getInputClassName('gaugeLength', gaugeLengthValid)}
               />
             </div>
 
             <div className={`microtensile-form-group ${errors.maxLoad ? 'microtensile-error-outline' : ''}`}>
-              <label>Max Load (Kgs) or KN <span className="required-indicator">*</span></label>
+              <label>Max Load (Kgs) or KN</label>
               <input
                 ref={el => inputRefs.current.maxLoad = el}
                 type="number"
@@ -715,21 +889,16 @@ const MicroTensile = () => {
                 value={formData.maxLoad}
                 onChange={handleChange}
                 onKeyDown={e => handleKeyDown(e, 'maxLoad')}
+                onBlur={() => handleNumericBlur('maxLoad')}
                 step="0.01"
                 placeholder="e.g: 1560"
                 disabled={!isPrimarySaved}
-                className={
-                  maxLoadValid === null
-                    ? ""
-                    : maxLoadValid
-                    ? "valid-input"
-                    : "invalid-input"
-                }
+                className={getInputClassName('maxLoad', maxLoadValid)}
               />
             </div>
 
             <div className={`microtensile-form-group ${errors.yieldLoad ? 'microtensile-error-outline' : ''}`}>
-              <label>Yield Load (Kgs) or KN <span className="required-indicator">*</span></label>
+              <label>Yield Load (Kgs) or KN</label>
               <input
                 ref={el => inputRefs.current.yieldLoad = el}
                 type="number"
@@ -737,21 +906,16 @@ const MicroTensile = () => {
                 value={formData.yieldLoad}
                 onChange={handleChange}
                 onKeyDown={e => handleKeyDown(e, 'yieldLoad')}
+                onBlur={() => handleNumericBlur('yieldLoad')}
                 step="0.01"
                 placeholder="e.g: 1290"
                 disabled={!isPrimarySaved}
-                className={
-                  yieldLoadValid === null
-                    ? ""
-                    : yieldLoadValid
-                    ? "valid-input"
-                    : "invalid-input"
-                }
+                className={getInputClassName('yieldLoad', yieldLoadValid)}
               />
             </div>
 
             <div className={`microtensile-form-group ${errors.tensileStrength ? 'microtensile-error-outline' : ''}`}>
-              <label>Tensile Strength (Kg/mm² or Mpa) <span className="required-indicator">*</span></label>
+              <label>Tensile Strength (Kg/mm² or Mpa)</label>
               <input
                 ref={el => inputRefs.current.tensileStrength = el}
                 type="number"
@@ -759,21 +923,16 @@ const MicroTensile = () => {
                 value={formData.tensileStrength}
                 onChange={handleChange}
                 onKeyDown={e => handleKeyDown(e, 'tensileStrength')}
+                onBlur={() => handleNumericBlur('tensileStrength')}
                 step="0.01"
                 placeholder="e.g: 550"
                 disabled={!isPrimarySaved}
-                className={
-                  tensileStrengthValid === null
-                    ? ""
-                    : tensileStrengthValid
-                    ? "valid-input"
-                    : "invalid-input"
-                }
+                className={getInputClassName('tensileStrength', tensileStrengthValid)}
               />
             </div>
 
             <div className={`microtensile-form-group ${errors.yieldStrength ? 'microtensile-error-outline' : ''}`}>
-              <label>Yield Strength (Kg/mm² or Mpa) <span className="required-indicator">*</span></label>
+              <label>Yield Strength (Kg/mm² or Mpa)</label>
               <input
                 ref={el => inputRefs.current.yieldStrength = el}
                 type="number"
@@ -781,21 +940,16 @@ const MicroTensile = () => {
                 value={formData.yieldStrength}
                 onChange={handleChange}
                 onKeyDown={e => handleKeyDown(e, 'yieldStrength')}
+                onBlur={() => handleNumericBlur('yieldStrength')}
                 step="0.01"
                 placeholder="e.g: 455"
                 disabled={!isPrimarySaved}
-                className={
-                  yieldStrengthValid === null
-                    ? ""
-                    : yieldStrengthValid
-                    ? "valid-input"
-                    : "invalid-input"
-                }
+                className={getInputClassName('yieldStrength', yieldStrengthValid)}
               />
             </div>
 
             <div className={`microtensile-form-group ${errors.elongation ? 'microtensile-error-outline' : ''}`}>
-              <label>Elongation % <span className="required-indicator">*</span></label>
+              <label>Elongation %</label>
               <input
                 ref={el => inputRefs.current.elongation = el}
                 type="number"
@@ -803,16 +957,11 @@ const MicroTensile = () => {
                 value={formData.elongation}
                 onChange={handleChange}
                 onKeyDown={e => handleKeyDown(e, 'elongation')}
+                onBlur={() => handleNumericBlur('elongation')}
                 step="0.01"
                 placeholder="e.g: 18.5"
                 disabled={!isPrimarySaved}
-                className={
-                  elongationValid === null
-                    ? ""
-                    : elongationValid
-                    ? "valid-input"
-                    : "invalid-input"
-                }
+                className={getInputClassName('elongation', elongationValid)}
               />
             </div>
 
@@ -828,11 +977,7 @@ const MicroTensile = () => {
                 placeholder="Enter any additional notes or observations..."
                 maxLength={80}
                 disabled={!isPrimarySaved}
-                style={{
-                  width: '100%',
-                  maxWidth: '500px',
-                  resize: 'none'
-                }}
+                className={getInputClassName('remarks', remarksValid)}
               />
             </div>
 
@@ -847,20 +992,20 @@ const MicroTensile = () => {
                 onKeyDown={e => handleKeyDown(e, 'testedBy')}
                 placeholder="e.g: John Smith"
                 disabled={!isPrimarySaved}
+                className={getInputClassName('testedBy', testedByValid)}
               />
             </div>
           </div>
 
-      <div className="microtensile-submit-container">
-        <ResetButton onClick={handleReset}>
-          Reset Form
-        </ResetButton>
-
-        <div className="microtensile-submit-right">
-          {submitError && (
-            <span className="microtensile-submit-error">{submitError}</span>
-          )}
-          <SubmitButton
+      <div className="microtensile-submit-container" style={{ justifyContent: 'flex-end', alignItems: 'center', gap: '1rem' }}>
+        {submitError && (
+          <InlineLoader 
+            message={submitError} 
+            size="medium" 
+            variant="danger" 
+          />
+        )}
+        <SubmitButton
             onClick={handleSubmit}
             disabled={!isPrimarySaved || submitLoading}
           >
@@ -873,7 +1018,6 @@ const MicroTensile = () => {
               'Submit Entry'
             )}
           </SubmitButton>
-        </div>
       </div>
     </>
   );

@@ -3,6 +3,7 @@ import { Save } from 'lucide-react';
 import { SubmitButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import Sakthi from '../../Components/Sakthi';
+import { InlineLoader } from '../../Components/Alert';
 import '../../styles/PageStyles/Tensile/Tensile.css';
 
 const Tensile = () => {
@@ -627,6 +628,13 @@ const Tensile = () => {
       </form>
 
       <div className="tensile-submit-container">
+        {submitErrorMessage && (
+          <InlineLoader 
+            message={submitErrorMessage}
+            variant="danger"
+            size="medium"
+          />
+        )}
         <div className="tensile-submit-right">
           <SubmitButton
             onClick={handleSubmit}

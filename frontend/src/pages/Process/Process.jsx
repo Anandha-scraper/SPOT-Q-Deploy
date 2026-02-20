@@ -1441,128 +1441,130 @@ export default function ProcessControl() {
               />
             </div>
 
-            <div className="section-header metal-composition-header">
+            <div className="section-header metal-composition-header" style={{ gridColumn: '1 / -1' }}>
               <h3>Metal Composition (%) </h3>
             </div>
-            <div className="process-form-group">
-              <label>C</label>
-              <input 
-                ref={r => inputRefs.current.metalCompositionC = r} 
-                type="number" 
-                name="metalCompositionC" 
-                step="0.001" 
-                value={formData.metalCompositionC} 
-                onChange={handleChange} 
-                onKeyDown={e => handleKeyDown(e, 'metalCompositionC')}
-                placeholder="%"
-                disabled={!isPrimarySaved}
-                className={getInputClassName('metalCompositionC', metalCValid)}
-              />
-            </div>
-            <div className="process-form-group">
-              <label>Si</label>
-              <input 
-                ref={r => inputRefs.current.metalCompositionSi = r} 
-                type="number" 
-                name="metalCompositionSi" 
-                step="0.001" 
-                value={formData.metalCompositionSi} 
-                onChange={handleChange} 
-                onKeyDown={e => handleKeyDown(e, 'metalCompositionSi')}
-                placeholder="%"
-                disabled={!isPrimarySaved}
-                className={getInputClassName('metalCompositionSi', metalSiValid)}
-              />
-            </div>
-            <div className="process-form-group">
-              <label>Mn</label>
-              <input 
-                ref={r => inputRefs.current.metalCompositionMn = r} 
-                type="number" 
-                name="metalCompositionMn" 
-                step="0.001" 
-                value={formData.metalCompositionMn} 
-                onChange={handleChange} 
-                onKeyDown={e => handleKeyDown(e, 'metalCompositionMn')}
-                placeholder="%"
-                disabled={!isPrimarySaved}
-                className={getInputClassName('metalCompositionMn', metalMnValid)}
-              />
-            </div>
-            <div className="process-form-group">
-              <label>P</label>
-              <input 
-                ref={r => inputRefs.current.metalCompositionP = r} 
-                type="number" 
-                name="metalCompositionP" 
-                step="0.001" 
-                value={formData.metalCompositionP} 
-                onChange={handleChange} 
-                onKeyDown={e => handleKeyDown(e, 'metalCompositionP')}
-                placeholder="%"
-                disabled={!isPrimarySaved}
-                className={getInputClassName('metalCompositionP', metalPValid)}
-              />
-            </div>
-            <div className="process-form-group">
-              <label>S</label>
-              <input 
-                ref={r => inputRefs.current.metalCompositionS = r} 
-                type="number" 
-                name="metalCompositionS" 
-                step="0.001" 
-                value={formData.metalCompositionS} 
-                onChange={handleChange} 
-                onKeyDown={e => handleKeyDown(e, 'metalCompositionS')}
-                placeholder="%"
-                disabled={!isPrimarySaved}
-                className={getInputClassName('metalCompositionS', metalSValid)}
-              />
-            </div>
-            <div className="process-form-group">
-              <label>Mg F/L</label>
-              <input 
-                ref={r => inputRefs.current.metalCompositionMgFL = r} 
-                type="number" 
-                name="metalCompositionMgFL" 
-                step="0.001" 
-                value={formData.metalCompositionMgFL} 
-                onChange={handleChange} 
-                onKeyDown={e => handleKeyDown(e, 'metalCompositionMgFL')}
-                placeholder="%"
-                disabled={!isPrimarySaved}
-                className={getInputClassName('metalCompositionMgFL', metalMgFLValid)}
-              />
-            </div>
-            <div className="process-form-group">
-              <label>Cu</label>
-              <input 
-                ref={r => inputRefs.current.metalCompositionCu = r} 
-                type="number" 
-                name="metalCompositionCu" 
-                step="0.001" 
-                value={formData.metalCompositionCu} 
-                onChange={handleChange} 
-                onKeyDown={e => handleKeyDown(e, 'metalCompositionCu')}
-                placeholder="%"
-                disabled={!isPrimarySaved}
-                className={getInputClassName('metalCompositionCu', metalCuValid)}
-              />
-            </div>
-            <div className="process-form-group">
-              <label>Cr</label>
-              <input 
-                ref={r => inputRefs.current.metalCompositionCr = r} 
-                type="number" 
-                name="metalCompositionCr" 
-                step="0.001" 
-                value={formData.metalCompositionCr} 
-                onChange={handleChange} 
-                onKeyDown={e => handleKeyDown(e, 'metalCompositionCr')}
-                placeholder="%"
-                disabled={!isPrimarySaved}
-                className={getInputClassName('metalCompositionCr', metalCrValid)}
-              />
+            <div className="metal-composition-row" style={{ gridColumn: '1 / -1', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+              <div className="process-form-group" style={{ flex: '1', minWidth: '100px' }}>
+                <label>C</label>
+                <input 
+                  ref={r => inputRefs.current.metalCompositionC = r} 
+                  type="number" 
+                  name="metalCompositionC" 
+                  step="0.001" 
+                  value={formData.metalCompositionC} 
+                  onChange={handleChange} 
+                  onKeyDown={e => handleKeyDown(e, 'metalCompositionC')}
+                  placeholder="%"
+                  disabled={!isPrimarySaved}
+                  className={getInputClassName('metalCompositionC', metalCValid)}
+                />
+              </div>
+              <div className="process-form-group" style={{ flex: '1', minWidth: '100px' }}>
+                <label>Si</label>
+                <input 
+                  ref={r => inputRefs.current.metalCompositionSi = r} 
+                  type="number" 
+                  name="metalCompositionSi" 
+                  step="0.001" 
+                  value={formData.metalCompositionSi} 
+                  onChange={handleChange} 
+                  onKeyDown={e => handleKeyDown(e, 'metalCompositionSi')}
+                  placeholder="%"
+                  disabled={!isPrimarySaved}
+                  className={getInputClassName('metalCompositionSi', metalSiValid)}
+                />
+              </div>
+              <div className="process-form-group" style={{ flex: '1', minWidth: '100px' }}>
+                <label>Mn</label>
+                <input 
+                  ref={r => inputRefs.current.metalCompositionMn = r} 
+                  type="number" 
+                  name="metalCompositionMn" 
+                  step="0.001" 
+                  value={formData.metalCompositionMn} 
+                  onChange={handleChange} 
+                  onKeyDown={e => handleKeyDown(e, 'metalCompositionMn')}
+                  placeholder="%"
+                  disabled={!isPrimarySaved}
+                  className={getInputClassName('metalCompositionMn', metalMnValid)}
+                />
+              </div>
+              <div className="process-form-group" style={{ flex: '1', minWidth: '100px' }}>
+                <label>P</label>
+                <input 
+                  ref={r => inputRefs.current.metalCompositionP = r} 
+                  type="number" 
+                  name="metalCompositionP" 
+                  step="0.001" 
+                  value={formData.metalCompositionP} 
+                  onChange={handleChange} 
+                  onKeyDown={e => handleKeyDown(e, 'metalCompositionP')}
+                  placeholder="%"
+                  disabled={!isPrimarySaved}
+                  className={getInputClassName('metalCompositionP', metalPValid)}
+                />
+              </div>
+              <div className="process-form-group" style={{ flex: '1', minWidth: '100px' }}>
+                <label>S</label>
+                <input 
+                  ref={r => inputRefs.current.metalCompositionS = r} 
+                  type="number" 
+                  name="metalCompositionS" 
+                  step="0.001" 
+                  value={formData.metalCompositionS} 
+                  onChange={handleChange} 
+                  onKeyDown={e => handleKeyDown(e, 'metalCompositionS')}
+                  placeholder="%"
+                  disabled={!isPrimarySaved}
+                  className={getInputClassName('metalCompositionS', metalSValid)}
+                />
+              </div>
+              <div className="process-form-group" style={{ flex: '1', minWidth: '100px' }}>
+                <label>Mg F/L</label>
+                <input 
+                  ref={r => inputRefs.current.metalCompositionMgFL = r} 
+                  type="number" 
+                  name="metalCompositionMgFL" 
+                  step="0.001" 
+                  value={formData.metalCompositionMgFL} 
+                  onChange={handleChange} 
+                  onKeyDown={e => handleKeyDown(e, 'metalCompositionMgFL')}
+                  placeholder="%"
+                  disabled={!isPrimarySaved}
+                  className={getInputClassName('metalCompositionMgFL', metalMgFLValid)}
+                />
+              </div>
+              <div className="process-form-group" style={{ flex: '1', minWidth: '100px' }}>
+                <label>Cu</label>
+                <input 
+                  ref={r => inputRefs.current.metalCompositionCu = r} 
+                  type="number" 
+                  name="metalCompositionCu" 
+                  step="0.001" 
+                  value={formData.metalCompositionCu} 
+                  onChange={handleChange} 
+                  onKeyDown={e => handleKeyDown(e, 'metalCompositionCu')}
+                  placeholder="%"
+                  disabled={!isPrimarySaved}
+                  className={getInputClassName('metalCompositionCu', metalCuValid)}
+                />
+              </div>
+              <div className="process-form-group" style={{ flex: '1', minWidth: '100px' }}>
+                <label>Cr</label>
+                <input 
+                  ref={r => inputRefs.current.metalCompositionCr = r} 
+                  type="number" 
+                  name="metalCompositionCr" 
+                  step="0.001" 
+                  value={formData.metalCompositionCr} 
+                  onChange={handleChange} 
+                  onKeyDown={e => handleKeyDown(e, 'metalCompositionCr')}
+                  placeholder="%"
+                  disabled={!isPrimarySaved}
+                  className={getInputClassName('metalCompositionCr', metalCrValid)}
+                />
+              </div>
             </div>
 
             {/* Divider line */}
@@ -1594,326 +1596,315 @@ export default function ProcessControl() {
               </div>
             </div>
 
-            <div className="process-form-group">
-              <label>Pouring Temp (°C) </label>
-              <input 
-                ref={el => inputRefs.current.pouringTemperature = el} 
-                type="number" 
-                name="pouringTemperature" 
-                step="0.01" 
-                value={formData.pouringTemperature} 
-                onChange={handleChange} 
-                onKeyDown={e => handleKeyDown(e, 'pouringTemperature')}
-                placeholder="e.g., 1450"
-                disabled={!isPrimarySaved}
-                className={getInputClassName('pouringTemperature', pouringTempValid)}
-              />
+            <div className="pouring-details-row" style={{ gridColumn: '1 / -1', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+              <div className="process-form-group" style={{ flex: '1', minWidth: '130px' }}>
+                <label>Pouring Temp (°C) </label>
+                <input 
+                  ref={el => inputRefs.current.pouringTemperature = el} 
+                  type="number" 
+                  name="pouringTemperature" 
+                  step="0.01" 
+                  value={formData.pouringTemperature} 
+                  onChange={handleChange} 
+                  onKeyDown={e => handleKeyDown(e, 'pouringTemperature')}
+                  placeholder="e.g., 1450"
+                  disabled={!isPrimarySaved}
+                  className={getInputClassName('pouringTemperature', pouringTempValid)}
+                />
+              </div>
+              <div className="process-form-group" style={{ flex: '1', minWidth: '130px' }}>
+                <label>PP Code </label>
+                <input 
+                  ref={el => inputRefs.current.ppCode = el} 
+                  type="number" 
+                  name="ppCode" 
+                  value={formData.ppCode} 
+                  onChange={handleChange} 
+                  onKeyDown={e => handleKeyDown(e, 'ppCode')}
+                  placeholder="Enter number only"
+                  disabled={!isPrimarySaved}
+                  className={getInputClassName('ppCode', ppCodeValid)}
+                />
+              </div>
+              <div className="process-form-group" style={{ flex: '1', minWidth: '130px' }}>
+                <label>Treatment No </label>
+                <input 
+                  ref={el => inputRefs.current.treatmentNo = el} 
+                  type="number" 
+                  name="treatmentNo" 
+                  value={formData.treatmentNo} 
+                  onChange={handleChange} 
+                  onKeyDown={e => handleKeyDown(e, 'treatmentNo')}
+                  placeholder="Enter number only"
+                  disabled={!isPrimarySaved}
+                  className={getInputClassName('treatmentNo', treatmentNoValid)}
+                />
+              </div>
+              <div className="process-form-group" style={{ flex: '1', minWidth: '130px' }}>
+                <label>F/C No. </label>
+                <select
+                  ref={el => inputRefs.current.fcNo = el} 
+                  name="fcNo" 
+                  value={formData.fcNo} 
+                  onChange={handleChange} 
+                  onKeyDown={e => handleKeyDown(e, 'fcNo')}
+                  disabled={!isPrimarySaved}
+                  className={getInputClassName('fcNo', fcNoValid)}
+                >
+                  <option value="">Select F/C No.</option>
+                  <option value="I">I</option>
+                  <option value="II">II</option>
+                  <option value="III">III</option>
+                  <option value="IV">IV</option>
+                  <option value="V">V</option>
+                  <option value="VI">VI</option>
+                </select>
+              </div>
+              <div className="process-form-group" style={{ flex: '1', minWidth: '130px' }}>
+                <label>Heat No </label>
+                <input 
+                  ref={el => inputRefs.current.heatNo = el} 
+                  type="text" 
+                  name="heatNo" 
+                  value={formData.heatNo} 
+                  onChange={handleChange} 
+                  onKeyDown={e => handleKeyDown(e, 'heatNo')}
+                  placeholder="Enter Heat No"
+                  disabled={!isPrimarySaved}
+                  className={getInputClassName('heatNo', heatNoValid)}
+                />
+              </div>
+              <div className="process-form-group" style={{ flex: '1', minWidth: '130px' }}>
+                <label>Con No </label>
+                <input 
+                  ref={el => inputRefs.current.conNo = el} 
+                  type="number" 
+                  name="conNo" 
+                  value={formData.conNo} 
+                  onChange={handleChange} 
+                  onKeyDown={e => handleKeyDown(e, 'conNo')}
+                  placeholder="Enter number only"
+                  disabled={!isPrimarySaved}
+                  className={getInputClassName('conNo', conNoValid)}
+                />
+              </div>
+              <div className="process-form-group" style={{ flex: '1', minWidth: '130px' }}>
+                <label>Tapping Time </label>
+                <CustomTimeInput
+                  ref={el => inputRefs.current.tappingTime = el}
+                  value={tappingTime}
+                  onChange={setTappingTime}
+                  disabled={!isPrimarySaved}
+                  hasError={tappingTimeValid === false}
+                />
+              </div>
             </div>
 
-            <div className="process-form-group">
-              <label>PP Code </label>
-              <input 
-                ref={el => inputRefs.current.ppCode = el} 
-                type="number" 
-                name="ppCode" 
-                value={formData.ppCode} 
-                onChange={handleChange} 
-                onKeyDown={e => handleKeyDown(e, 'ppCode')}
-                placeholder="Enter number only"
-                disabled={!isPrimarySaved}
-                className={getInputClassName('ppCode', ppCodeValid)}
-              />
-            </div>
-
-            <div className="process-form-group">
-              <label>Treatment No </label>
-              <input 
-                ref={el => inputRefs.current.treatmentNo = el} 
-                type="number" 
-                name="treatmentNo" 
-                value={formData.treatmentNo} 
-                onChange={handleChange} 
-                onKeyDown={e => handleKeyDown(e, 'treatmentNo')}
-                placeholder="Enter number only"
-                disabled={!isPrimarySaved}
-                className={getInputClassName('treatmentNo', treatmentNoValid)}
-              />
-            </div>
-
-            <div className="process-form-group">
-              <label>F/C No. </label>
-              <select
-                ref={el => inputRefs.current.fcNo = el} 
-                name="fcNo" 
-                value={formData.fcNo} 
-                onChange={handleChange} 
-                onKeyDown={e => handleKeyDown(e, 'fcNo')}
-                disabled={!isPrimarySaved}
-                className={getInputClassName('fcNo', fcNoValid)}
-              >
-                <option value="">Select F/C No.</option>
-                <option value="I">I</option>
-                <option value="II">II</option>
-                <option value="III">III</option>
-                <option value="IV">IV</option>
-                <option value="V">V</option>
-                <option value="VI">VI</option>
-              </select>
-            </div>
-
-            <div className="process-form-group">
-              <label>Heat No </label>
-              <input 
-                ref={el => inputRefs.current.heatNo = el} 
-                type="text" 
-                name="heatNo" 
-                value={formData.heatNo} 
-                onChange={handleChange} 
-                onKeyDown={e => handleKeyDown(e, 'heatNo')}
-                placeholder="Enter Heat No"
-                disabled={!isPrimarySaved}
-                className={getInputClassName('heatNo', heatNoValid)}
-              />
-            </div>
-
-            <div className="process-form-group">
-              <label>Con No </label>
-              <input 
-                ref={el => inputRefs.current.conNo = el} 
-                type="number" 
-                name="conNo" 
-                value={formData.conNo} 
-                onChange={handleChange} 
-                onKeyDown={e => handleKeyDown(e, 'conNo')}
-                placeholder="Enter number only"
-                disabled={!isPrimarySaved}
-                className={getInputClassName('conNo', conNoValid)}
-              />
-            </div>
-
-            <div className="process-form-group">
-              <label>Tapping Time </label>
-              <CustomTimeInput
-                ref={el => inputRefs.current.tappingTime = el}
-                value={tappingTime}
-                onChange={setTappingTime}
-                disabled={!isPrimarySaved}
-                hasError={tappingTimeValid === false}
-              />
-            </div>
-
-            <div className="section-header corrective-addition-header">
+            <div className="section-header corrective-addition-header" style={{ gridColumn: '1 / -1' }}>
               <h3>Corrective Additions (Kgs) </h3>
             </div>
-            <div className="process-form-group">
-              <label>C</label>
-              <input 
-                ref={r => inputRefs.current.correctiveAdditionC = r} 
-                type="number" 
-                name="correctiveAdditionC" 
-                step="0.01" 
-                value={formData.correctiveAdditionC} 
-                onChange={handleChange} 
-                onKeyDown={e => handleKeyDown(e, 'correctiveAdditionC')}
-                placeholder="Kgs"
-                disabled={!isPrimarySaved}
-                className={getInputClassName('correctiveAdditionC', corrCValid)}
-              />
-            </div>
-
-            <div className="process-form-group">
-              <label>Si</label>
-              <input 
-                ref={r => inputRefs.current.correctiveAdditionSi = r} 
-                type="number" 
-                name="correctiveAdditionSi" 
-                step="0.01" 
-                value={formData.correctiveAdditionSi} 
-                onChange={handleChange} 
-                onKeyDown={e => handleKeyDown(e, 'correctiveAdditionSi')}
-                placeholder="Kgs"
-                disabled={!isPrimarySaved}
-                className={getInputClassName('correctiveAdditionSi', corrSiValid)}
-              />
-            </div>
-
-            <div className="process-form-group">
-              <label>Mn</label>
-              <input 
-                ref={r => inputRefs.current.correctiveAdditionMn = r} 
-                type="number" 
-                name="correctiveAdditionMn" 
-                step="0.01" 
-                value={formData.correctiveAdditionMn} 
-                onChange={handleChange} 
-                onKeyDown={e => handleKeyDown(e, 'correctiveAdditionMn')}
-                placeholder="Kgs"
-                disabled={!isPrimarySaved}
-                className={getInputClassName('correctiveAdditionMn', corrMnValid)}
-              />
-            </div>
-
-            <div className="process-form-group">
-              <label>S</label>
-              <input 
-                ref={r => inputRefs.current.correctiveAdditionS = r} 
-                type="number" 
-                name="correctiveAdditionS" 
-                step="0.01" 
-                value={formData.correctiveAdditionS} 
-                onChange={handleChange} 
-                onKeyDown={e => handleKeyDown(e, 'correctiveAdditionS')}
-                placeholder="Kgs"
-                disabled={!isPrimarySaved}
-                className={getInputClassName('correctiveAdditionS', corrSValid)}
-              />
-            </div>
-
-            <div className="process-form-group">
-              <label>Cr</label>
-              <input 
-                ref={r => inputRefs.current.correctiveAdditionCr = r} 
-                type="number" 
-                name="correctiveAdditionCr" 
-                step="0.01" 
-                value={formData.correctiveAdditionCr} 
-                onChange={handleChange} 
-                onKeyDown={e => handleKeyDown(e, 'correctiveAdditionCr')}
-                placeholder="Kgs"
-                disabled={!isPrimarySaved}
-                className={getInputClassName('correctiveAdditionCr', corrCrValid)}
-              />
-            </div>
-
-            <div className="process-form-group">
-              <label>Cu</label>
-              <input 
-                ref={r => inputRefs.current.correctiveAdditionCu = r} 
-                type="number" 
-                name="correctiveAdditionCu" 
-                step="0.01" 
-                value={formData.correctiveAdditionCu} 
-                onChange={handleChange} 
-                onKeyDown={e => handleKeyDown(e, 'correctiveAdditionCu')}
-                placeholder="Kgs"
-                disabled={!isPrimarySaved}
-                className={getInputClassName('correctiveAdditionCu', corrCuValid)}
-              />
-            </div>
-
-            <div className="process-form-group">
-              <label>Sn</label>
-              <input 
-                ref={r => inputRefs.current.correctiveAdditionSn = r} 
-                type="number" 
-                name="correctiveAdditionSn" 
-                step="0.01" 
-                value={formData.correctiveAdditionSn} 
-                onChange={handleChange} 
-                onKeyDown={e => handleKeyDown(e, 'correctiveAdditionSn')}
-                placeholder="Kgs"
-                disabled={!isPrimarySaved}
-                className={getInputClassName('correctiveAdditionSn', corrSnValid)}
-              />
+            <div className="corrective-additions-row" style={{ gridColumn: '1 / -1', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+              <div className="process-form-group" style={{ flex: '1', minWidth: '100px' }}>
+                <label>C</label>
+                <input 
+                  ref={r => inputRefs.current.correctiveAdditionC = r} 
+                  type="number" 
+                  name="correctiveAdditionC" 
+                  step="0.01" 
+                  value={formData.correctiveAdditionC} 
+                  onChange={handleChange} 
+                  onKeyDown={e => handleKeyDown(e, 'correctiveAdditionC')}
+                  placeholder="Kgs"
+                  disabled={!isPrimarySaved}
+                  className={getInputClassName('correctiveAdditionC', corrCValid)}
+                />
+              </div>
+              <div className="process-form-group" style={{ flex: '1', minWidth: '100px' }}>
+                <label>Si</label>
+                <input 
+                  ref={r => inputRefs.current.correctiveAdditionSi = r} 
+                  type="number" 
+                  name="correctiveAdditionSi" 
+                  step="0.01" 
+                  value={formData.correctiveAdditionSi} 
+                  onChange={handleChange} 
+                  onKeyDown={e => handleKeyDown(e, 'correctiveAdditionSi')}
+                  placeholder="Kgs"
+                  disabled={!isPrimarySaved}
+                  className={getInputClassName('correctiveAdditionSi', corrSiValid)}
+                />
+              </div>
+              <div className="process-form-group" style={{ flex: '1', minWidth: '100px' }}>
+                <label>Mn</label>
+                <input 
+                  ref={r => inputRefs.current.correctiveAdditionMn = r} 
+                  type="number" 
+                  name="correctiveAdditionMn" 
+                  step="0.01" 
+                  value={formData.correctiveAdditionMn} 
+                  onChange={handleChange} 
+                  onKeyDown={e => handleKeyDown(e, 'correctiveAdditionMn')}
+                  placeholder="Kgs"
+                  disabled={!isPrimarySaved}
+                  className={getInputClassName('correctiveAdditionMn', corrMnValid)}
+                />
+              </div>
+              <div className="process-form-group" style={{ flex: '1', minWidth: '100px' }}>
+                <label>S</label>
+                <input 
+                  ref={r => inputRefs.current.correctiveAdditionS = r} 
+                  type="number" 
+                  name="correctiveAdditionS" 
+                  step="0.01" 
+                  value={formData.correctiveAdditionS} 
+                  onChange={handleChange} 
+                  onKeyDown={e => handleKeyDown(e, 'correctiveAdditionS')}
+                  placeholder="Kgs"
+                  disabled={!isPrimarySaved}
+                  className={getInputClassName('correctiveAdditionS', corrSValid)}
+                />
+              </div>
+              <div className="process-form-group" style={{ flex: '1', minWidth: '100px' }}>
+                <label>Cr</label>
+                <input 
+                  ref={r => inputRefs.current.correctiveAdditionCr = r} 
+                  type="number" 
+                  name="correctiveAdditionCr" 
+                  step="0.01" 
+                  value={formData.correctiveAdditionCr} 
+                  onChange={handleChange} 
+                  onKeyDown={e => handleKeyDown(e, 'correctiveAdditionCr')}
+                  placeholder="Kgs"
+                  disabled={!isPrimarySaved}
+                  className={getInputClassName('correctiveAdditionCr', corrCrValid)}
+                />
+              </div>
+              <div className="process-form-group" style={{ flex: '1', minWidth: '100px' }}>
+                <label>Cu</label>
+                <input 
+                  ref={r => inputRefs.current.correctiveAdditionCu = r} 
+                  type="number" 
+                  name="correctiveAdditionCu" 
+                  step="0.01" 
+                  value={formData.correctiveAdditionCu} 
+                  onChange={handleChange} 
+                  onKeyDown={e => handleKeyDown(e, 'correctiveAdditionCu')}
+                  placeholder="Kgs"
+                  disabled={!isPrimarySaved}
+                  className={getInputClassName('correctiveAdditionCu', corrCuValid)}
+                />
+              </div>
+              <div className="process-form-group" style={{ flex: '1', minWidth: '100px' }}>
+                <label>Sn</label>
+                <input 
+                  ref={r => inputRefs.current.correctiveAdditionSn = r} 
+                  type="number" 
+                  name="correctiveAdditionSn" 
+                  step="0.01" 
+                  value={formData.correctiveAdditionSn} 
+                  onChange={handleChange} 
+                  onKeyDown={e => handleKeyDown(e, 'correctiveAdditionSn')}
+                  placeholder="Kgs"
+                  disabled={!isPrimarySaved}
+                  className={getInputClassName('correctiveAdditionSn', corrSnValid)}
+                />
+              </div>
             </div>
 
             {/* Divider line */}
             <div style={{ gridColumn: '1 / -1', marginTop: '1rem', marginBottom: '0.5rem', paddingTop: '1rem', borderTop: '2px solid #e2e8f0' }}></div>
 
-            <div className="process-form-group">
-              <label>Tapping Wt (Kgs) </label>
-              <input 
-                ref={el => inputRefs.current.tappingWt = el} 
-                type="number" 
-                name="tappingWt" 
-                step="0.01" 
-                value={formData.tappingWt} 
-                onChange={handleChange} 
-                onKeyDown={e => handleKeyDown(e, 'tappingWt')}
-                placeholder="Enter weight"
-                disabled={!isPrimarySaved}
-                className={getInputClassName('tappingWt', tappingWtValid)}
-              />
-            </div>
-
-            <div className="process-form-group">
-              <label>Mg (Kgs)</label>
-              <input 
-                ref={el => inputRefs.current.mg = el} 
-                type="number" 
-                name="mg" 
-                step="0.01" 
-                value={formData.mg} 
-                onChange={handleChange} 
-                onKeyDown={e => handleKeyDown(e, 'mg')}
-                placeholder="Enter Mg"
-                disabled={!isPrimarySaved}
-                className={getInputClassName('mg', mgValid)}
-              />
-            </div>
-
-            <div className="process-form-group">
-              <label>Res. Mg. Convertor (%)</label>
-              <input 
-                ref={el => inputRefs.current.resMgConvertor = el} 
-                type="number" 
-                name="resMgConvertor" 
-                step="0.01" 
-                value={formData.resMgConvertor} 
-                onChange={handleChange} 
-                onKeyDown={e => handleKeyDown(e, 'resMgConvertor')}
-                placeholder="Enter %"
-                disabled={!isPrimarySaved}
-                className={getInputClassName('resMgConvertor', resMgConvertorValid)}
-              />
-            </div>
-
-            <div className="process-form-group">
-              <label>Rec. Of Mg (%)</label>
-              <input 
-                ref={el => inputRefs.current.recOfMg = el} 
-                type="number" 
-                name="recOfMg" 
-                step="0.01" 
-                value={formData.recOfMg} 
-                onChange={handleChange} 
-                onKeyDown={e => handleKeyDown(e, 'recOfMg')}
-                placeholder="Enter %"
-                disabled={!isPrimarySaved}
-                className={getInputClassName('recOfMg', recOfMgValid)}
-              />
-            </div>
-
-            <div className="process-form-group">
-              <label>Stream Inoculant (gm/Sec) </label>
-              <input 
-                ref={el => inputRefs.current.streamInoculant = el}
-                type="number"
-                name="streamInoculant"
-                value={formData.streamInoculant}
-                onChange={handleChange}
-                onKeyDown={e => handleKeyDown(e, 'streamInoculant')}
-                step="0.1"
-                placeholder="e.g., 5.5"
-                disabled={!isPrimarySaved}
-                className={getInputClassName('streamInoculant', streamInoculantValid)}
-              />
-            </div>
-
-            <div className="process-form-group">
-              <label>P.Time (sec)</label>
-              <input 
-                ref={el => inputRefs.current.pTime = el}
-                type="number"
-                name="pTime"
-                value={formData.pTime}
-                onChange={handleChange}
-                onKeyDown={e => handleKeyDown(e, 'pTime')}
-                step="0.1"
-                placeholder="e.g., 120"
-                disabled={!isPrimarySaved}
-                className={getInputClassName('pTime', pTimeValid)}
-              />
+            <div className="additional-fields-row" style={{ gridColumn: '1 / -1', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+              <div className="process-form-group" style={{ flex: '1', minWidth: '150px' }}>
+                <label>Tapping Wt (Kgs) </label>
+                <input 
+                  ref={el => inputRefs.current.tappingWt = el} 
+                  type="number" 
+                  name="tappingWt" 
+                  step="0.01" 
+                  value={formData.tappingWt} 
+                  onChange={handleChange} 
+                  onKeyDown={e => handleKeyDown(e, 'tappingWt')}
+                  placeholder="Enter weight"
+                  disabled={!isPrimarySaved}
+                  className={getInputClassName('tappingWt', tappingWtValid)}
+                />
+              </div>
+              <div className="process-form-group" style={{ flex: '1', minWidth: '150px' }}>
+                <label>Mg (Kgs)</label>
+                <input 
+                  ref={el => inputRefs.current.mg = el} 
+                  type="number" 
+                  name="mg" 
+                  step="0.01" 
+                  value={formData.mg} 
+                  onChange={handleChange} 
+                  onKeyDown={e => handleKeyDown(e, 'mg')}
+                  placeholder="Enter Mg"
+                  disabled={!isPrimarySaved}
+                  className={getInputClassName('mg', mgValid)}
+                />
+              </div>
+              <div className="process-form-group" style={{ flex: '1', minWidth: '150px' }}>
+                <label>Res. Mg. Convertor (%)</label>
+                <input 
+                  ref={el => inputRefs.current.resMgConvertor = el} 
+                  type="number" 
+                  name="resMgConvertor" 
+                  step="0.01" 
+                  value={formData.resMgConvertor} 
+                  onChange={handleChange} 
+                  onKeyDown={e => handleKeyDown(e, 'resMgConvertor')}
+                  placeholder="Enter %"
+                  disabled={!isPrimarySaved}
+                  className={getInputClassName('resMgConvertor', resMgConvertorValid)}
+                />
+              </div>
+              <div className="process-form-group" style={{ flex: '1', minWidth: '150px' }}>
+                <label>Rec. Of Mg (%)</label>
+                <input 
+                  ref={el => inputRefs.current.recOfMg = el} 
+                  type="number" 
+                  name="recOfMg" 
+                  step="0.01" 
+                  value={formData.recOfMg} 
+                  onChange={handleChange} 
+                  onKeyDown={e => handleKeyDown(e, 'recOfMg')}
+                  placeholder="Enter %"
+                  disabled={!isPrimarySaved}
+                  className={getInputClassName('recOfMg', recOfMgValid)}
+                />
+              </div>
+              <div className="process-form-group" style={{ flex: '1', minWidth: '150px' }}>
+                <label>Stream Inoculant (gm/Sec) </label>
+                <input 
+                  ref={el => inputRefs.current.streamInoculant = el}
+                  type="number"
+                  name="streamInoculant"
+                  value={formData.streamInoculant}
+                  onChange={handleChange}
+                  onKeyDown={e => handleKeyDown(e, 'streamInoculant')}
+                  step="0.1"
+                  placeholder="e.g., 5.5"
+                  disabled={!isPrimarySaved}
+                  className={getInputClassName('streamInoculant', streamInoculantValid)}
+                />
+              </div>
+              <div className="process-form-group" style={{ flex: '1', minWidth: '150px' }}>
+                <label>P.Time (sec)</label>
+                <input 
+                  ref={el => inputRefs.current.pTime = el}
+                  type="number"
+                  name="pTime"
+                  value={formData.pTime}
+                  onChange={handleChange}
+                  onKeyDown={e => handleKeyDown(e, 'pTime')}
+                  step="0.1"
+                  placeholder="e.g., 120"
+                  disabled={!isPrimarySaved}
+                  className={getInputClassName('pTime', pTimeValid)}
+                />
+              </div>
             </div>
 
             <div className="process-form-group" style={{ gridColumn: '1 / -1' }}>
@@ -1936,9 +1927,11 @@ export default function ProcessControl() {
       <div className="process-submit-container" style={{ justifyContent: 'flex-end', alignItems: 'center', gap: '1rem' }}>
         {/* Error message display near submit button */}
         {submitErrorMessage && (
-          <div className="submit-error-message">
-            {submitErrorMessage}
-          </div>
+          <InlineLoader 
+            message={submitErrorMessage}
+            variant="danger"
+            size="medium"
+          />
         )}
         <SubmitButton
           ref={el => inputRefs.current.submitBtn = el}

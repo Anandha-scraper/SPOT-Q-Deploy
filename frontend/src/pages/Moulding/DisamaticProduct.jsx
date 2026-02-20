@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Save, Plus, X } from "lucide-react";
 import CustomDatePicker from "../../Components/CustomDatePicker";
 import { CustomTimeInput, Time, PlusButton, MinusButton, SubmitButton, ShiftDropdown } from "../../Components/Buttons";
+import { InlineLoader } from "../../Components/Alert";
 import "../../styles/PageStyles/Moulding/DisamaticProduct.css";
 
 const API_BASE_URL = 'http://localhost:5000/api/v1/moulding-disa';
@@ -2730,9 +2731,11 @@ const DisamaticProduct = () => {
         
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '1rem', marginTop: '1rem' }}>
           {delaysSubmitError && (
-            <span style={{ color: '#ef4444', fontSize: '0.875rem', fontWeight: 500 }}>
-              {delaysSubmitError}
-            </span>
+            <InlineLoader 
+              message={delaysSubmitError}
+              variant="danger"
+              size="medium"
+            />
           )}
           <SubmitButton onClick={handleSubmitDelays} disabled={!isPrimaryDataSaved}>
             Save Delays
@@ -3126,9 +3129,11 @@ const DisamaticProduct = () => {
         
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '1rem', marginTop: '1rem' }}>
           {mouldHardnessSubmitError && (
-            <span style={{ color: '#ef4444', fontSize: '0.875rem', fontWeight: 500 }}>
-              {mouldHardnessSubmitError}
-            </span>
+            <InlineLoader 
+              message={mouldHardnessSubmitError}
+              variant="danger"
+              size="medium"
+            />
           )}
           <SubmitButton onClick={handleSubmitMouldHardness} disabled={!isPrimaryDataSaved}>
             Save Mould Hardness

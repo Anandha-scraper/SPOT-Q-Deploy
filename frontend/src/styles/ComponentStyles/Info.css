@@ -3,25 +3,25 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.5rem;
-  background-color: #3b82f6;
-  color: white;
+  padding: 0.25rem;
+  background-color: transparent;
+  color: #5B9AA9;
   border: none;
-  border-radius: 8px;
+  border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s ease;
   outline: none;
 }
 
 .info-icon-button:hover {
-  background-color: #2563eb;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  color: #4a8896;
+  background-color: rgba(91, 154, 169, 0.1);
+  transform: scale(1.1);
 }
 
 .info-icon-button:active {
-  transform: translateY(0);
-  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  transform: scale(1);
+  color: #3d7380;
 }
 
 /* ==================== Modal Overlay ==================== */
