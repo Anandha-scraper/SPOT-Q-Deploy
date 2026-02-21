@@ -1288,7 +1288,7 @@ export default function ProcessControl() {
 
       // Send all data (primary + other fields) combined to backend
       // Backend will find existing document by date+disa and update it, or create new one
-      const response = await fetch('/v1/process', {
+      const response = await fetch(`${API_ENDPOINTS.process}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -1296,7 +1296,17 @@ export default function ProcessControl() {
         credentials: 'include',
         body: JSON.stringify(payload)
       });
-      const data = await response.json();
+      const rawResponse = await response.text();
+      let data = null;
+      if (rawResponse) {
+        try {
+          data = JSON.parse(rawResponse);
+        } catch (parseError) {
+          throw new Error('Invalid server response');
+        }
+      } else {
+        data = { success: false, message: 'Empty response from server' };
+      }
 
       if (data.success) {
         // Show Sakthi loader
