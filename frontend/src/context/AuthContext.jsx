@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect, useCallback, useContext } from 'react';
+import { API_ENDPOINTS } from '../config/api';
 
 // Brain of authentication
 export const AuthContext = createContext();
@@ -22,7 +23,7 @@ export const AuthProvider = ({ children }) => {
         
         // Call backend to clear cookie
         try {
-            await fetch('http://localhost:5000/api/v1/auth/logout', {
+            await fetch(API_ENDPOINTS.logout, {
                 method: 'POST',
                 credentials: 'include' // Important: sends cookie
             });
@@ -70,7 +71,7 @@ export const AuthProvider = ({ children }) => {
             if (!user) return;
 
             try {
-                const response = await fetch('http://localhost:5000/api/v1/auth/verify', {
+                const response = await fetch(API_ENDPOINTS.verify, {
                     credentials: 'include'
                 });
 
