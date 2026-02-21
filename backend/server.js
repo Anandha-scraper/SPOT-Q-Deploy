@@ -8,8 +8,23 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // 1. Global Middleware
+// Configure CORS to accept requests from development and production
+const allowedOrigins = [
+    'http://localhost:3000',
+    process.env.FRONTEND_URL // Add production URL in .env
+].filter(Boolean); // Remove undefined values
+
 app.use(cors({
-    origin: ['http://localhost:3000'],
+    origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps, Postman, or same-origin)
+        if (!origin) return callback(null, true);
+        
+        if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     credentials: true
 }));
 app.use(express.json());
