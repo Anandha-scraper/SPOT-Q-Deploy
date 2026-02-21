@@ -5,6 +5,7 @@ import { DisaDropdown, SubmitButton, LockPrimaryButton } from '../../Components/
 import Sakthi from '../../Components/Sakthi';
 import { InlineLoader } from '../../Components/Alert';
 import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
+import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/MicroStructure/MicroStructure.css';
 
 const MicroStructure = () => {
@@ -253,7 +254,7 @@ const MicroStructure = () => {
         
         const startTime = Date.now();
         
-        const response = await fetch(`/v1/micro-structure/check?date=${date}&disa=${encodeURIComponent(disa)}`, {
+        const response = await fetch(`${API_ENDPOINTS.microStructure}/check?date=${date}&disa=${encodeURIComponent(disa)}`, {
           method: 'GET',
           credentials: 'include'
         });
@@ -530,14 +531,24 @@ const MicroStructure = () => {
       const startTime = Date.now();
       
       // Call save-primary API to save date+disa and get entry count
-      const response = await fetch('/v1/micro-structure/save-primary', {
+      const response = await fetch(`${API_ENDPOINTS.microStructure}/save-primary`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({ date, disa })
       });
-      
-      const data = await response.json();
+
+      const rawResponse = await response.text();
+      let data = null;
+      if (rawResponse) {
+        try {
+          data = JSON.parse(rawResponse);
+        } catch (parseError) {
+          throw new Error('Invalid server response');
+        }
+      } else {
+        data = { success: false, message: 'Empty response from server' };
+      }
       
       // Ensure minimum 1 second for consistent UX
       const elapsedTime = Date.now() - startTime;
@@ -802,14 +813,24 @@ const MicroStructure = () => {
         remarks
       };
 
-      const response = await fetch('/v1/micro-structure', {
+      const response = await fetch(`${API_ENDPOINTS.microStructure}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify(payload)
       });
-      
-      const data = await response.json();
+
+      const rawResponse = await response.text();
+      let data = null;
+      if (rawResponse) {
+        try {
+          data = JSON.parse(rawResponse);
+        } catch (parseError) {
+          throw new Error('Invalid server response');
+        }
+      } else {
+        data = { success: false, message: 'Empty response from server' };
+      }
 
       if (data.success) {
         // Show Sakthi loader
