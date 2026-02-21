@@ -91,6 +91,19 @@ app.use('/api/v1/melting-logs', protect, checkDepartmentAccess('Melting'), melti
 app.use('/api/v1/cupola-logs', protect, checkDepartmentAccess('Melting'), cupolaHolderLogRoutes);
 
 // 7. System Utilities
+app.get('/', (req, res) => {
+  res.json({ 
+    success: true, 
+    message: 'SPOT-Q Backend API is running', 
+    version: '1.0.0',
+    endpoints: {
+      health: '/api/health',
+      auth: '/api/v1/auth/*',
+      departments: '/api/v1/*'
+    }
+  });
+});
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected', timestamp: new Date() });
 });
