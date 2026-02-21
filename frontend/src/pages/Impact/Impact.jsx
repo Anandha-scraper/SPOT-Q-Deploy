@@ -18,24 +18,19 @@ const Impact = () => {
       field: 'Date',
       required: true,
       type: 'Date',
-      pattern: 'DD/MM/YYYY',
-      description: 'Select a valid date for impact test. Cannot be in the future.'
+      pattern: 'DD/MM/YYYY'
     },
     {
       field: 'Part Name',
       required: true,
       type: 'Text',
-      maxLength: 100,
-      pattern: 'Alphanumeric',
-      description: 'Enter the name of the part being tested'
+      pattern: 'Alphanumeric'
     },
     {
       field: 'Date Code',
       required: true,
       type: 'Text',
-      pattern: 'e.g., 6F25',
-      maxLength: 50,
-      description: 'Enter the date code for the part'
+      pattern: 'e.g., 6F25'
     },
     {
       field: 'Specification',
@@ -43,8 +38,7 @@ const Impact = () => {
       type: 'Number',
       max: 100,
       unit: 'Joules',
-      pattern: 'e.g., 15',
-      description: 'Enter the impact test specification value in Joules'
+      pattern: 'e.g., 15'
     },
     {
       field: 'Observed Value',
@@ -52,15 +46,13 @@ const Impact = () => {
       type: 'Number',
       min: 0,
       unit: 'Joules',
-      pattern: 'e.g., 12 or 12.5 or 12, 34 or 12.5, 34.6',
-      description: 'Enter observed impact value(s). Can be single (12) or multiple comma-separated values (12, 34). Decimals allowed using dot or comma (12.5 or 12,5)'
+      pattern: 'e.g., 12 or 12.5 or 12, 34 or 12.5, 34.6'
     },
     {
       field: 'Remarks',
       required: true,
       type: 'Text',
-      maxLength: 200,
-      description: 'Enter any additional notes or observations (Max 200 characters)'
+      maxLength: 200
     }
   ];
 

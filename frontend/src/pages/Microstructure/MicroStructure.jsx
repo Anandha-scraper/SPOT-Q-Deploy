@@ -36,19 +36,19 @@ const MicroStructure = () => {
       field: 'Part Name',
       required: true,
       type: 'Text',
-      maxLength: 100
+      pattern: 'e.g., Brake Disc'
     },
     {
       field: 'Date Code',
       required: true,
       type: 'Text',
-      pattern:'3A15',
+      pattern: 'e.g., 3A15'
     },
     {
       field: 'Heat Code',
       required: true,
-      type: 'Number only',
-      description: 'eg : 20'
+      type: 'Number',
+      pattern: 'e.g., 20'
     },
     {
       field: 'Nodularity %',
@@ -56,44 +56,38 @@ const MicroStructure = () => {
       type: 'Number',
       min: 0,
       max: 100,
-      unit: '%',
-      description: 'Nodularity percentage must be between 0 and 100'
+      unit: '%'
     },
     {
       field: 'Graphite Type',
       required: true,
-      type: 'Text',
-      description: 'Specify the graphite type observed in the microstructure'
+      type: 'Text'
     },
     {
       field: 'Count Min',
       required: true,
       type: 'Number',
-      min: 0,
-      description: 'Minimum graphite nodule count per unit area'
+      min: 0
     },
     {
       field: 'Count Max',
       required: true,
       type: 'Number',
-      min: 0,
-      description: 'Maximum graphite nodule count per unit area. Must be ≥ Count Min'
+      min: 0
     },
     {
       field: 'Size Min',
       required: true,
       type: 'Number',
       min: 0,
-      unit: 'μm',
-      description: 'Minimum graphite nodule size in micrometers'
+      unit: 'μm'
     },
     {
       field: 'Size Max',
       required: true,
       type: 'Number',
       min: 0,
-      unit: 'μm',
-      description: 'Maximum graphite nodule size in micrometers. Must be ≥ Size Min'
+      unit: 'μm'
     },
     {
       field: 'Ferrite Min %',
@@ -101,8 +95,7 @@ const MicroStructure = () => {
       type: 'Number',
       min: 0,
       max: 100,
-      unit: '%',
-      description: 'Minimum ferrite percentage in the matrix'
+      unit: '%'
     },
     {
       field: 'Ferrite Max %',
@@ -110,8 +103,7 @@ const MicroStructure = () => {
       type: 'Number',
       min: 0,
       max: 100,
-      unit: '%',
-      description: 'Maximum ferrite percentage in the matrix. Must be ≥ Ferrite Min'
+      unit: '%'
     },
     {
       field: 'Pearlite Min %',
@@ -119,8 +111,7 @@ const MicroStructure = () => {
       type: 'Number',
       min: 0,
       max: 100,
-      unit: '%',
-      description: 'Minimum pearlite percentage in the matrix'
+      unit: '%'
     },
     {
       field: 'Pearlite Max %',
@@ -128,8 +119,7 @@ const MicroStructure = () => {
       type: 'Number',
       min: 0,
       max: 100,
-      unit: '%',
-      description: 'Maximum pearlite percentage in the matrix. Must be ≥ Pearlite Min'
+      unit: '%'
     },
     {
       field: 'Carbide Min %',
@@ -137,8 +127,7 @@ const MicroStructure = () => {
       type: 'Number',
       min: 0,
       max: 100,
-      unit: '%',
-      description: 'Minimum carbide percentage in the matrix'
+      unit: '%'
     },
     {
       field: 'Carbide Max %',
@@ -146,16 +135,12 @@ const MicroStructure = () => {
       type: 'Number',
       min: 0,
       max: 100,
-      unit: '%',
-      description: 'Maximum carbide percentage in the matrix. Must be ≥ Carbide Min'
+      unit: '%'
     },
     {
       field: 'Remarks',
       required: true,
-      type: 'Text',
-      minLength: 1,
-      maxLength: 500,
-      description: 'Additional notes, observations, or comments about the test'
+      type: 'Text'
     }
   ];
 
