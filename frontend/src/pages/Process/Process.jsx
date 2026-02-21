@@ -18,43 +18,36 @@ export default function ProcessControl() {
       field: 'Date',
       required: true,
       type: 'Date',
-      pattern: 'DD/MM/YYYY',
-      description: 'Select a valid date for process control. Cannot be in the future.'
+      pattern: 'DD/MM/YYYY'
     },
     {
       field: 'DISA',
       required: true,
       type: 'Select',
-      allowedValues: ['DISA 1', 'DISA 2', 'DISA 3', 'DISA 4'],
-      description: 'Select the DISA machine used for production'
+      allowedValues: ['DISA 1', 'DISA 2', 'DISA 3', 'DISA 4']
     },
     {
       field: 'Part Name',
       required: true,
       type: 'Text',
-      maxLength: 100,
-      pattern: 'e.g., ABC-123',
-      description: 'Enter the name of the part being produced'
+      pattern: 'e.g., ABC-123'
     },
     {
       field: 'Date Code',
       required: true,
       type: 'Text',
-      pattern: 'e.g., 6F25',
-      description: 'Enter the date code for the part'
+      pattern: 'e.g., 6F25'
     },
     {
       field: 'Heat Code',
       required: true,
-      type: 'Number',
-      description: 'Enter heat code - Number only'
+      type: 'Number'
     },
     {
       field: 'Qty. Of Moulds',
       required: true,
       type: 'Number',
-      min: 1,
-      description: 'Enter the quantity of moulds produced'
+      min: 1
     },
     {
       field: 'Metal Composition - C',
@@ -62,8 +55,7 @@ export default function ProcessControl() {
       type: 'Number',
       min: 0,
       max: 100,
-      unit: '%',
-      description: 'Carbon percentage in metal composition'
+      unit: '%'
     },
     {
       field: 'Metal Composition - Si',
@@ -71,8 +63,7 @@ export default function ProcessControl() {
       type: 'Number',
       min: 0,
       max: 100,
-      unit: '%',
-      description: 'Silicon percentage in metal composition'
+      unit: '%'
     },
     {
       field: 'Metal Composition - Mn',
@@ -80,8 +71,7 @@ export default function ProcessControl() {
       type: 'Number',
       min: 0,
       max: 100,
-      unit: '%',
-      description: 'Manganese percentage in metal composition'
+      unit: '%'
     },
     {
       field: 'Metal Composition - P',
@@ -89,8 +79,7 @@ export default function ProcessControl() {
       type: 'Number',
       min: 0,
       max: 100,
-      unit: '%',
-      description: 'Phosphorus percentage in metal composition'
+      unit: '%'
     },
     {
       field: 'Metal Composition - S',
@@ -98,8 +87,7 @@ export default function ProcessControl() {
       type: 'Number',
       min: 0,
       max: 100,
-      unit: '%',
-      description: 'Sulfur percentage in metal composition'
+      unit: '%'
     },
     {
       field: 'Metal Composition - Mg F/L',
@@ -107,8 +95,7 @@ export default function ProcessControl() {
       type: 'Number',
       min: 0,
       max: 100,
-      unit: '%',
-      description: 'Magnesium F/L percentage in metal composition'
+      unit: '%'
     },
     {
       field: 'Metal Composition - Cu',
@@ -116,8 +103,7 @@ export default function ProcessControl() {
       type: 'Number',
       min: 0,
       max: 100,
-      unit: '%',
-      description: 'Copper percentage in metal composition'
+      unit: '%'
     },
     {
       field: 'Metal Composition - Cr',
@@ -125,15 +111,13 @@ export default function ProcessControl() {
       type: 'Number',
       min: 0,
       max: 100,
-      unit: '%',
-      description: 'Chromium percentage in metal composition'
+      unit: '%'
     },
     {
       field: 'Time of Pouring (Range)',
       required: true,
       type: 'Time Range',
-      pattern: 'HH:MM - HH:MM',
-      description: 'Enter the start and end time of pouring operation'
+      pattern: 'HH:MM - HH:MM'
     },
     {
       field: 'Pouring Temp',
@@ -141,118 +125,102 @@ export default function ProcessControl() {
       type: 'Number Range',
       min: 0,
       unit: '°C',
-      pattern: 'Min - Max (e.g., 1400 - 1500)',
-      description: 'Temperature range for pouring operation. Min must be less than Max. Max can be 0.'
+      pattern: 'Min - Max (e.g., 1400 - 1500)'
     },
     {
       field: 'PP Code',
       required: true,
-      type: 'Integer',
-      description: 'Production Process code - Integer only (auto-formats with leading zero, e.g., 1 becomes 01)'
+      type: 'Integer'
     },
     {
       field: 'Treatment No',
       required: true,
-      type: 'Integer',
-      description: 'Treatment number - Integer only (auto-formats with leading zero, e.g., 1 becomes 01)'
+      type: 'Integer'
     },
     {
       field: 'F/C No.',
       required: true,
       type: 'Select',
-      allowedValues: ['I', 'II', 'III', 'IV', 'V', 'VI'],
-      description: 'Select the F/C number from the list'
+      allowedValues: ['I', 'II', 'III', 'IV', 'V', 'VI']
     },
     {
       field: 'Heat No',
       required: true,
-      type: 'Text',
-      description: 'Enter the heat number for tracking'
+      type: 'Text'
     },
     {
       field: 'Con No',
       required: false,
-      type: 'Number',
-      description: 'Container number (Optional) - Number only'
+      type: 'Number'
     },
     {
       field: 'Tapping Time',
       required: false,
       type: 'Time',
-      pattern: 'HH:MM',
-      description: 'Time when tapping was performed (Optional)'
+      pattern: 'HH:MM'
     },
     {
       field: 'Corrective Addition - C',
       required: true,
       type: 'Number',
       min: 0,
-      unit: 'Kgs',
-      description: 'Carbon corrective addition weight in kilograms'
+      unit: 'Kgs'
     },
     {
       field: 'Corrective Addition - Si',
       required: true,
       type: 'Number',
       min: 0,
-      unit: 'Kgs',
-      description: 'Silicon corrective addition weight in kilograms'
+      unit: 'Kgs'
     },
     {
       field: 'Corrective Addition - Mn',
       required: true,
       type: 'Number',
       min: 0,
-      unit: 'Kgs',
-      description: 'Manganese corrective addition weight in kilograms'
+      unit: 'Kgs'
     },
     {
       field: 'Corrective Addition - S',
       required: true,
       type: 'Number',
       min: 0,
-      unit: 'Kgs',
-      description: 'Sulfur corrective addition weight in kilograms'
+      unit: 'Kgs'
     },
     {
       field: 'Corrective Addition - Cr',
       required: true,
       type: 'Number',
       min: 0,
-      unit: 'Kgs',
-      description: 'Chromium corrective addition weight in kilograms'
+      unit: 'Kgs'
     },
     {
       field: 'Corrective Addition - Cu',
       required: true,
       type: 'Number',
       min: 0,
-      unit: 'Kgs',
-      description: 'Copper corrective addition weight in kilograms'
+      unit: 'Kgs'
     },
     {
       field: 'Corrective Addition - Sn',
       required: true,
       type: 'Number',
       min: 0,
-      unit: 'Kgs',
-      description: 'Tin corrective addition weight in kilograms'
+      unit: 'Kgs'
     },
     {
       field: 'Tapping Wt',
       required: true,
       type: 'Number',
       min: 0,
-      unit: 'Kgs',
-      description: 'Total tapping weight in kilograms'
+      unit: 'Kgs'
     },
     {
       field: 'Mg',
       required: false,
       type: 'Number',
       min: 0,
-      unit: 'Kgs',
-      description: 'Magnesium weight in kilograms (Optional)'
+      unit: 'Kgs'
     },
     {
       field: 'Res. Mg. Convertor',
@@ -260,8 +228,7 @@ export default function ProcessControl() {
       type: 'Number',
       min: 0,
       max: 100,
-      unit: '%',
-      description: 'Residual Magnesium Convertor percentage (Optional)'
+      unit: '%'
     },
     {
       field: 'Rec. Of Mg',
@@ -269,8 +236,7 @@ export default function ProcessControl() {
       type: 'Number',
       min: 0,
       max: 100,
-      unit: '%',
-      description: 'Recovery of Magnesium percentage (Optional)'
+      unit: '%'
     },
     {
       field: 'Stream Inoculant',
@@ -278,8 +244,7 @@ export default function ProcessControl() {
       type: 'Number',
       min: 0,
       unit: 'gm/Sec',
-      pattern: 'e.g., 5.5',
-      description: 'Stream inoculant flow rate in grams per second'
+      pattern: 'e.g., 5.5'
     },
     {
       field: 'P.Time',
@@ -287,15 +252,12 @@ export default function ProcessControl() {
       type: 'Number',
       min: 0,
       unit: 'sec',
-      pattern: 'e.g., 120',
-      description: 'Processing time in seconds (Optional)'
+      pattern: 'e.g., 120'
     },
     {
       field: 'Remarks',
       required: true,
-      type: 'Text',
-      maxLength: 200,
-      description: 'Additional notes or observations (Max 200 characters)'
+      type: 'Text'
     }
   ];
 

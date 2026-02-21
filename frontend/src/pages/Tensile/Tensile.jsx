@@ -18,30 +18,25 @@ const Tensile = () => {
       field: 'Date Of Inspection',
       required: true,
       type: 'Date',
-      pattern: 'YYYY-MM-DD',
-      description: 'Select a valid date for the inspection. Cannot be in the future.'
+      pattern: 'YYYY-MM-DD'
     },
     {
       field: 'Item',
       required: true,
       type: 'Text',
-      maxLength: 100,
-      pattern: 'e.g., Cast Iron Bar',
-      description: 'Enter the item name or part number being tested'
+      pattern: 'e.g., Cast Iron Bar'
     },
     {
       field: 'Date Code',
       required: true,
       type: 'Text',
-      pattern: '5E04 (1 digit, 1 letter, 2 digits)',
-      description: 'Enter the date code for the part (format: 5E04)'
+      pattern: '5E04 (1 digit, 1 letter, 2 digits)'
     },
     {
       field: 'Heat Code',
       required: true,
       type: 'Number',
-      pattern: 'e.g., 12345',
-      description: 'Enter heat code - Numbers only'
+      pattern: 'e.g., 12345'
     },
     {
       field: 'Dia',
@@ -49,8 +44,7 @@ const Tensile = () => {
       type: 'Number',
       min: 0,
       unit: 'mm',
-      pattern: 'e.g., 12.5',
-      description: 'Enter diameter in millimeters (must be greater than 0)'
+      pattern: 'e.g., 12.5'
     },
     {
       field: 'Lo',
@@ -58,8 +52,7 @@ const Tensile = () => {
       type: 'Number',
       min: 0,
       unit: 'mm',
-      pattern: 'e.g., 50.0',
-      description: 'Enter original gauge length in millimeters (must be greater than 0)'
+      pattern: 'e.g., 50.0'
     },
     {
       field: 'Li',
@@ -67,8 +60,7 @@ const Tensile = () => {
       type: 'Number',
       min: 0,
       unit: 'mm',
-      pattern: 'e.g., 58.0',
-      description: 'Enter final gauge length in millimeters (must be greater than 0)'
+      pattern: 'e.g., 58.0'
     },
     {
       field: 'Breaking Load',
@@ -76,16 +68,15 @@ const Tensile = () => {
       type: 'Number',
       min: 0,
       unit: 'kN',
-      pattern: 'e.g., 48.5',
-      description: 'Enter breaking load in kilonewtons (must be greater than 0)'
+      pattern: 'e.g., 48.5'
     },
     {
       field: 'Yield Load',
       required: true,
       type: 'Number',
       min: 0,
-      pattern: 'e.g., 38.0',
-      description: 'Enter yield load (must be greater than 0)'
+      unit: 'kN',
+      pattern: 'e.g., 38.0'
     },
     {
       field: 'UTS',
@@ -93,8 +84,7 @@ const Tensile = () => {
       type: 'Number',
       min: 0,
       unit: 'N/mm²',
-      pattern: 'e.g., 680.0',
-      description: 'Enter ultimate tensile strength in N/mm² (must be greater than 0)'
+      pattern: 'e.g., 680.0'
     },
     {
       field: 'YS',
@@ -102,8 +92,7 @@ const Tensile = () => {
       type: 'Number',
       min: 0,
       unit: 'N/mm²',
-      pattern: 'e.g., 460.0',
-      description: 'Enter yield strength in N/mm² (must be greater than 0)'
+      pattern: 'e.g., 460.0'
     },
     {
       field: 'Elongation',
@@ -112,23 +101,18 @@ const Tensile = () => {
       min: 0,
       max: 100,
       unit: '%',
-      pattern: 'e.g., 18.5',
-      description: 'Enter elongation percentage (0-100)'
+      pattern: 'e.g., 18.5'
     },
     {
       field: 'Tested By',
       required: true,
       type: 'Text',
-      maxLength: 100,
-      pattern: 'e.g., John Doe',
-      description: 'Name of the person who performed the test'
+      pattern: 'e.g., John Doe'
     },
     {
       field: 'Remarks',
       required: true,
-      type: 'Text',
-      maxLength: 200,
-      description: 'Additional notes or observations (Max 200 characters)'
+      type: 'Text'
     }
   ];
 

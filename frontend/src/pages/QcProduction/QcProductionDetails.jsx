@@ -18,23 +18,19 @@ const QcProductionDetails = () => {
       field: 'Date',
       required: true,
       type: 'Date',
-      pattern: 'DD/MM/YYYY',
-      description: 'Select a valid date for QC production entry. Cannot be in the future.'
+      pattern: 'DD/MM/YYYY'
     },
     {
       field: 'Part Name',
       required: true,
       type: 'Text',
-      maxLength: 100,
-      pattern: 'e.g., Brake Disc',
-      description: 'Enter the name of the part being produced'
+      pattern: 'e.g., Brake Disc'
     },
     {
       field: 'No. of Moulds',
       required: true,
       type: 'Number',
-      min: 1,
-      description: 'Enter the number of moulds produced'
+      min: 1
     },
     {
       field: 'C % (Carbon)',
@@ -42,8 +38,7 @@ const QcProductionDetails = () => {
       type: 'Number Range',
       min: 0,
       max: 100,
-      unit: '%',
-      description: 'Carbon percentage - Enter Min and Max values. If only one value, set Max to 0.'
+      unit: '%'
     },
     {
       field: 'Si % (Silicon)',
@@ -51,8 +46,7 @@ const QcProductionDetails = () => {
       type: 'Number Range',
       min: 0,
       max: 100,
-      unit: '%',
-      description: 'Silicon percentage - Enter Min and Max values. If only one value, set Max to 0.'
+      unit: '%'
     },
     {
       field: 'Mn % (Manganese)',
@@ -60,8 +54,7 @@ const QcProductionDetails = () => {
       type: 'Number Range',
       min: 0,
       max: 100,
-      unit: '%',
-      description: 'Manganese percentage - Enter Min and Max values. If only one value, set Max to 0.'
+      unit: '%'
     },
     {
       field: 'P % (Phosphorus)',
@@ -69,8 +62,7 @@ const QcProductionDetails = () => {
       type: 'Number Range',
       min: 0,
       max: 100,
-      unit: '%',
-      description: 'Phosphorus percentage - Enter Min and Max values. If only one value, set Max to 0.'
+      unit: '%'
     },
     {
       field: 'S % (Sulfur)',
@@ -78,8 +70,7 @@ const QcProductionDetails = () => {
       type: 'Number Range',
       min: 0,
       max: 100,
-      unit: '%',
-      description: 'Sulfur percentage - Enter Min and Max values. If only one value, set Max to 0.'
+      unit: '%'
     },
     {
       field: 'Mg % (Magnesium)',
@@ -87,8 +78,7 @@ const QcProductionDetails = () => {
       type: 'Number Range',
       min: 0,
       max: 100,
-      unit: '%',
-      description: 'Magnesium percentage - Enter Min and Max values. If only one value, set Max to 0.'
+      unit: '%'
     },
     {
       field: 'Cu % (Copper)',
@@ -96,8 +86,7 @@ const QcProductionDetails = () => {
       type: 'Number Range',
       min: 0,
       max: 100,
-      unit: '%',
-      description: 'Copper percentage - Enter Min and Max values. If only one value, set Max to 0.'
+      unit: '%'
     },
     {
       field: 'Cr % (Chromium)',
@@ -105,61 +94,53 @@ const QcProductionDetails = () => {
       type: 'Number Range',
       min: 0,
       max: 100,
-      unit: '%',
-      description: 'Chromium percentage - Enter Min and Max values. If only one value, set Max to 0.'
+      unit: '%'
     },
     {
       field: 'Nodularity',
       required: true,
       type: 'Number Range',
-      min: 0,
-      description: 'Nodularity value - Enter Min and Max values. If only one value, set Max to 0.'
+      min: 0
     },
     {
       field: 'Graphite Type',
       required: true,
       type: 'Number Range',
-      min: 0,
-      description: 'Graphite type value - Enter Min and Max values. If only one value, set Max to 0.'
+      min: 0
     },
     {
       field: 'Pearlite Ferrite',
       required: true,
       type: 'Number Range',
-      min: 0,
-      description: 'Pearlite Ferrite value - Enter Min and Max values. If only one value, set Max to 0.'
+      min: 0
     },
     {
       field: 'Hardness BHN',
       required: true,
       type: 'Number Range',
       min: 0,
-      unit: 'BHN',
-      description: 'Brinell Hardness Number - Enter Min and Max values. If only one value, set Max to 0.'
+      unit: 'BHN'
     },
     {
       field: 'TS (Tensile Strength)',
       required: true,
       type: 'Number Range',
       min: 0,
-      unit: 'MPa',
-      description: 'Tensile Strength in MPa - Enter Min and Max values. If only one value, set Max to 0.'
+      unit: 'MPa'
     },
     {
       field: 'YS (Yield Strength)',
       required: true,
       type: 'Number Range',
       min: 0,
-      unit: 'MPa',
-      description: 'Yield Strength in MPa - Enter Min and Max values. If only one value, set Max to 0.'
+      unit: 'MPa'
     },
     {
       field: 'EL (Elongation)',
       required: true,
       type: 'Number Range',
       min: 0,
-      unit: '%',
-      description: 'Elongation percentage - Enter Min and Max values. If only one value, set Max to 0.'
+      unit: '%'
     }
   ];
 

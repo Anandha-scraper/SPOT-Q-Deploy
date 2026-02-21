@@ -18,45 +18,37 @@ const MicroTensile = () => {
       field: 'Date',
       required: true,
       type: 'Date',
-      pattern: 'DD/MM/YYYY',
-      description: 'Select a valid date for the test. Cannot be in the future.'
+      pattern: 'DD/MM/YYYY'
     },
     {
       field: 'DISA',
       required: true,
       type: 'Select',
-      allowedValues: ['DISA 1', 'DISA 2', 'DISA 3', 'DISA 4'],
-      description: 'Select the DISA machine used for production'
+      allowedValues: ['DISA 1', 'DISA 2', 'DISA 3', 'DISA 4']
     },
     {
       field: 'Item',
       required: true,
       type: 'Text',
-      maxLength: 100,
-      pattern: 'e.g., Volvo Bkt 234',
-      description: 'Enter the item name or part number being tested'
+      pattern: 'e.g., Volvo Bkt 234'
     },
     {
       field: 'Item (Optional)',
       required: false,
       type: 'Text',
-      maxLength: 100,
-      pattern: 'e.g., 343/34/56',
-      description: 'Enter additional item information (Optional)'
+      pattern: 'e.g., 343/34/56'
     },
     {
       field: 'Date Code',
       required: true,
       type: 'Text',
-      pattern: 'e.g., 5E04',
-      description: 'Enter the date code for the part'
+      pattern: 'e.g., 5E04'
     },
     {
       field: 'Heat Code',
       required: true,
       type: 'Number',
-      pattern: 'e.g., 1',
-      description: 'Enter heat code - Number only'
+      pattern: 'e.g., 1'
     },
     {
       field: 'Bar Dia',
@@ -64,8 +56,7 @@ const MicroTensile = () => {
       type: 'Number',
       min: 0,
       unit: 'mm',
-      pattern: 'e.g., 6.0',
-      description: 'Enter bar diameter in millimeters'
+      pattern: 'e.g., 6.0'
     },
     {
       field: 'Gauge Length',
@@ -73,8 +64,7 @@ const MicroTensile = () => {
       type: 'Number',
       min: 0,
       unit: 'mm',
-      pattern: 'e.g., 30.0',
-      description: 'Enter gauge length in millimeters'
+      pattern: 'e.g., 30.0'
     },
     {
       field: 'Max Load',
@@ -82,8 +72,7 @@ const MicroTensile = () => {
       type: 'Number',
       min: 0,
       unit: 'Kgs or KN',
-      pattern: 'e.g., 1560',
-      description: 'Enter maximum load in kilograms or kilonewtons'
+      pattern: 'e.g., 1560'
     },
     {
       field: 'Yield Load',
@@ -91,8 +80,7 @@ const MicroTensile = () => {
       type: 'Number',
       min: 0,
       unit: 'Kgs or KN',
-      pattern: 'e.g., 1290',
-      description: 'Enter yield load in kilograms or kilonewtons'
+      pattern: 'e.g., 1290'
     },
     {
       field: 'Tensile Strength',
@@ -100,8 +88,7 @@ const MicroTensile = () => {
       type: 'Number',
       min: 0,
       unit: 'Kg/mm² or MPa',
-      pattern: 'e.g., 550',
-      description: 'Enter tensile strength in Kg/mm² or MPa'
+      pattern: 'e.g., 550'
     },
     {
       field: 'Yield Strength',
@@ -109,8 +96,7 @@ const MicroTensile = () => {
       type: 'Number',
       min: 0,
       unit: 'Kg/mm² or MPa',
-      pattern: 'e.g., 455',
-      description: 'Enter yield strength in Kg/mm² or MPa'
+      pattern: 'e.g., 455'
     },
     {
       field: 'Elongation',
@@ -119,23 +105,18 @@ const MicroTensile = () => {
       min: 0,
       max: 100,
       unit: '%',
-      pattern: 'e.g., 18.5',
-      description: 'Enter elongation percentage'
+      pattern: 'e.g., 18.5'
     },
     {
       field: 'Remarks',
       required: false,
-      type: 'Text',
-      maxLength: 80,
-      description: 'Additional notes or observations (Optional, Max 80 characters)'
+      type: 'Text'
     },
     {
       field: 'Tested By',
       required: false,
       type: 'Text',
-      maxLength: 100,
-      pattern: 'e.g., John Smith',
-      description: 'Name of the person who performed the test (Optional)'
+      pattern: 'e.g., John Smith'
     }
   ];
 
