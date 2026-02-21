@@ -7,7 +7,7 @@ import { API_ENDPOINTS } from "../../config/api";
 import "../../styles/PageStyles/Moulding/DisamaticProduct.css";
 
 const initialFormData = {
-  date: "",
+  date: new Date().toISOString().split('T')[0],
   shift: "",
   incharge: "",
   ppOperator: "",
@@ -69,6 +69,8 @@ const DisamaticProduct = () => {
   });
   const [lockedMembersCount, setLockedMembersCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [savePrimaryLoading, setSavePrimaryLoading] = useState(false);
+  const [showCombinationFound, setShowCombinationFound] = useState(false);
   const [productionErrors, setProductionErrors] = useState({});
   const [nextShiftPlanErrors, setNextShiftPlanErrors] = useState({});
   const [delaysErrors, setDelaysErrors] = useState({});
@@ -88,6 +90,20 @@ const DisamaticProduct = () => {
   });
   const [delaysSubmitError, setDelaysSubmitError] = useState('');
   const [mouldHardnessSubmitError, setMouldHardnessSubmitError] = useState('');
+  const [productionSubmitError, setProductionSubmitError] = useState('');
+  const [nextShiftPlanSubmitError, setNextShiftPlanSubmitError] = useState('');
+  const [patternTempSubmitError, setPatternTempSubmitError] = useState('');
+  const [eventsSubmitError, setEventsSubmitError] = useState('');
+  const [showPrimaryWarning, setShowPrimaryWarning] = useState(false);
+
+  // Success alert states
+  const [primarySuccess, setPrimarySuccess] = useState(false);
+  const [productionSuccess, setProductionSuccess] = useState(false);
+  const [nextShiftPlanSuccess, setNextShiftPlanSuccess] = useState(false);
+  const [delaysSuccess, setDelaysSuccess] = useState(false);
+  const [mouldHardnessSuccess, setMouldHardnessSuccess] = useState(false);
+  const [patternTempSuccess, setPatternTempSuccess] = useState(false);
+  const [eventsSuccess, setEventsSuccess] = useState(false);
 
   // Sequential validation highlighting
   const [dateErrorHighlight, setDateErrorHighlight] = useState(false);
@@ -96,8 +112,9 @@ const DisamaticProduct = () => {
   const [ppOperatorErrorHighlight, setPpOperatorErrorHighlight] = useState(false);
   const [membersErrorHighlight, setMembersErrorHighlight] = useState(false);
 
-  // Validation flag for primary section
-  const [primarySubmitted, setPrimarySubmitted] = useState(false);
+  // Null-based validation states (null = neutral, false = invalid)
+  const [dateValid, setDateValid] = useState(null);
+  const [shiftValid, setShiftValid] = useState(null);
 
   // Refs for navigation
   const dateRef = useRef(null);
@@ -105,13 +122,23 @@ const DisamaticProduct = () => {
   const inchargeRef = useRef(null);
   const ppOperatorRef = useRef(null);
   const primarySaveButtonRef = useRef(null);
+  const primarySectionRef = useRef(null);
 
-  // Helper function for primary field validation classes (no green success outline, only error)
-  const classFor = (value, submitted, required = false, locked = false) => {
-    if (locked) return '';
-    const has = value !== undefined && value !== null && String(value).trim() !== '';
-    if (has) return ''; // No green success outline
-    if (submitted && required) return 'disa-error-outline';
+  // Handler: click on locked section (primary not saved) -> show warning, scroll to primary
+  const handleLockedSectionClick = (e) => {
+    if (isPrimaryDataSaved) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setShowPrimaryWarning(true);
+    if (primarySectionRef.current) {
+      primarySectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    setTimeout(() => setShowPrimaryWarning(false), 3000);
+  };
+
+  // Helper function for null-based validation classes (null = neutral, false = error)
+  const getValidationClass = (validationState) => {
+    if (validationState === false) return 'disa-error-outline';
     return '';
   };
 
@@ -162,10 +189,38 @@ const DisamaticProduct = () => {
     return primarySaveButtonRef;
   };
 
+  // On mount, fetch today's entries and auto-select the last entered shift
+  useEffect(() => {
+    const fetchLastShift = async () => {
+      try {
+        const today = formData.date;
+        const response = await fetch(`${API_ENDPOINTS.mouldingDisa}/by-date?date=${today}`, {
+          credentials: 'include'
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.data && data.data.length > 0) {
+            const lastShift = data.data[data.data.length - 1].shift;
+            if (lastShift) {
+              setFormData(prev => ({ ...prev, shift: lastShift }));
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching last shift:', err);
+      }
+    };
+    fetchLastShift();
+  }, []);
+
   // Fetch primary data when date or shift changes
   useEffect(() => {
     if (formData.date && formData.shift) {
       fetchPrimaryData(formData.date, formData.shift);
+    } else {
+      // Reset loading states if date or shift is cleared
+      setSavePrimaryLoading(false);
+      setShowCombinationFound(false);
     }
   }, [formData.date, formData.shift]);
 
@@ -173,6 +228,11 @@ const DisamaticProduct = () => {
   const fetchPrimaryData = async (date, shift) => {
     try {
       setIsLoading(true);
+      setSavePrimaryLoading(true);
+      setShowCombinationFound(false);
+      
+      const startTime = Date.now();
+      
       const response = await fetch(`${API_ENDPOINTS.mouldingDisa}/primary?date=${date}&shift=${shift}`, {
         method: 'GET',
         credentials: 'include',
@@ -258,6 +318,21 @@ const DisamaticProduct = () => {
                                !!(maintenance && maintenance.trim()) && 
                                !!(supervisorName && supervisorName.trim());
         setIsEventsSaved(allEventsLocked);
+        
+        // Ensure minimum 1 second loading time
+        const elapsedTime = Date.now() - startTime;
+        const remainingTime = Math.max(0, 1000 - elapsedTime);
+        await new Promise(resolve => setTimeout(resolve, remainingTime));
+        
+        setSavePrimaryLoading(false);
+        
+        // Show "Combination found" message if data exists
+        if (hasAnyData) {
+          setShowCombinationFound(true);
+          setTimeout(() => {
+            setShowCombinationFound(false);
+          }, 1500);
+        }
       } else {
         // No data found - reset to defaults
         setFormData(prev => ({
@@ -289,9 +364,17 @@ const DisamaticProduct = () => {
         setDelaysSNo(1);
         setMouldHardnessSNo(1);
         setPatternTempSNo(1);
+        
+        // Ensure minimum 1 second loading time for no data case
+        const elapsedTime = Date.now() - startTime;
+        const remainingTime = Math.max(0, 1000 - elapsedTime);
+        await new Promise(resolve => setTimeout(resolve, remainingTime));
+        
+        setSavePrimaryLoading(false);
       }
     } catch (error) {
       console.error('Error fetching primary data:', error);
+      setSavePrimaryLoading(false);
     } finally {
       setIsLoading(false);
     }
@@ -299,11 +382,13 @@ const DisamaticProduct = () => {
 
   // Handle basic field changes
   const handleChange = (field, value) => {
-    // Remove error highlight when filling the field
-    if (field === 'date' && value) {
+    // Reset validation to null when user changes value
+    if (field === 'date') {
+      setDateValid(null);
       setDateErrorHighlight(false);
     }
-    if (field === 'shift' && value) {
+    if (field === 'shift') {
+      setShiftValid(null);
       setShiftErrorHighlight(false);
     }
 
@@ -319,7 +404,9 @@ const DisamaticProduct = () => {
         ppOperator: false
       });
       setLockedMembersCount(0);
-      setPrimarySubmitted(false);
+      // Reset validation states to null
+      setDateValid(null);
+      setShiftValid(null);
       // Reset error highlights
       setDateErrorHighlight(false);
       setShiftErrorHighlight(false);
@@ -339,6 +426,10 @@ const DisamaticProduct = () => {
       return;
     }
 
+    // Clear events submit error when user types in events fields
+    if (['significantEvent', 'maintenance', 'supervisorName'].includes(field)) {
+      setEventsSubmitError('');
+    }
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -398,6 +489,9 @@ const DisamaticProduct = () => {
     newTable[index][field] = value;
     setFormData(prev => ({ ...prev, productionTable: newTable }));
     
+    // Clear submit error
+    setProductionSubmitError('');
+    
     // Clear error for this field when user enters data
     if (productionErrors[index]?.[field]) {
       setProductionErrors(prev => {
@@ -414,13 +508,7 @@ const DisamaticProduct = () => {
   };
 
   const getBorderColor = (rowIndex, fieldName) => {
-    const fieldKey = `${rowIndex}-${fieldName}`;
     const hasError = productionErrors[rowIndex]?.[fieldName];
-    const isFocused = focusedField === fieldKey;
-    
-    if (isFocused) {
-      return '#10b981'; // green when focused
-    }
     if (hasError) {
       return '#ef4444'; // red when error
     }
@@ -446,13 +534,11 @@ const DisamaticProduct = () => {
           if (nextField === 'cycleTime') {
             const timeContainer = document.querySelector(`div[data-field="${currentRowIndex}-cycleTime"]`);
             if (timeContainer) {
-              const timeInput = timeContainer.querySelector('[data-slot="input"]');
-              if (timeInput) {
-                const firstSegment = timeInput.querySelector('[data-slot="segment"]');
-                if (firstSegment) {
-                  firstSegment.focus();
-                  return;
-                }
+              const hourInput = timeContainer.querySelector('input.time-input-field');
+              if (hourInput) {
+                hourInput.focus();
+                hourInput.select();
+                return;
               }
             }
           }
@@ -473,6 +559,10 @@ const DisamaticProduct = () => {
           if (nextInput) nextInput.focus();
         }, 0);
       }
+      // Last field of last row → trigger submit
+      else if (currentRowIndex === formData.productionTable.length - 1 && currentFieldIndex === fields.length - 1) {
+        handleSubmitProduction();
+      }
     }
   };
 
@@ -482,6 +572,7 @@ const DisamaticProduct = () => {
     const errors = {};
     let hasCompleteRow = false;
     let hasAnyData = false;
+    let firstErrorField = null;
     
     formData.productionTable.forEach((row, index) => {
       const rowErrors = {};
@@ -492,13 +583,13 @@ const DisamaticProduct = () => {
       if (hasRowData) {
         hasAnyData = true;
         // If row has some data, all fields must be filled
-        if (!row.counterNo) rowErrors.counterNo = true;
-        if (!row.componentName) rowErrors.componentName = true;
-        if (!row.produced) rowErrors.produced = true;
-        if (!row.poured) rowErrors.poured = true;
-        if (!row.cycleTime) rowErrors.cycleTime = true;
-        if (!row.mouldsPerHour) rowErrors.mouldsPerHour = true;
-        if (!row.remarks) rowErrors.remarks = true;
+        if (!row.counterNo) { rowErrors.counterNo = true; if (!firstErrorField) firstErrorField = `${index}-counterNo`; }
+        if (!row.componentName) { rowErrors.componentName = true; if (!firstErrorField) firstErrorField = `${index}-componentName`; }
+        if (!row.produced) { rowErrors.produced = true; if (!firstErrorField) firstErrorField = `${index}-produced`; }
+        if (!row.poured) { rowErrors.poured = true; if (!firstErrorField) firstErrorField = `${index}-poured`; }
+        if (!row.cycleTime) { rowErrors.cycleTime = true; if (!firstErrorField) firstErrorField = `${index}-cycleTime`; }
+        if (!row.mouldsPerHour) { rowErrors.mouldsPerHour = true; if (!firstErrorField) firstErrorField = `${index}-mouldsPerHour`; }
+        if (!row.remarks) { rowErrors.remarks = true; if (!firstErrorField) firstErrorField = `${index}-remarks`; }
         
         if (Object.keys(rowErrors).length === 0) {
           hasCompleteRow = true;
@@ -521,15 +612,28 @@ const DisamaticProduct = () => {
           remarks: true
         };
       });
+      if (!firstErrorField) firstErrorField = '0-counterNo';
       setProductionErrors(errors);
+      setProductionSubmitError('Enter data in correct format');
+      if (firstErrorField) {
+        const el = document.querySelector(`[data-field="${firstErrorField}"]`);
+        if (el) el.focus();
+      }
       return;
     }
 
     // If validation errors exist, set them and return
     if (Object.keys(errors).length > 0) {
       setProductionErrors(errors);
+      setProductionSubmitError('Enter data in correct format');
+      if (firstErrorField) {
+        const el = document.querySelector(`[data-field="${firstErrorField}"]`);
+        if (el) el.focus();
+      }
       return;
     }
+
+    setProductionSubmitError('');
 
     try {
       setIsLoading(true);
@@ -573,6 +677,11 @@ const DisamaticProduct = () => {
         
         // Clear errors
         setProductionErrors({});
+        setProductionSubmitError('');
+
+        // Show success alert
+        setProductionSuccess(true);
+        setTimeout(() => setProductionSuccess(false), 3000);
       } else {
         alert('Failed to save production data: ' + (result.message || 'Unknown error'));
       }
@@ -604,6 +713,9 @@ const DisamaticProduct = () => {
     newTable[index][field] = value;
     setFormData(prev => ({ ...prev, nextShiftPlanTable: newTable }));
     
+    // Clear submit error
+    setNextShiftPlanSubmitError('');
+    
     // Clear error for this field when user enters data
     if (nextShiftPlanErrors[index]?.[field]) {
       setNextShiftPlanErrors(prev => {
@@ -620,13 +732,7 @@ const DisamaticProduct = () => {
   };
 
   const getBorderColorNextShiftPlan = (rowIndex, fieldName) => {
-    const fieldKey = `${rowIndex}-nextShiftPlan-${fieldName}`;
-    const isFocused = focusedField === fieldKey;
     const hasError = nextShiftPlanErrors[rowIndex]?.[fieldName];
-    
-    if (isFocused) {
-      return '#10b981'; // green when focused
-    }
     if (hasError) {
       return '#ef4444'; // red when error
     }
@@ -661,6 +767,10 @@ const DisamaticProduct = () => {
           if (nextInput) nextInput.focus();
         }, 0);
       }
+      // Last field of last row → trigger submit
+      else if (currentRowIndex === formData.nextShiftPlanTable.length - 1 && currentFieldIndex === fields.length - 1) {
+        handleSubmitNextShiftPlan();
+      }
     }
   };
 
@@ -670,6 +780,7 @@ const DisamaticProduct = () => {
     const errors = {};
     let hasCompleteRow = false;
     let hasAnyData = false;
+    let firstErrorField = null;
     
     formData.nextShiftPlanTable.forEach((row, index) => {
       const rowErrors = {};
@@ -680,9 +791,9 @@ const DisamaticProduct = () => {
       if (hasRowData) {
         hasAnyData = true;
         // If row has some data, all fields must be filled
-        if (!row.componentName) rowErrors.componentName = true;
-        if (!row.plannedMoulds) rowErrors.plannedMoulds = true;
-        if (!row.remarks) rowErrors.remarks = true;
+        if (!row.componentName) { rowErrors.componentName = true; if (!firstErrorField) firstErrorField = `${index}-nextShiftPlan-componentName`; }
+        if (!row.plannedMoulds) { rowErrors.plannedMoulds = true; if (!firstErrorField) firstErrorField = `${index}-nextShiftPlan-plannedMoulds`; }
+        if (!row.remarks) { rowErrors.remarks = true; if (!firstErrorField) firstErrorField = `${index}-nextShiftPlan-remarks`; }
         
         if (Object.keys(rowErrors).length === 0) {
           hasCompleteRow = true;
@@ -701,15 +812,28 @@ const DisamaticProduct = () => {
           remarks: true
         };
       });
+      if (!firstErrorField) firstErrorField = '0-nextShiftPlan-componentName';
       setNextShiftPlanErrors(errors);
+      setNextShiftPlanSubmitError('Enter data in correct format');
+      if (firstErrorField) {
+        const el = document.querySelector(`[data-field="${firstErrorField}"]`);
+        if (el) el.focus();
+      }
       return;
     }
 
     // If validation errors exist, set them and return
     if (Object.keys(errors).length > 0) {
       setNextShiftPlanErrors(errors);
+      setNextShiftPlanSubmitError('Enter data in correct format');
+      if (firstErrorField) {
+        const el = document.querySelector(`[data-field="${firstErrorField}"]`);
+        if (el) el.focus();
+      }
       return;
     }
+
+    setNextShiftPlanSubmitError('');
 
     try {
       setIsLoading(true);
@@ -753,6 +877,11 @@ const DisamaticProduct = () => {
         
         // Clear errors
         setNextShiftPlanErrors({});
+        setNextShiftPlanSubmitError('');
+
+        // Show success alert
+        setNextShiftPlanSuccess(true);
+        setTimeout(() => setNextShiftPlanSuccess(false), 3000);
       } else {
         alert('Failed to save: ' + (result.message || 'Unknown error'));
       }
@@ -991,6 +1120,7 @@ const DisamaticProduct = () => {
     const errors = {};
     let hasCompleteRow = false;
     let hasAnyData = false;
+    let firstErrorField = null;
     
     formData.delaysTable.forEach((row, index) => {
       const rowErrors = {};
@@ -1002,7 +1132,7 @@ const DisamaticProduct = () => {
         hasAnyData = true;
         
         // Validate delays field
-        if (!row.delays) rowErrors.delays = true;
+        if (!row.delays) { rowErrors.delays = true; if (!firstErrorField) firstErrorField = `${index}-delays-delays`; }
         
         // Validate each duration entry
         rowErrors.durationMinutes = {};
@@ -1016,17 +1146,21 @@ const DisamaticProduct = () => {
             if (!minutes) {
               rowErrors.durationMinutes[idx] = true;
               hasEntryError = true;
+              if (!firstErrorField) firstErrorField = `${index}-delays-durationMinutes-${idx}`;
             } else if (parseInt(minutes) > 30) {
               rowErrors.durationMinutes[idx] = 'Duration cannot exceed 30 minutes';
               hasEntryError = true;
+              if (!firstErrorField) firstErrorField = `${index}-delays-durationMinutes-${idx}`;
             }
             if (!row.fromTime[idx]) {
               rowErrors.fromTime[idx] = true;
               hasEntryError = true;
+              if (!firstErrorField) firstErrorField = `${index}-delays-fromTime-${idx}`;
             }
             if (!row.toTime[idx]) {
               rowErrors.toTime[idx] = true;
               hasEntryError = true;
+              if (!firstErrorField) firstErrorField = `${index}-delays-toTime-${idx}`;
             }
           }
         });
@@ -1053,20 +1187,22 @@ const DisamaticProduct = () => {
           toTime: { 0: true }
         };
       });
+      if (!firstErrorField) firstErrorField = '0-delays-delays';
       setDelaysErrors(errors);
+      setDelaysSubmitError('Enter data in correct format');
+      if (firstErrorField) {
+        const el = document.querySelector(`[data-field="${firstErrorField}"]`);
+        if (el) el.focus();
+      }
       return;
     }
     
     if (Object.keys(errors).length > 0) {
       setDelaysErrors(errors);
-      // Check if there are any duration > 30 errors
-      const hasDurationError = Object.values(errors).some(rowError => 
-        rowError.durationMinutes && Object.values(rowError.durationMinutes).some(err => typeof err === 'string')
-      );
-      if (hasDurationError) {
-        setDelaysSubmitError("Duration cannot exceed 30 minutes. Please check the highlighted fields.");
-      } else {
-        setDelaysSubmitError("Please fill all required fields in rows with data.");
+      setDelaysSubmitError('Enter data in correct format');
+      if (firstErrorField) {
+        const el = document.querySelector(`[data-field="${firstErrorField}"]`);
+        if (el) el.focus();
       }
       return;
     }
@@ -1115,6 +1251,10 @@ const DisamaticProduct = () => {
         
         setDelaysErrors({});
         setDelaysSubmitError('');
+
+        // Show success alert
+        setDelaysSuccess(true);
+        setTimeout(() => setDelaysSuccess(false), 3000);
       } else {
         alert('Failed to save: ' + (result.message || 'Unknown error'));
       }
@@ -1127,13 +1267,7 @@ const DisamaticProduct = () => {
   };
   
   const getBorderColorDelays = (rowIndex, fieldName) => {
-    const fieldKey = `${rowIndex}-delays-${fieldName}`;
-    const isFocused = focusedField === fieldKey;
     const hasError = delaysErrors[rowIndex]?.[fieldName];
-    
-    if (isFocused) {
-      return '#10b981'; // green when focused
-    }
     if (hasError) {
       return '#ef4444'; // red when error
     }
@@ -1186,6 +1320,8 @@ const DisamaticProduct = () => {
             }, 0);
             return;
           }
+          // Last field of last row → trigger submit
+          handleSubmitDelays();
           return;
         }
       }
@@ -1201,12 +1337,10 @@ const DisamaticProduct = () => {
             // Handle CustomTimeInput
             const timeContainer = document.querySelector(`div[data-field="${currentRowIndex}-delays-${nextField}-${nextInputIndex}"]`);
             if (timeContainer) {
-              const timeInput = timeContainer.querySelector('[data-slot="input"]');
-              if (timeInput) {
-                const firstSegment = timeInput.querySelector('[data-slot="segment"]');
-                if (firstSegment) {
-                  firstSegment.focus();
-                }
+              const hourInput = timeContainer.querySelector('input.time-input-field');
+              if (hourInput) {
+                hourInput.focus();
+                hourInput.select();
               }
             }
           }
@@ -1251,13 +1385,9 @@ const DisamaticProduct = () => {
         if (newErrors[index]) {
           if (pairIndex !== null && fieldIndex !== null) {
             // For array fields (mpPP, mpSP, bsPP, bsSP)
+            // Clear both from and to errors for the entire pair when either value changes
             if (newErrors[index][field]?.[pairIndex]) {
-              const position = fieldIndex === 0 ? 'from' : 'to';
-              delete newErrors[index][field][pairIndex][position];
-              // If both from and to are cleared, remove the pair error
-              if (Object.keys(newErrors[index][field][pairIndex]).length === 0) {
-                delete newErrors[index][field][pairIndex];
-              }
+              delete newErrors[index][field][pairIndex];
               // If no more pair errors, remove the field error
               if (Object.keys(newErrors[index][field]).length === 0) {
                 delete newErrors[index][field];
@@ -1276,29 +1406,6 @@ const DisamaticProduct = () => {
       });
     }
     
-    // Dynamic validation for from-to pairs
-    if (pairIndex !== null && fieldIndex !== null && ['mpPP', 'mpSP', 'bsPP', 'bsSP'].includes(field)) {
-      const pair = newTable[index][field][pairIndex];
-      const fromVal = parseFloat(pair[0]);
-      const toVal = parseFloat(pair[1]);
-      
-      // Check if both values exist and to > from (from >= to is okay)
-      if (pair[0] && pair[1] && !isNaN(fromVal) && !isNaN(toVal) && toVal > fromVal) {
-        setMouldHardnessErrors(prev => ({
-          ...prev,
-          [index]: {
-            ...prev[index],
-            [field]: {
-              ...prev[index]?.[field],
-              [pairIndex]: {
-                from: 'From cannot be less than To',
-                to: 'To cannot be greater than From'
-              }
-            }
-          }
-        }));
-      }
-    }
   };
 
   // Format PP/SP values to one decimal place
@@ -1403,6 +1510,10 @@ const DisamaticProduct = () => {
           if (nextInput) nextInput.focus();
         }, 0);
       }
+      // Last field of last row → trigger submit
+      else if (currentRowIndex === formData.mouldHardnessTable.length - 1 && currentFieldIndex === fields.length - 1) {
+        handleSubmitMouldHardness();
+      }
     }
   };
 
@@ -1437,6 +1548,7 @@ const DisamaticProduct = () => {
     let hasCompleteRow = false;
     let hasAnyData = false;
     let hasRangeError = false;
+    let firstErrorField = null;
 
     formData.mouldHardnessTable.forEach((row, index) => {
       const rowErrors = {};
@@ -1451,8 +1563,8 @@ const DisamaticProduct = () => {
       if (hasRowData) {
         hasAnyData = true;
         // If row has some data, validate all required fields
-        if (!row.componentName) rowErrors.componentName = true;
-        if (!row.remarks) rowErrors.remarks = true;
+        if (!row.componentName) { rowErrors.componentName = true; if (!firstErrorField) firstErrorField = `${index}-mouldHardness-componentName`; }
+        if (!row.remarks) { rowErrors.remarks = true; if (!firstErrorField) firstErrorField = `${index}-mouldHardness-remarks`; }
         
         // Validate each pair in arrays
         const mpPPErrors = {};
@@ -1463,36 +1575,44 @@ const DisamaticProduct = () => {
         row.mpPP.forEach((pair, pairIdx) => {
           if (!pair[0] || !pair[1]) {
             mpPPErrors[pairIdx] = { from: !pair[0], to: !pair[1] };
-          } else if (parseFloat(pair[1]) > parseFloat(pair[0])) {
-            mpPPErrors[pairIdx] = { from: 'From cannot be less than To', to: 'To cannot be greater than From' };
+            if (!firstErrorField) firstErrorField = `${index}-mouldHardness-mpPP-${pairIdx}-${!pair[0] ? 'from' : 'to'}`;
+          } else if (parseFloat(pair[1]) !== 0 && parseFloat(pair[0]) > parseFloat(pair[1])) {
+            mpPPErrors[pairIdx] = { from: 'From cannot be greater than To', to: 'To cannot be less than From' };
             hasRangeError = true;
+            if (!firstErrorField) firstErrorField = `${index}-mouldHardness-mpPP-${pairIdx}-from`;
           }
         });
         
         row.mpSP.forEach((pair, pairIdx) => {
           if (!pair[0] || !pair[1]) {
             mpSPErrors[pairIdx] = { from: !pair[0], to: !pair[1] };
-          } else if (parseFloat(pair[1]) > parseFloat(pair[0])) {
-            mpSPErrors[pairIdx] = { from: 'From cannot be less than To', to: 'To cannot be greater than From' };
+            if (!firstErrorField) firstErrorField = `${index}-mouldHardness-mpSP-${pairIdx}-${!pair[0] ? 'from' : 'to'}`;
+          } else if (parseFloat(pair[1]) !== 0 && parseFloat(pair[0]) > parseFloat(pair[1])) {
+            mpSPErrors[pairIdx] = { from: 'From cannot be greater than To', to: 'To cannot be less than From' };
             hasRangeError = true;
+            if (!firstErrorField) firstErrorField = `${index}-mouldHardness-mpSP-${pairIdx}-from`;
           }
         });
         
         row.bsPP.forEach((pair, pairIdx) => {
           if (!pair[0] || !pair[1]) {
             bsPPErrors[pairIdx] = { from: !pair[0], to: !pair[1] };
-          } else if (parseFloat(pair[1]) > parseFloat(pair[0])) {
-            bsPPErrors[pairIdx] = { from: 'From cannot be less than To', to: 'To cannot be greater than From' };
+            if (!firstErrorField) firstErrorField = `${index}-mouldHardness-bsPP-${pairIdx}-${!pair[0] ? 'from' : 'to'}`;
+          } else if (parseFloat(pair[1]) !== 0 && parseFloat(pair[0]) > parseFloat(pair[1])) {
+            bsPPErrors[pairIdx] = { from: 'From cannot be greater than To', to: 'To cannot be less than From' };
             hasRangeError = true;
+            if (!firstErrorField) firstErrorField = `${index}-mouldHardness-bsPP-${pairIdx}-from`;
           }
         });
         
         row.bsSP.forEach((pair, pairIdx) => {
           if (!pair[0] || !pair[1]) {
             bsSPErrors[pairIdx] = { from: !pair[0], to: !pair[1] };
-          } else if (parseFloat(pair[1]) > parseFloat(pair[0])) {
-            bsSPErrors[pairIdx] = { from: 'From cannot be less than To', to: 'To cannot be greater than From' };
+            if (!firstErrorField) firstErrorField = `${index}-mouldHardness-bsSP-${pairIdx}-${!pair[0] ? 'from' : 'to'}`;
+          } else if (parseFloat(pair[1]) !== 0 && parseFloat(pair[0]) > parseFloat(pair[1])) {
+            bsSPErrors[pairIdx] = { from: 'From cannot be greater than To', to: 'To cannot be less than From' };
             hasRangeError = true;
+            if (!firstErrorField) firstErrorField = `${index}-mouldHardness-bsSP-${pairIdx}-from`;
           }
         });
         
@@ -1543,16 +1663,22 @@ const DisamaticProduct = () => {
           bsSP: bsSPErrors
         };
       });
+      if (!firstErrorField) firstErrorField = '0-mouldHardness-componentName';
       setMouldHardnessErrors(errors);
+      setMouldHardnessSubmitError('Enter data in correct format');
+      if (firstErrorField) {
+        const el = document.querySelector(`[data-field="${firstErrorField}"]`);
+        if (el) el.focus();
+      }
       return;
     }
 
     if (Object.keys(errors).length > 0) {
       setMouldHardnessErrors(errors);
-      if (hasRangeError) {
-        setMouldHardnessSubmitError('To value cannot be greater than From value. Please check the highlighted fields.');
-      } else {
-        setMouldHardnessSubmitError('Please fill all required fields in rows with data.');
+      setMouldHardnessSubmitError('Enter data in correct format');
+      if (firstErrorField) {
+        const el = document.querySelector(`[data-field="${firstErrorField}"]`);
+        if (el) el.focus();
       }
       return;
     }
@@ -1611,6 +1737,10 @@ const DisamaticProduct = () => {
         
         setMouldHardnessErrors({});
         setMouldHardnessSubmitError('');
+
+        // Show success alert
+        setMouldHardnessSuccess(true);
+        setTimeout(() => setMouldHardnessSuccess(false), 3000);
       } else {
         alert('Failed to save: ' + (result.message || 'Unknown error'));
       }
@@ -1623,13 +1753,7 @@ const DisamaticProduct = () => {
   };
 
   const getBorderColorMouldHardness = (rowIndex, fieldName) => {
-    const fieldKey = `${rowIndex}-mouldHardness-${fieldName}`;
-    const isFocused = focusedField === fieldKey;
     const hasError = mouldHardnessErrors[rowIndex]?.[fieldName];
-    
-    if (isFocused) {
-      return '#10b981'; // green when focused
-    }
     if (hasError) {
       return '#ef4444'; // red when error
     }
@@ -1637,25 +1761,9 @@ const DisamaticProduct = () => {
   };
 
   const getPairInputBorderColor = (rowIndex, fieldName, pairIdx, position) => {
-    const fieldKey = `${rowIndex}-mouldHardness-${fieldName}-${pairIdx}-${position}`;
-    const isFocused = focusedField === fieldKey;
     const hasError = mouldHardnessErrors[rowIndex]?.[fieldName]?.[pairIdx]?.[position];
-    
-    // Get the pair values
-    const pair = formData.mouldHardnessTable[rowIndex]?.[fieldName]?.[pairIdx];
-    const fromVal = pair ? parseFloat(pair[0]) : NaN;
-    const toVal = pair ? parseFloat(pair[1]) : NaN;
-    const bothExist = pair && pair[0] && pair[1] && !isNaN(fromVal) && !isNaN(toVal);
-    const isValid = bothExist && fromVal >= toVal;
-    
-    if (isFocused) {
-      return '#10b981'; // green when focused
-    }
     if (hasError) {
       return '#ef4444'; // red when error
-    }
-    if (isValid) {
-      return '#10b981'; // green when valid
     }
     return '#e2e8f0'; // default gray
   };
@@ -1680,6 +1788,9 @@ const DisamaticProduct = () => {
     newTable[index][field] = value;
     setFormData(prev => ({ ...prev, patternTempTable: newTable }));
     
+    // Clear submit error
+    setPatternTempSubmitError('');
+    
     // Clear error for this field when user enters data
     if (patternTempErrors[index]) {
       setPatternTempErrors(prev => {
@@ -1696,13 +1807,7 @@ const DisamaticProduct = () => {
   };
 
   const getBorderColorPatternTemp = (rowIndex, fieldName) => {
-    const fieldKey = `${rowIndex}-patternTemp-${fieldName}`;
-    const isFocused = focusedField === fieldKey;
     const hasError = patternTempErrors[rowIndex]?.[fieldName];
-    
-    if (isFocused) {
-      return '#10b981'; // green when focused
-    }
     if (hasError) {
       return '#ef4444'; // red when error
     }
@@ -1744,6 +1849,10 @@ const DisamaticProduct = () => {
           if (nextInput) nextInput.focus();
         }, 0);
       }
+      // Last field of last row → trigger submit
+      else if (currentRowIndex === formData.patternTempTable.length - 1 && currentFieldIndex === fields.length - 1) {
+        handleSubmitPatternTemp();
+      }
     }
   };
 
@@ -1752,6 +1861,7 @@ const DisamaticProduct = () => {
     const errors = {};
     let hasCompleteRow = false;
     let hasAnyData = false;
+    let firstErrorField = null;
 
     formData.patternTempTable.forEach((row, index) => {
       const rowErrors = {};
@@ -1762,9 +1872,9 @@ const DisamaticProduct = () => {
       if (hasRowData) {
         hasAnyData = true;
         // If row has some data, all fields must be filled
-        if (!row.item) rowErrors.item = true;
-        if (!row.pp) rowErrors.pp = true;
-        if (!row.sp) rowErrors.sp = true;
+        if (!row.item) { rowErrors.item = true; if (!firstErrorField) firstErrorField = `${index}-patternTemp-item`; }
+        if (!row.pp) { rowErrors.pp = true; if (!firstErrorField) firstErrorField = `${index}-patternTemp-pp`; }
+        if (!row.sp) { rowErrors.sp = true; if (!firstErrorField) firstErrorField = `${index}-patternTemp-sp`; }
         
         if (Object.keys(rowErrors).length === 0) {
           hasCompleteRow = true;
@@ -1783,18 +1893,31 @@ const DisamaticProduct = () => {
           sp: true
         };
       });
+      if (!firstErrorField) firstErrorField = '0-patternTemp-item';
       setPatternTempErrors(errors);
+      setPatternTempSubmitError('Enter data in correct format');
+      if (firstErrorField) {
+        const el = document.querySelector(`[data-field="${firstErrorField}"]`);
+        if (el) el.focus();
+      }
       return;
     }
 
     if (Object.keys(errors).length > 0) {
       setPatternTempErrors(errors);
+      setPatternTempSubmitError('Enter data in correct format');
+      if (firstErrorField) {
+        const el = document.querySelector(`[data-field="${firstErrorField}"]`);
+        if (el) el.focus();
+      }
       return;
     }
 
     if (!hasCompleteRow) {
       return;
     }
+
+    setPatternTempSubmitError('');
 
     // Proceed with save
     try {
@@ -1841,6 +1964,11 @@ const DisamaticProduct = () => {
         
         // Clear errors
         setPatternTempErrors({});
+        setPatternTempSubmitError('');
+
+        // Show success alert
+        setPatternTempSuccess(true);
+        setTimeout(() => setPatternTempSuccess(false), 3000);
       } else {
         throw new Error(result.message || 'Failed to save pattern temperature data');
       }
@@ -1854,12 +1982,30 @@ const DisamaticProduct = () => {
 
   // Save Primary Data Handler
   const handleSavePrimary = async () => {
-    setPrimarySubmitted(true);
-    // Only validate date and shift (required to identify the entry)
+    let hasErrors = false;
+    let firstErrorField = null;
+
+    // Validate date (null = neutral, false = invalid)
     if (!formData.date) {
-      return;
+      setDateValid(false);
+      hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'date';
+    } else {
+      setDateValid(null);
     }
+
+    // Validate shift
     if (!formData.shift) {
+      setShiftValid(false);
+      hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'shift';
+    } else {
+      setShiftValid(null);
+    }
+
+    if (hasErrors) {
+      if (firstErrorField === 'date') dateRef.current?.focus();
+      else if (firstErrorField === 'shift') shiftRef.current?.focus();
       return;
     }
 
@@ -1919,6 +2065,10 @@ const DisamaticProduct = () => {
         }
 
         setIsPrimaryDataSaved(true);
+
+        // Show success alert
+        setPrimarySuccess(true);
+        setTimeout(() => setPrimarySuccess(false), 3000);
       } else {
         alert(`Error: ${result.message}`);
       }
@@ -1937,9 +2087,10 @@ const DisamaticProduct = () => {
                        (!lockedEventsFields.supervisorName && formData.supervisorName?.trim());
     
     if (!hasNewData) {
-      alert("Please fill in at least one unlocked field to save");
+      setEventsSubmitError("Please fill in at least one unlocked field to save");
       return;
     }
+    setEventsSubmitError('');
 
     try {
       setIsLoading(true);
@@ -1981,6 +2132,10 @@ const DisamaticProduct = () => {
                          newLockedFields.maintenance && 
                          newLockedFields.supervisorName;
         setIsEventsSaved(allLocked);
+
+        // Show success alert
+        setEventsSuccess(true);
+        setTimeout(() => setEventsSuccess(false), 3000);
       } else {
         throw new Error(result.message || 'Failed to save events data');
       }
@@ -2019,13 +2174,13 @@ const DisamaticProduct = () => {
       </div>
 
       {/* Primary Section */}
-      <div className="primary-header-container">
+      <div ref={primarySectionRef} className="primary-header-container">
         <h3 className="primary-section-title">PRIMARY</h3>
       </div>
       
       {/* First Row: Date, Shift, Incharge, PP Operator */}
       <div className="primary-fields-row">
-        <div className={`disamatic-form-group ${classFor(formData.date, primarySubmitted, true)} ${dateErrorHighlight ? 'error-highlight' : ''}`}>
+        <div className={`disamatic-form-group ${getValidationClass(dateValid)} ${dateErrorHighlight ? 'error-highlight' : ''}`}>
           <label>Date <span style={{ color: '#ef4444',width: '2px' }}>*</span></label>
           <CustomDatePicker
             ref={dateRef}
@@ -2036,10 +2191,11 @@ const DisamaticProduct = () => {
           />
         </div>
         <div 
-          className={`disamatic-form-group ${classFor(formData.shift, primarySubmitted, true)} ${shiftErrorHighlight ? 'error-highlight' : ''}`}
+          className={`disamatic-form-group ${getValidationClass(shiftValid)} ${shiftErrorHighlight ? 'error-highlight' : ''}`}
           onMouseDownCapture={(e) => {
             if (!formData.date && e.target.tagName !== 'SELECT') {
               setDateErrorHighlight(true);
+              setTimeout(() => setDateErrorHighlight(false), 600);
             }
           }}
         >
@@ -2053,23 +2209,53 @@ const DisamaticProduct = () => {
             onMouseDown={(e) => {
               if (!formData.date) {
                 setDateErrorHighlight(true);
+                setTimeout(() => setDateErrorHighlight(false), 600);
               }
             }}
           />
+          {(savePrimaryLoading || showCombinationFound) && (
+            <div style={{ 
+              marginTop: '0.75rem',
+              display: 'flex',
+              alignItems: 'flex-start'
+            }}>
+              {savePrimaryLoading && (
+                <InlineLoader 
+                  message="Fetching Date, Shift" 
+                  size="medium" 
+                  variant="primary" 
+                />
+              )}
+              {showCombinationFound && (
+                <InlineLoader 
+                  message="Combination found" 
+                  size="medium" 
+                  variant="success" 
+                />
+              )}
+            </div>
+          )}
         </div>
+        {/* onMouseDownCapture on div + pointerEvents:'none' on disabled input = click-through error highlight */}
         <div 
-          className={`disamatic-form-group ${classFor(formData.incharge, primarySubmitted, false, lockedFields.incharge)} ${inchargeErrorHighlight ? 'error-highlight' : ''}`}
+          className={`disamatic-form-group ${inchargeErrorHighlight ? 'error-highlight' : ''}`}
           onMouseDownCapture={(e) => {
-            if (e.target.tagName !== 'INPUT') {
-              if (!formData.date) {
-                setDateErrorHighlight(true);
-                setInchargeErrorHighlight(true);
-                setTimeout(() => setInchargeErrorHighlight(false), 600);
-              } else if (!formData.shift) {
-                setShiftErrorHighlight(true);
-                setInchargeErrorHighlight(true);
-                setTimeout(() => setInchargeErrorHighlight(false), 600);
-              }
+            if (e.target.tagName === 'INPUT' && !e.target.disabled) return;
+            
+            if (!formData.date) {
+              setDateErrorHighlight(true);
+              setInchargeErrorHighlight(true);
+              setTimeout(() => {
+                setDateErrorHighlight(false);
+                setInchargeErrorHighlight(false);
+              }, 600);
+            } else if (!formData.shift) {
+              setShiftErrorHighlight(true);
+              setInchargeErrorHighlight(true);
+              setTimeout(() => {
+                setShiftErrorHighlight(false);
+                setInchargeErrorHighlight(false);
+              }, 600);
             }
           }}
         >
@@ -2084,34 +2270,33 @@ const DisamaticProduct = () => {
             onChange={e => handleChange("incharge", e.target.value)}
             placeholder="Enter incharge name"
             disabled={!formData.date || !formData.shift || lockedFields.incharge}
-            style={{ opacity: lockedFields.incharge ? 0.6 : 1 }}
-            onKeyDown={(e) => handlePrimaryKeyDown(e, getNextAfterIncharge(), 'incharge')}
-            onMouseDown={(e) => {
-              if (!formData.date) {
-                setDateErrorHighlight(true);
-                setInchargeErrorHighlight(true);
-                setTimeout(() => setInchargeErrorHighlight(false), 600);
-              } else if (!formData.shift) {
-                setShiftErrorHighlight(true);
-                setInchargeErrorHighlight(true);
-                setTimeout(() => setInchargeErrorHighlight(false), 600);
-              }
+            style={{ 
+              opacity: lockedFields.incharge ? 0.6 : 1,
+              pointerEvents: (!formData.date || !formData.shift || lockedFields.incharge) ? 'none' : 'auto' // disabled input swallows clicks; pointerEvents:'none' lets them pass to parent onMouseDownCapture
             }}
+            onKeyDown={(e) => handlePrimaryKeyDown(e, getNextAfterIncharge(), 'incharge')}
           />
         </div>
+        {/* Same click-through error highlight pattern as Incharge */}
         <div 
-          className={`disamatic-form-group ${classFor(formData.ppOperator, primarySubmitted, false, lockedFields.ppOperator)} ${ppOperatorErrorHighlight ? 'error-highlight' : ''}`}
+          className={`disamatic-form-group ${ppOperatorErrorHighlight ? 'error-highlight' : ''}`}
           onMouseDownCapture={(e) => {
-            if (e.target.tagName !== 'INPUT') {
-              if (!formData.date) {
-                setDateErrorHighlight(true);
-                setPpOperatorErrorHighlight(true);
-                setTimeout(() => setPpOperatorErrorHighlight(false), 600);
-              } else if (!formData.shift) {
-                setShiftErrorHighlight(true);
-                setPpOperatorErrorHighlight(true);
-                setTimeout(() => setPpOperatorErrorHighlight(false), 600);
-              }
+            if (e.target.tagName === 'INPUT' && !e.target.disabled) return;
+            
+            if (!formData.date) {
+              setDateErrorHighlight(true);
+              setPpOperatorErrorHighlight(true);
+              setTimeout(() => {
+                setDateErrorHighlight(false);
+                setPpOperatorErrorHighlight(false);
+              }, 600);
+            } else if (!formData.shift) {
+              setShiftErrorHighlight(true);
+              setPpOperatorErrorHighlight(true);
+              setTimeout(() => {
+                setShiftErrorHighlight(false);
+                setPpOperatorErrorHighlight(false);
+              }, 600);
             }
           }}
         >
@@ -2126,39 +2311,38 @@ const DisamaticProduct = () => {
             onChange={e => handleChange("ppOperator", e.target.value)}
             placeholder="Enter PP Operator name"
             disabled={!formData.date || !formData.shift || lockedFields.ppOperator}
-            style={{ opacity: lockedFields.ppOperator ? 0.6 : 1 }}
-            onKeyDown={(e) => handlePrimaryKeyDown(e, getNextAfterPpOperator(), 'ppOperator')}
-            onMouseDown={(e) => {
-              if (!formData.date) {
-                setDateErrorHighlight(true);
-                setPpOperatorErrorHighlight(true);
-                setTimeout(() => setPpOperatorErrorHighlight(false), 600);
-              } else if (!formData.shift) {
-                setShiftErrorHighlight(true);
-                setPpOperatorErrorHighlight(true);
-                setTimeout(() => setPpOperatorErrorHighlight(false), 600);
-              }
+            style={{ 
+              opacity: lockedFields.ppOperator ? 0.6 : 1,
+              pointerEvents: (!formData.date || !formData.shift || lockedFields.ppOperator) ? 'none' : 'auto' // disabled input swallows clicks; pointerEvents:'none' lets them pass to parent onMouseDownCapture
             }}
+            onKeyDown={(e) => handlePrimaryKeyDown(e, getNextAfterPpOperator(), 'ppOperator')}
           />
         </div>
       </div>
       
-      {/* Second Row: Members Present */}
+      {/* Members Present — same click-through pattern: onMouseDownCapture + pointerEvents:'none' on disabled inputs */}
       <div className="primary-fields-row">
         <div 
           className={`disamatic-form-group ${membersErrorHighlight ? 'error-highlight' : ''}`} 
           style={{ gridColumn: '1 / -1' }}
           onMouseDownCapture={(e) => {
-            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON') {
-              if (!formData.date) {
-                setDateErrorHighlight(true);
-                setMembersErrorHighlight(true);
-                setTimeout(() => setMembersErrorHighlight(false), 600);
-              } else if (!formData.shift) {
-                setShiftErrorHighlight(true);
-                setMembersErrorHighlight(true);
-                setTimeout(() => setMembersErrorHighlight(false), 600);
-              }
+            if (e.target.tagName === 'INPUT' && !e.target.disabled) return;
+            if (e.target.tagName === 'BUTTON') return;
+            
+            if (!formData.date) {
+              setDateErrorHighlight(true);
+              setMembersErrorHighlight(true);
+              setTimeout(() => {
+                setDateErrorHighlight(false);
+                setMembersErrorHighlight(false);
+              }, 600);
+            } else if (!formData.shift) {
+              setShiftErrorHighlight(true);
+              setMembersErrorHighlight(true);
+              setTimeout(() => {
+                setShiftErrorHighlight(false);
+                setMembersErrorHighlight(false);
+              }, 600);
             }
           }}
         >
@@ -2176,16 +2360,21 @@ const DisamaticProduct = () => {
                   placeholder={`Enter member name ${index + 1}`}
                   className="disamatic-member-input"
                   disabled={!formData.date || !formData.shift || index < lockedMembersCount}
-                  style={{ opacity: index < lockedMembersCount ? 0.6 : 1 }}
-                  onMouseDown={(e) => {
-                    if (!formData.date) {
-                      setDateErrorHighlight(true);
-                      setMembersErrorHighlight(true);
-                      setTimeout(() => setMembersErrorHighlight(false), 600);
-                    } else if (!formData.shift) {
-                      setShiftErrorHighlight(true);
-                      setMembersErrorHighlight(true);
-                      setTimeout(() => setMembersErrorHighlight(false), 600);
+                  style={{ 
+                    opacity: index < lockedMembersCount ? 0.6 : 1,
+                    pointerEvents: (!formData.date || !formData.shift || index < lockedMembersCount) ? 'none' : 'auto' // disabled input swallows clicks; pointerEvents:'none' lets them pass to parent onMouseDownCapture
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === 'Tab') {
+                      e.preventDefault();
+                      // Navigate to next member input or Save Primary button
+                      const nextIndex = index + 1;
+                      const memberInputs = e.target.closest('.disamatic-members-container')?.querySelectorAll('.disamatic-member-input:not(:disabled)');
+                      if (memberInputs && nextIndex < memberInputs.length) {
+                        memberInputs[nextIndex].focus();
+                      } else {
+                        primarySaveButtonRef.current?.focus();
+                      }
                     }
                   }}
                 />
@@ -2195,7 +2384,8 @@ const DisamaticProduct = () => {
                     onClick={() => removeMemberField(index)}
                     className="disamatic-remove-member-btn"
                     title="Remove member"
-                    disabled={!formData.date || !formData.shift}
+                    tabIndex={-1}
+                    disabled={!formData.date || !formData.shift || !isPrimaryDataSaved}
                   >
                     <X size={16} />
                   </button>
@@ -2208,7 +2398,8 @@ const DisamaticProduct = () => {
                 onClick={addMemberField}
                 className="disamatic-add-member-btn"
                 title="Add another member"
-                disabled={!formData.date || !formData.shift}
+                tabIndex={-1}
+                disabled={!formData.date || !formData.shift || !isPrimaryDataSaved}
               >
                 <Plus size={16} />
                 Add Member
@@ -2220,6 +2411,13 @@ const DisamaticProduct = () => {
       
       {/* Primary Submit Container */}
       <div className="disamatic-submit-container" style={{ gap: '1rem' }}>
+        {showPrimaryWarning && (
+          <InlineLoader 
+            message="Save Primary Data First" 
+            size="medium" 
+            variant="danger" 
+          />
+        )}
         {isLoading ? (
           <div style={{ padding: '0.75rem 1.5rem', color: '#64748b', fontWeight: 500 }}>
             Loading...
@@ -2229,10 +2427,17 @@ const DisamaticProduct = () => {
             {isPrimaryDataSaved ? "Update Primary Data" : "Save Primary"}
           </SubmitButton>
         )}
+        {primarySuccess && (
+          <InlineLoader 
+            message="Primary data saved successfully!"
+            variant="success"
+            size="medium"
+          />
+        )}
       </div>
 
-      {/* Production Table */}
-      <div className="disamatic-section" style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, pointerEvents: isPrimaryDataSaved ? 'auto' : 'none' }}>
+      {/* Production Table — onMouseDownCapture intercepts clicks when primary not saved */}
+      <div className="disamatic-section" style={{ opacity: isPrimaryDataSaved ? 1 : 0.6 }} onMouseDownCapture={!isPrimaryDataSaved ? handleLockedSectionClick : undefined}>
         <div className="disamatic-section-header">
           <h3 className="disamatic-section-title">Production Table {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked - Save Primary Data First)</span>}</h3>
           <div className="disamatic-section-actions">
@@ -2240,6 +2445,7 @@ const DisamaticProduct = () => {
               <button
                 type="button"
                 onClick={() => deleteProductionRow(formData.productionTable.length - 1)}
+                disabled={!isPrimaryDataSaved}
                 style={{
                   width: '40px',
                   height: '40px',
@@ -2256,7 +2462,7 @@ const DisamaticProduct = () => {
                 <X size={18} />
               </button>
             )}
-            <button type="button" onClick={addProductionRow} className="disamatic-add-row-btn">
+            <button type="button" onClick={addProductionRow} disabled={!isPrimaryDataSaved} className="disamatic-add-row-btn">
               <Plus size={18} />
             </button>
           </div>
@@ -2437,7 +2643,21 @@ const DisamaticProduct = () => {
           </table>
         </div>
         
-        <div style={{ padding: '1rem', display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid #e2e8f0' }}>
+        <div style={{ padding: '1rem', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '1rem', borderTop: '1px solid #e2e8f0' }}>
+          {productionSubmitError && (
+            <InlineLoader 
+              message={productionSubmitError}
+              variant="danger"
+              size="medium"
+            />
+          )}
+          {productionSuccess && (
+            <InlineLoader 
+              message="Data added successfully!"
+              variant="success"
+              size="medium"
+            />
+          )}
           <SubmitButton onClick={handleSubmitProduction} disabled={!isPrimaryDataSaved}>
             Save Production Data
           </SubmitButton>
@@ -2445,7 +2665,7 @@ const DisamaticProduct = () => {
       </div>
 
       {/* Next Shift Plan Table */}
-      <div className="disamatic-section" style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, pointerEvents: isPrimaryDataSaved ? 'auto' : 'none' }}>
+      <div className="disamatic-section" style={{ opacity: isPrimaryDataSaved ? 1 : 0.6 }} onMouseDownCapture={!isPrimaryDataSaved ? handleLockedSectionClick : undefined}>
         <div className="disamatic-section-header">
           <h3 className="disamatic-section-title">Next Shift Plan {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked)</span>}</h3>
           <div className="disamatic-section-actions">
@@ -2453,6 +2673,7 @@ const DisamaticProduct = () => {
               <button
                 type="button"
                 onClick={() => deleteNextShiftPlanRow(formData.nextShiftPlanTable.length - 1)}
+                disabled={!isPrimaryDataSaved}
                 style={{
                   width: '40px',
                   height: '40px',
@@ -2469,7 +2690,7 @@ const DisamaticProduct = () => {
                 <X size={18} />
               </button>
             )}
-            <button type="button" onClick={addNextShiftPlanRow} className="disamatic-add-row-btn">
+            <button type="button" onClick={addNextShiftPlanRow} disabled={!isPrimaryDataSaved} className="disamatic-add-row-btn">
               <Plus size={18} />
             </button>
           </div>
@@ -2561,7 +2782,21 @@ const DisamaticProduct = () => {
           </table>
         </div>
         
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '1rem', marginTop: '1rem' }}>
+          {nextShiftPlanSubmitError && (
+            <InlineLoader 
+              message={nextShiftPlanSubmitError}
+              variant="danger"
+              size="medium"
+            />
+          )}
+          {nextShiftPlanSuccess && (
+            <InlineLoader 
+              message="Data added successfully!"
+              variant="success"
+              size="medium"
+            />
+          )}
           <SubmitButton onClick={handleSubmitNextShiftPlan} disabled={!isPrimaryDataSaved}>
             Save Next Shift Plan
           </SubmitButton>
@@ -2569,7 +2804,7 @@ const DisamaticProduct = () => {
       </div>
 
       {/* Delays Table */}
-      <div className="disamatic-section" style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, pointerEvents: isPrimaryDataSaved ? 'auto' : 'none' }}>
+      <div className="disamatic-section" style={{ opacity: isPrimaryDataSaved ? 1 : 0.6 }} onMouseDownCapture={!isPrimaryDataSaved ? handleLockedSectionClick : undefined}>
         <div className="disamatic-section-header">
           <h3 className="disamatic-section-title">Delays {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked)</span>}</h3>
           <div className="disamatic-section-actions">
@@ -2577,6 +2812,7 @@ const DisamaticProduct = () => {
               <button
                 type="button"
                 onClick={() => deleteDelaysRow(formData.delaysTable.length - 1)}
+                disabled={!isPrimaryDataSaved}
                 style={{
                   width: '40px',
                   height: '40px',
@@ -2593,7 +2829,7 @@ const DisamaticProduct = () => {
                 <X size={18} />
               </button>
             )}
-            <button type="button" onClick={addDelaysRow} className="disamatic-add-row-btn">
+            <button type="button" onClick={addDelaysRow} disabled={!isPrimaryDataSaved} className="disamatic-add-row-btn">
               <Plus size={18} />
             </button>
           </div>
@@ -2736,6 +2972,13 @@ const DisamaticProduct = () => {
               size="medium"
             />
           )}
+          {delaysSuccess && (
+            <InlineLoader 
+              message="Data added successfully!"
+              variant="success"
+              size="medium"
+            />
+          )}
           <SubmitButton onClick={handleSubmitDelays} disabled={!isPrimaryDataSaved}>
             Save Delays
           </SubmitButton>
@@ -2743,7 +2986,7 @@ const DisamaticProduct = () => {
       </div>
 
       {/* Mould Hardness Table */}
-      <div className="disamatic-section" style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, pointerEvents: isPrimaryDataSaved ? 'auto' : 'none' }}>
+      <div className="disamatic-section" style={{ opacity: isPrimaryDataSaved ? 1 : 0.6 }} onMouseDownCapture={!isPrimaryDataSaved ? handleLockedSectionClick : undefined}>
         <div className="disamatic-section-header">
           <h3 className="disamatic-section-title">Mould Hardness {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked)</span>}</h3>
           <div className="disamatic-section-actions">
@@ -2751,6 +2994,7 @@ const DisamaticProduct = () => {
               <button
                 type="button"
                 onClick={() => deleteMouldHardnessRow(formData.mouldHardnessTable.length - 1)}
+                disabled={!isPrimaryDataSaved}
                 style={{
                   width: '40px',
                   height: '40px',
@@ -2767,7 +3011,7 @@ const DisamaticProduct = () => {
                 <X size={18} />
               </button>
             )}
-            <button type="button" onClick={addMouldHardnessRow} className="disamatic-add-row-btn">
+            <button type="button" onClick={addMouldHardnessRow} disabled={!isPrimaryDataSaved} className="disamatic-add-row-btn">
               <Plus size={18} />
             </button>
           </div>
@@ -3134,6 +3378,13 @@ const DisamaticProduct = () => {
               size="medium"
             />
           )}
+          {mouldHardnessSuccess && (
+            <InlineLoader 
+              message="Data added successfully!"
+              variant="success"
+              size="medium"
+            />
+          )}
           <SubmitButton onClick={handleSubmitMouldHardness} disabled={!isPrimaryDataSaved}>
             Save Mould Hardness
           </SubmitButton>
@@ -3141,7 +3392,7 @@ const DisamaticProduct = () => {
       </div>
 
       {/* Pattern Temp Table */}
-      <div className="disamatic-section" style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, pointerEvents: isPrimaryDataSaved ? 'auto' : 'none' }}>
+      <div className="disamatic-section" style={{ opacity: isPrimaryDataSaved ? 1 : 0.6 }} onMouseDownCapture={!isPrimaryDataSaved ? handleLockedSectionClick : undefined}>
         <div className="disamatic-section-header">
           <h3 className="disamatic-section-title">Pattern Temperature {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked)</span>}</h3>
           <div className="disamatic-section-actions">
@@ -3149,6 +3400,7 @@ const DisamaticProduct = () => {
               <button
                 type="button"
                 onClick={() => deletePatternTempRow(formData.patternTempTable.length - 1)}
+                disabled={!isPrimaryDataSaved}
                 style={{
                   width: '40px',
                   height: '40px',
@@ -3165,7 +3417,7 @@ const DisamaticProduct = () => {
                 <X size={18} />
               </button>
             )}
-            <button type="button" onClick={addPatternTempRow} className="disamatic-add-row-btn">
+            <button type="button" onClick={addPatternTempRow} disabled={!isPrimaryDataSaved} className="disamatic-add-row-btn">
               <Plus size={18} />
             </button>
           </div>
@@ -3272,7 +3524,21 @@ const DisamaticProduct = () => {
           </table>
         </div>
         
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '1rem', marginTop: '1rem' }}>
+          {patternTempSubmitError && (
+            <InlineLoader 
+              message={patternTempSubmitError}
+              variant="danger"
+              size="medium"
+            />
+          )}
+          {patternTempSuccess && (
+            <InlineLoader 
+              message="Data added successfully!"
+              variant="success"
+              size="medium"
+            />
+          )}
           <SubmitButton onClick={handleSubmitPatternTemp} disabled={!isPrimaryDataSaved}>
             Save Pattern Temperature
           </SubmitButton>
@@ -3280,7 +3546,7 @@ const DisamaticProduct = () => {
       </div>
 
       {/* Event Section */}
-      <div className="disamatic-section" style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, pointerEvents: isPrimaryDataSaved ? 'auto' : 'none' }}>
+      <div className="disamatic-section" style={{ opacity: isPrimaryDataSaved ? 1 : 0.6 }} onMouseDownCapture={!isPrimaryDataSaved ? handleLockedSectionClick : undefined}>
         <h3 className="disamatic-section-title">
           Significant Events & Maintenance 
           {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked - Save Primary Data First)</span>}
@@ -3296,6 +3562,13 @@ const DisamaticProduct = () => {
             <textarea
               value={formData.significantEvent}
               onChange={e => handleChange("significantEvent", e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  const maintenanceTextarea = document.querySelector('textarea[placeholder="Enter maintenance details"]');
+                  if (maintenanceTextarea && !maintenanceTextarea.disabled) maintenanceTextarea.focus();
+                }
+              }}
               placeholder="Enter any significant events"
               className="disamatic-textarea"
               rows={3}
@@ -3311,6 +3584,13 @@ const DisamaticProduct = () => {
             <textarea
               value={formData.maintenance}
               onChange={e => handleChange("maintenance", e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  const supervisorInput = document.querySelector('input[placeholder="Enter supervisor name"]');
+                  if (supervisorInput && !supervisorInput.disabled) supervisorInput.focus();
+                }
+              }}
               placeholder="Enter maintenance details"
               className="disamatic-textarea"
               rows={3}
@@ -3327,13 +3607,33 @@ const DisamaticProduct = () => {
               type="text"
               value={formData.supervisorName}
               onChange={e => handleChange("supervisorName", e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleSubmitEvents();
+                }
+              }}
               placeholder="Enter supervisor name"
               disabled={!isPrimaryDataSaved || lockedEventsFields.supervisorName}
             />
           </div>
         </div>
         
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem', gap: '1rem', alignItems: 'center' }}>
+          {eventsSubmitError && (
+            <InlineLoader 
+              message={eventsSubmitError}
+              variant="danger"
+              size="medium"
+            />
+          )}
+          {eventsSuccess && (
+            <InlineLoader 
+              message="Data added successfully!"
+              variant="success"
+              size="medium"
+            />
+          )}
           <SubmitButton onClick={handleSubmitEvents} disabled={!isPrimaryDataSaved || isEventsSaved}>
             Save Events
           </SubmitButton>

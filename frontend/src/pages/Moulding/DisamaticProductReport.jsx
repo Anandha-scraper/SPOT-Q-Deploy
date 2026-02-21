@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { BookOpenCheck } from 'lucide-react';
-import { FilterButton, ClearButton, ShiftDropdown } from '../../Components/Buttons';
+import { BookOpenCheck, ArrowLeft } from 'lucide-react';
+import { FilterButton, ClearButton, ShiftDropdown, CustomPagination } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import Table from '../../Components/Table';
+import { InlineLoader } from '../../Components/Alert';
 import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Moulding/DisamaticProductReport.css';
 
@@ -15,7 +16,17 @@ const DisamaticProductReport = () => {
 
   // Filter states
   const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
   const [shift, setShift] = useState('');
+
+  // Range mode states
+  const [rangeMode, setRangeMode] = useState(false);
+  const [summaryData, setSummaryData] = useState([]);
+  const [detailFromRange, setDetailFromRange] = useState(false);
+  const [hoveredDateGroup, setHoveredDateGroup] = useState(null);
+  const [hoveredSummaryRow, setHoveredSummaryRow] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
 
   // Transform backend data to frontend format
   const transformBackendData = (dataArray) => {
@@ -41,6 +52,65 @@ const DisamaticProductReport = () => {
     }));
   };
 
+  // Group range data by date for summary table
+  const groupByDateForSummary = (data) => {
+    const sorted = [...data].sort((a, b) => {
+      const dateCompare = new Date(b.date) - new Date(a.date);
+      if (dateCompare !== 0) return dateCompare;
+      return (a.shift || '').localeCompare(b.shift || '');
+    });
+    return sorted.map(item => ({
+      _id: item._id,
+      date: item.date,
+      shift: item.shift || '-',
+      rawData: item
+    }));
+  };
+
+  // Calculate rowspans for date grouping in summary table
+  const calculateDateGroups = (data) => {
+    const groups = {};
+    let currentDateVal = null;
+    let groupStart = 0;
+    
+    data.forEach((item, index) => {
+      const itemDate = new Date(item.date).toDateString();
+      if (itemDate !== currentDateVal) {
+        if (currentDateVal !== null) {
+          groups[groupStart] = { rowspan: index - groupStart, date: currentDateVal };
+        }
+        currentDateVal = itemDate;
+        groupStart = index;
+      }
+      if (index === data.length - 1) {
+        groups[groupStart] = { rowspan: index - groupStart + 1, date: currentDateVal };
+      }
+    });
+    return groups;
+  };
+
+  // Pagination for summary
+  const totalPages = Math.ceil(summaryData.length / itemsPerPage);
+  const paginatedSummary = summaryData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const dateGroups = calculateDateGroups(paginatedSummary);
+
+  const isRowInHoveredDateGroup = (rowIndex) => {
+    if (!hoveredDateGroup) return false;
+    return new Date(paginatedSummary[rowIndex]?.date).toDateString() === hoveredDateGroup;
+  };
+
+  const getDateForRow = (rowIndex) => {
+    return new Date(paginatedSummary[rowIndex]?.date).toDateString();
+  };
+
+  // Auto-dismiss error after 4 seconds
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(''), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
+
   useEffect(() => {
     fetchCurrentDateAndEntries();
   }, []);
@@ -49,7 +119,6 @@ const DisamaticProductReport = () => {
     setLoading(true);
     setError('');
     try {
-      // Get today's date in local timezone (YYYY-MM-DD format)
       const today = new Date();
       const year = today.getFullYear();
       const month = String(today.getMonth() + 1).padStart(2, '0');
@@ -57,27 +126,29 @@ const DisamaticProductReport = () => {
       const todayStr = `${year}-${month}-${day}`;
       
       setCurrentDate(todayStr);
+      setStartDate(todayStr);
 
-      const response = await fetch(`${API_ENDPOINTS.mouldingDisa}/by-date?date=${todayStr}`, {
-        credentials: 'include'
-      });
+      const response = await fetch(
+        `${API_ENDPOINTS.mouldingDisa}/range?startDate=${todayStr}&endDate=${todayStr}`,
+        { credentials: 'include' }
+      );
       
       if (!response.ok) {
-        // Don't show error on initial load, just set empty entries
-        console.error('Failed to fetch data:', response.statusText);
         setEntries([]);
         return;
       }
       
       const data = await response.json();
-      if (data.success && data.data) {
-        setEntries(transformBackendData(data.data));
+      if (data.success && data.data && data.data.length > 0) {
+        const allEntries = transformBackendData(data.data);
+        const lastShift = allEntries[allEntries.length - 1].shift;
+        setShift(lastShift);
+        setEntries(allEntries.filter(entry => entry.shift === lastShift));
       } else {
         setEntries([]);
       }
-    } catch (error) {
-      console.error('Error fetching entries:', error);
-      // Don't show error on initial load
+    } catch (err) {
+      console.error('Error fetching entries:', err);
       setEntries([]);
     } finally {
       setLoading(false);
@@ -93,42 +164,63 @@ const DisamaticProductReport = () => {
     setLoading(true);
     setError('');
     try {
-      let url;
-      
-      if (shift) {
-        // Filter by date and shift - use by-date endpoint and filter on client side
-        url = `${API_ENDPOINTS.mouldingDisa}/by-date?date=${startDate}`;
-      } else {
-        // Filter by date only
-        url = `${API_ENDPOINTS.mouldingDisa}/by-date?date=${startDate}`;
-      }
-
-      const response = await fetch(url, {
-        credentials: 'include'
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch data: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      
-      if (data.success && data.data) {
-        let filteredData = transformBackendData(data.data);
-        
-        // If shift is selected, filter the results
-        if (shift) {
-          filteredData = filteredData.filter(entry => entry.shift === shift);
+      if (endDate) {
+        // Range mode - fetch from range endpoint
+        if (new Date(endDate) < new Date(startDate)) {
+          alert('End date cannot be before start date');
+          setLoading(false);
+          return;
         }
+        const url = `${API_ENDPOINTS.mouldingDisa}/range?startDate=${startDate}&endDate=${endDate}`;
+        const response = await fetch(url, { credentials: 'include' });
+        if (!response.ok) throw new Error(`Failed to fetch data: ${response.statusText}`);
+        const data = await response.json();
         
-        setEntries(filteredData);
-        
-        if (filteredData.length === 0) {
-          setError('No data found for the selected filters');
+        if (data.success && data.data && data.data.length > 0) {
+          const grouped = groupByDateForSummary(data.data);
+          setSummaryData(grouped);
+          setRangeMode(true);
+          setDetailFromRange(false);
+          setEntries([]);
+          setCurrentPage(1);
+        } else {
+          setSummaryData([]);
+          setRangeMode(true);
+          setDetailFromRange(false);
+          setEntries([]);
+          setError('No data found for the selected date range');
         }
       } else {
-        setEntries([]);
-        setError('No data found for the selected date');
+        // Single date mode
+        const url = `${API_ENDPOINTS.mouldingDisa}/range?startDate=${startDate}&endDate=${startDate}`;
+        const response = await fetch(url, { credentials: 'include' });
+        if (!response.ok) throw new Error(`Failed to fetch data: ${response.statusText}`);
+        const data = await response.json();
+        
+        if (data.success && data.data && data.data.length > 0) {
+          let filteredData = transformBackendData(data.data);
+          
+          if (shift) {
+            filteredData = filteredData.filter(entry => entry.shift === shift);
+          } else if (filteredData.length > 0) {
+            // Auto-select last entered shift
+            const lastShift = filteredData[filteredData.length - 1].shift;
+            setShift(lastShift);
+            filteredData = filteredData.filter(entry => entry.shift === lastShift);
+          }
+          
+          setEntries(filteredData);
+          setRangeMode(false);
+          setDetailFromRange(false);
+          
+          if (filteredData.length === 0) {
+            setError('No data found for the selected filters');
+          }
+        } else {
+          setEntries([]);
+          setRangeMode(false);
+          setError('No data found for the selected date');
+        }
       }
     } catch (error) {
       console.error('Error filtering entries:', error);
@@ -141,8 +233,40 @@ const DisamaticProductReport = () => {
 
   const handleClearFilter = () => {
     setStartDate(null);
+    setEndDate(null);
     setShift('');
+    setRangeMode(false);
+    setDetailFromRange(false);
+    setSummaryData([]);
+    setCurrentPage(1);
+    setHoveredDateGroup(null);
+    setHoveredSummaryRow(null);
     fetchCurrentDateAndEntries();
+  };
+
+  // Handle click on date cell in summary table - show all shifts for that date
+  const handleDateClick = (dateStr) => {
+    const targetDate = new Date(dateStr).toDateString();
+    const dateEntries = summaryData
+      .filter(item => new Date(item.date).toDateString() === targetDate)
+      .map(item => item.rawData);
+    const transformed = transformBackendData(dateEntries);
+    setEntries(transformed);
+    setDetailFromRange(true);
+  };
+
+  // Handle click on a specific shift row in summary table
+  const handleShiftRowClick = (item) => {
+    const transformed = transformBackendData([item.rawData]);
+    setEntries(transformed);
+    setDetailFromRange(true);
+  };
+
+  // Back to summary from detail
+  const handleBackToSummary = () => {
+    setDetailFromRange(false);
+    setEntries([]);
+    setError('');
   };
 
   const formatDate = (dateStr) => {
@@ -578,43 +702,154 @@ const DisamaticProductReport = () => {
       </div>
 
       {/* Filter Section */}
-      <div className="disamatic-filter-container">
-        <div className="disamatic-filter-group">
-          <label>Date</label>
-          <CustomDatePicker
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            placeholder="Select date"
-          />
-        </div>
-        <div className="disamatic-filter-group">
-          <label>Shift</label>
-          <ShiftDropdown
-            value={shift}
-            onChange={(e) => setShift(e.target.value)}
-            disabled={!startDate}
-          />
-        </div>
-        <FilterButton onClick={handleFilter} disabled={!startDate || loading}>
-          {loading ? 'Loading...' : 'Filter'}
-        </FilterButton>
-        <ClearButton onClick={handleClearFilter} disabled={!startDate && !shift}>
-          Clear
-        </ClearButton>
-      </div>
-
-      {/* Content Area */}
-      {error && (
-        <div style={{ padding: '1rem', backgroundColor: '#fee2e2', border: '1px solid #fecaca', borderRadius: '8px', color: '#991b1b', marginBottom: '1rem' }}>
-          {error}
+      {!detailFromRange && (
+        <div className="disamatic-filter-container">
+          <div className="disamatic-filter-group">
+            <label>From</label>
+            <CustomDatePicker
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              placeholder="Select start date"
+            />
+          </div>
+          <div className="disamatic-filter-group">
+            <label>To</label>
+            <CustomDatePicker
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              placeholder="Select end date"
+              min={startDate}
+            />
+          </div>
+          {!endDate && (
+            <div className="disamatic-filter-group">
+              <label>Shift</label>
+              <ShiftDropdown
+                value={shift}
+                onChange={(e) => setShift(e.target.value)}
+                disabled={!startDate}
+              />
+            </div>
+          )}
+          <FilterButton onClick={handleFilter} disabled={!startDate || loading}>
+            {loading ? 'Loading...' : 'Filter'}
+          </FilterButton>
+          <ClearButton onClick={handleClearFilter} disabled={!startDate && !endDate && !shift}>
+            Clear
+          </ClearButton>
+          {error && (
+            <InlineLoader 
+              message={error}
+              size="small"
+              variant="danger"
+            />
+          )}
         </div>
       )}
 
+      {/* Summary Table - Range Mode */}
+      {rangeMode && !detailFromRange && (
+        <>
+          <div className="reusable-table-container">
+            <table className="reusable-table" style={{ minWidth: '400px' }}>
+              <thead>
+                <tr>
+                  <th style={{ width: '200px', textAlign: 'center' }}>Date</th>
+                  <th style={{ width: '200px', textAlign: 'center' }}>Shift</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedSummary.length === 0 ? (
+                  <tr>
+                    <td colSpan={2} className="reusable-table-no-records">No records found</td>
+                  </tr>
+                ) : (
+                  paginatedSummary.map((item, rowIndex) => {
+                    const isDateGroupStart = dateGroups[rowIndex];
+                    const isInHoveredGroup = isRowInHoveredDateGroup(rowIndex);
+                    const isRowHovered = hoveredSummaryRow === rowIndex;
+                    const shouldHighlightDateCell = hoveredSummaryRow !== null &&
+                      isDateGroupStart &&
+                      getDateForRow(hoveredSummaryRow) === new Date(item.date).toDateString();
+
+                    return (
+                      <tr
+                        key={item._id || rowIndex}
+                        className={`${isInHoveredGroup && !isRowHovered ? 'date-group-hovered' : ''} ${isRowHovered ? 'row-hovered' : ''}`}
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => handleShiftRowClick(item)}
+                      >
+                        {isDateGroupStart ? (
+                          <td
+                            rowSpan={isDateGroupStart.rowspan}
+                            className={`date-cell ${shouldHighlightDateCell ? 'date-cell-row-hovered' : ''}`}
+                            onMouseEnter={(e) => {
+                              e.stopPropagation();
+                              setHoveredDateGroup(new Date(item.date).toDateString());
+                              setHoveredSummaryRow(null);
+                            }}
+                            onMouseLeave={(e) => {
+                              e.stopPropagation();
+                              setHoveredDateGroup(null);
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDateClick(item.date);
+                            }}
+                            style={{
+                              width: '200px',
+                              textAlign: 'center',
+                              verticalAlign: 'middle',
+                              color: '#475569',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {formatDate(item.date)}
+                          </td>
+                        ) : null}
+                        <td
+                          style={{ width: '200px', textAlign: 'center', color: '#475569' }}
+                          onMouseEnter={() => {
+                            setHoveredSummaryRow(rowIndex);
+                            setHoveredDateGroup(null);
+                          }}
+                          onMouseLeave={() => setHoveredSummaryRow(null)}
+                        >
+                          {item.shift}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+          {totalPages > 1 && (
+            <CustomPagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={(page) => setCurrentPage(page)}
+            />
+          )}
+        </>
+      )}
+
+      {/* Detail View - Back button when navigated from range */}
+      {detailFromRange && (
+        <button
+          onClick={handleBackToSummary}
+          className="disamatic-back-btn"
+        >
+          <ArrowLeft size={18} />
+          Back to Summary
+        </button>
+      )}
+
       {/* Primary Section */}
-      {!loading && (
+      {!loading && (!rangeMode || detailFromRange) && (
         <>
           <h3 className="primary-heading">
-            Primary {entries.length > 0 && entries[0]?.shift ? `( Shift : ${entries[0].shift} )` : ''}
+            Primary {entries.length > 0 && entries[0]?.shift ? `( ${entries[0].shift} )` : ''}
           </h3>
           <div className="primary-details" style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
             <div className="primary-detail-item">

@@ -367,7 +367,7 @@ export const PanelDropdown = forwardRef(({ value, onChange, name, disabled, onKe
 });
 PanelDropdown.displayName = 'PanelDropdown';
 
-export const CustomTimeInput = forwardRef(({ value, onChange, className = '', hasError = false, onFocus, onBlur, disabled = false, style = {}, ...props }, ref) => {
+export const CustomTimeInput = forwardRef(({ value, onChange, className = '', hasError = false, onFocus, onBlur, onEnterPress, disabled = false, style = {}, ...props }, ref) => {
   const hourRef = useRef(null);
   const minuteRef = useRef(null);
   const periodRef = useRef(null);
@@ -580,7 +580,13 @@ export const CustomTimeInput = forwardRef(({ value, onChange, className = '', ha
       // Blur the period field to complete the time input
       periodRef.current?.blur();
       
-      // Find next focusable element outside this time input
+      // Use parent's onEnterPress callback for proper navigation
+      if (onEnterPress) {
+        onEnterPress(e);
+        return;
+      }
+      
+      // Fallback: find next focusable element outside this time input
       const allFocusables = Array.from(document.querySelectorAll(
         'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])'
       )).filter(el => el.offsetParent !== null);

@@ -134,3 +134,61 @@
   align-items: center;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
+
+/* Back Button */
+.disamatic-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  margin-bottom: 1.5rem;
+  background: linear-gradient(135deg, #5B9AA9 0%, #4a7d8a 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: 'Poppins', sans-serif;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(91, 154, 169, 0.3);
+}
+
+.disamatic-back-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(91, 154, 169, 0.4);
+  background: linear-gradient(135deg, #4a7d8a 0%, #3a6d7a 100%);
+}
+
+/* Date Group Hover Effects */
+.date-cell {
+  transition: all 0.2s ease;
+  position: relative;
+  cursor: pointer;
+}
+
+.date-cell:hover {
+  background-color: #fef3c7 !important;
+  font-weight: 600;
+}
+
+.date-group-hovered {
+  background-color: #fef3c7 !important;
+  transition: background-color 0.2s ease;
+}
+
+.date-group-hovered td {
+  background-color: #fef3c7 !important;
+}
+
+/* Individual Row Hover */
+.row-hovered td {
+  background-color: #fef3c7 !important;
+  transition: background-color 0.2s ease;
+}
+
+/* Highlight date cell when any row in its group is hovered */
+.date-cell-row-hovered {
+  background-color: #fef3c7 !important;
+  font-weight: normal;
+}

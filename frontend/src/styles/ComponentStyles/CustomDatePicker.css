@@ -47,6 +47,13 @@
   box-shadow: 0 0 0 3px rgba(91, 154, 169, 0.2);
 }
 
+.date-input:disabled {
+  cursor: not-allowed;
+  background-color: #f1f5f9;
+  opacity: 0.6;
+  color: #64748b;
+}
+
 .date-input::placeholder {
   color: #94a3b8;
   opacity: 1;

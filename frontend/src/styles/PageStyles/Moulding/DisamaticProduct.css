@@ -109,6 +109,38 @@
   box-shadow: 0 0 0 3px rgba(91, 154, 169, 0.1);
 }
 
+/* Locked/Disabled Field Styles - Show stop cursor */
+.disamatic-form-group input:disabled,
+.disamatic-form-group select:disabled,
+.disamatic-textarea:disabled,
+.disamatic-member-input:disabled,
+.disamatic-section table input:disabled,
+.disamatic-section table select:disabled,
+.disamatic-section table textarea:disabled,
+.disamatic-form-group input[disabled],
+.disamatic-form-group select[disabled],
+.disamatic-textarea[disabled],
+.disamatic-member-input[disabled] {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* pointerEvents:none on disabled elements inside sections lets clicks pass through
+   to parent div's onMouseDownCapture for "Save Primary Data First" warning */
+.disamatic-section input:disabled,
+.disamatic-section select:disabled,
+.disamatic-section textarea:disabled,
+.disamatic-section button:disabled {
+  pointer-events: none;
+}
+
+/* Stop cursor on locked field containers */
+.disamatic-form-group:has(input:disabled),
+.disamatic-form-group:has(select:disabled),
+.disamatic-member-input-wrapper:has(input:disabled) {
+  cursor: not-allowed;
+}
+
 .disamatic-form-group .custom-date-picker {
   width: 180px;
   max-width: 180px;
@@ -211,6 +243,15 @@
   background: linear-gradient(135deg, #059669 0%, #047857 100%);
 }
 
+/* Disabled button styles with stop cursor */
+.disamatic-add-row-btn:disabled,
+.disamatic-remove-member-btn:disabled,
+.disamatic-add-member-btn:disabled,
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .disamatic-submit-container {
   display: flex;
   justify-content: flex-end;
@@ -231,7 +272,8 @@
 .error-highlight select,
 .error-highlight .shift-dropdown-wrapper select,
 .error-highlight .date-input,
-.error-highlight .custom-date-picker input {
+.error-highlight .custom-date-picker input,
+.error-highlight .disamatic-member-input {
   border-color: #ef4444 !important;
   background-color: #fef2f2 !important;
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;

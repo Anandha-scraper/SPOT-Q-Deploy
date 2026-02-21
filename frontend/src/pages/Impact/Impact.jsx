@@ -41,7 +41,7 @@ const Impact = () => {
       field: 'Specification',
       required: true,
       type: 'Number',
-      min: 0,
+      max: 100,
       unit: 'Joules',
       pattern: 'e.g., 15',
       description: 'Enter the impact test specification value in Joules'
