@@ -1,10 +1,9 @@
 const getApiBaseUrl = () => {
+  // Use environment variable (set in Vercel for production, optional for dev)
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL;
   }
-  if (import.meta.env.PROD) {
-    return window.location.origin;
-  }
+  // Development fallback
   return 'http://localhost:5000';
 };
 
