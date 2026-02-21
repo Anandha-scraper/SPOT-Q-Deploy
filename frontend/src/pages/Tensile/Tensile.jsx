@@ -5,6 +5,7 @@ import CustomDatePicker from '../../Components/CustomDatePicker';
 import Sakthi from '../../Components/Sakthi';
 import { InlineLoader } from '../../Components/Alert';
 import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
+import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Tensile/Tensile.css';
 
 const Tensile = () => {
@@ -535,7 +536,7 @@ const Tensile = () => {
         testedBy: formData.testedBy
       };
 
-      const response = await fetch('/v1/tensile', {
+      const response = await fetch(API_ENDPOINTS.tensile, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

@@ -3,9 +3,8 @@ import { BookOpenCheck } from 'lucide-react';
 import { FilterButton, ClearButton, ShiftDropdown } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import Table from '../../Components/Table';
+import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Moulding/DisamaticProductReport.css';
-
-const API_BASE_URL = 'http://localhost:5000/api/v1/moulding-disa';
 
 const DisamaticProductReport = () => {
   const [currentDate, setCurrentDate] = useState('');
@@ -59,7 +58,7 @@ const DisamaticProductReport = () => {
       
       setCurrentDate(todayStr);
 
-      const response = await fetch(`${API_BASE_URL}/by-date?date=${todayStr}`, {
+      const response = await fetch(`${API_ENDPOINTS.mouldingDisa}/by-date?date=${todayStr}`, {
         credentials: 'include'
       });
       
@@ -98,10 +97,10 @@ const DisamaticProductReport = () => {
       
       if (shift) {
         // Filter by date and shift - use by-date endpoint and filter on client side
-        url = `${API_BASE_URL}/by-date?date=${startDate}`;
+        url = `${API_ENDPOINTS.mouldingDisa}/by-date?date=${startDate}`;
       } else {
         // Filter by date only
-        url = `${API_BASE_URL}/by-date?date=${startDate}`;
+        url = `${API_ENDPOINTS.mouldingDisa}/by-date?date=${startDate}`;
       }
 
       const response = await fetch(url, {

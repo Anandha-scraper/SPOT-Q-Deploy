@@ -5,6 +5,7 @@ import CustomDatePicker from '../../Components/CustomDatePicker';
 import { InlineLoader } from '../../Components/Alert';
 import Sakthi from '../../Components/Sakthi';
 import { useInfoModal, InfoIcon, InfoCard } from '../../Components/Info';
+import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/QcProduction/QcProductionDetails.css';
 
 const QcProductionDetails = () => {
@@ -967,7 +968,7 @@ const QcProductionDetails = () => {
         el: formatRange(formData.elMin, formData.elMax)
       };
       
-      const response = await fetch('http://localhost:5000/api/v1/qc-reports', { 
+      const response = await fetch(API_ENDPOINTS.qcReports, { 
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' }, 
         credentials: 'include', 

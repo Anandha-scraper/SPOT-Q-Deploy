@@ -3,9 +3,8 @@ import { Save, Plus, X } from "lucide-react";
 import CustomDatePicker from "../../Components/CustomDatePicker";
 import { CustomTimeInput, Time, PlusButton, MinusButton, SubmitButton, ShiftDropdown } from "../../Components/Buttons";
 import { InlineLoader } from "../../Components/Alert";
+import { API_ENDPOINTS } from "../../config/api";
 import "../../styles/PageStyles/Moulding/DisamaticProduct.css";
-
-const API_BASE_URL = 'http://localhost:5000/api/v1/moulding-disa';
 
 const initialFormData = {
   date: "",
@@ -174,7 +173,7 @@ const DisamaticProduct = () => {
   const fetchPrimaryData = async (date, shift) => {
     try {
       setIsLoading(true);
-      const response = await fetch(`${API_BASE_URL}/primary?date=${date}&shift=${shift}`, {
+      const response = await fetch(`${API_ENDPOINTS.mouldingDisa}/primary?date=${date}&shift=${shift}`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -541,7 +540,7 @@ const DisamaticProduct = () => {
       );
       
       // Save production data to backend
-      const response = await fetch(API_BASE_URL, {
+      const response = await fetch(API_ENDPOINTS.mouldingDisa, {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -721,7 +720,7 @@ const DisamaticProduct = () => {
       );
       
       // Save to backend
-      const response = await fetch(API_BASE_URL, {
+      const response = await fetch(API_ENDPOINTS.mouldingDisa, {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -1084,7 +1083,7 @@ const DisamaticProduct = () => {
       );
       
       // Save to backend
-      const response = await fetch(API_BASE_URL, {
+      const response = await fetch(API_ENDPOINTS.mouldingDisa, {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -1579,7 +1578,7 @@ const DisamaticProduct = () => {
       );
       
       // Save to backend
-      const response = await fetch(API_BASE_URL, {
+      const response = await fetch(API_ENDPOINTS.mouldingDisa, {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -1807,7 +1806,7 @@ const DisamaticProduct = () => {
       );
       
       // Save to backend
-      const response = await fetch(API_BASE_URL, {
+      const response = await fetch(API_ENDPOINTS.mouldingDisa, {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -1883,7 +1882,7 @@ const DisamaticProduct = () => {
         members: filteredMembers.length > 0 ? filteredMembers : null
       };
 
-      const response = await fetch(`${API_BASE_URL}/primary`, {
+      const response = await fetch(`${API_ENDPOINTS.mouldingDisa}/primary`, {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -1946,7 +1945,7 @@ const DisamaticProduct = () => {
       setIsLoading(true);
       
       // Save events data to backend
-      const response = await fetch(API_BASE_URL, {
+      const response = await fetch(API_ENDPOINTS.mouldingDisa, {
         method: 'POST',
         credentials: 'include',
         headers: {

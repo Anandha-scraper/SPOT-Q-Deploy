@@ -3,9 +3,8 @@ import { BookOpenCheck, ChevronDown, ChevronUp } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { FilterButton, ClearButton, ShiftDropdown, DisaDropdown } from '../../Components/Buttons';
 import Table from '../../Components/Table';
+import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Sandlab/FoundrySandTestingReport.css';
-
-const API_BASE_URL = 'http://localhost:5000/api/v1/foundry-sand-testing-notes';
 
 const FoundrySandTestingReport = () => {
   const [entries, setEntries] = useState([]);
@@ -36,7 +35,7 @@ const FoundrySandTestingReport = () => {
       const to = toDate || from;
       const rangeMode = toDate && toDate !== fromDate;
 
-      let url = `${API_BASE_URL}?startDate=${encodeURIComponent(from)}&endDate=${encodeURIComponent(to)}`;
+      let url = `${API_ENDPOINTS.foundrySandTestingNotes}?startDate=${encodeURIComponent(from)}&endDate=${encodeURIComponent(to)}`;
       const res = await fetch(url, { credentials: 'include' });
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
       const data = await res.json();

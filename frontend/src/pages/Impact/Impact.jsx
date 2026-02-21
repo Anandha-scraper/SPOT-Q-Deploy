@@ -5,6 +5,7 @@ import CustomDatePicker from '../../Components/CustomDatePicker';
 import Sakthi from '../../Components/Sakthi';
 import { InlineLoader } from '../../Components/Alert';
 import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
+import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Impact/Impact.css';
 
 const Impact = () => {
@@ -319,7 +320,7 @@ const Impact = () => {
 
     try {
       setSubmitLoading(true);
-      const response = await fetch('http://localhost:5000/api/v1/impact-tests', {
+      const response = await fetch(API_ENDPOINTS.impactTests, {
         method: 'POST',
         credentials: 'include',
         headers: {

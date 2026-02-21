@@ -4,6 +4,7 @@ import { FilterButton, ClearButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import Table from '../../Components/Table';
 import Loader from '../../Components/Loader';
+import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Impact/ImpactReport.css';
 
 const ImpactReport = () => {
@@ -51,7 +52,7 @@ const ImpactReport = () => {
       setCurrentDate(todayStr);
 
       // Fetch entries for current date
-      const response = await fetch(`http://localhost:5000/api/v1/impact-tests/by-date?date=${todayStr}`, {
+      const response = await fetch(`${API_ENDPOINTS.impactTests}/by-date?date=${todayStr}`, {
         credentials: 'include'
       });
       const data = await response.json();
@@ -98,7 +99,7 @@ const ImpactReport = () => {
       loaderTimeoutRef.current = setTimeout(() => {
         setShowLoader(true);
       }, 2000);
-      const response = await fetch(`http://localhost:5000/api/v1/impact-tests/by-date?date=${startDate}`, {
+      const response = await fetch(`${API_ENDPOINTS.impactTests}/by-date?date=${startDate}`, {
         credentials: 'include'
       });
       const data = await response.json();
@@ -119,7 +120,7 @@ const ImpactReport = () => {
           while (currentDate <= end) {
             const dateStr = currentDate.toISOString().split('T')[0];
             try {
-              const dateResponse = await fetch(`http://localhost:5000/api/v1/impact-tests/by-date?date=${dateStr}`, {
+              const dateResponse = await fetch(`${API_ENDPOINTS.impactTests}/by-date?date=${dateStr}`, {
                 credentials: 'include'
               });
               const dateData = await dateResponse.json();

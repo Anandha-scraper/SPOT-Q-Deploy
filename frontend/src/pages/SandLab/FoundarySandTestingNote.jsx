@@ -4,6 +4,7 @@ import { Save, RefreshCw, FileText, Loader2, RotateCcw } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { DisaDropdown, ShiftDropdown, SubmitButton } from '../../Components/Buttons';
 import Table from '../../Components/Table';
+import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Sandlab/FoundarySandTestingNote.css';
 
 const initialFormData = {
@@ -116,7 +117,7 @@ export default function FoundrySandTestingNote() {
     try {
       setCheckingData(true);
       const dateStr = date instanceof Date ? date.toISOString().split('T')[0] : date;
-      const res = await fetch(`http://localhost:5000/api/v1/foundry-sand-testing-notes?startDate=${encodeURIComponent(dateStr)}&endDate=${encodeURIComponent(dateStr)}`, { credentials: 'include' });
+      const res = await fetch(`${API_ENDPOINTS.foundrySandTestingNotes}?startDate=${encodeURIComponent(dateStr)}&endDate=${encodeURIComponent(dateStr)}`, { credentials: 'include' });
       const response = await res.json();
 
       let record = null;
@@ -482,7 +483,7 @@ export default function FoundrySandTestingNote() {
         payload.shearStrengthSetting = primaryData.shearStrengthSetting;
       }
 
-      const res = await fetch('http://localhost:5000/api/v1/foundry-sand-testing-notes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(payload) });
+      const res = await fetch(API_ENDPOINTS.foundrySandTestingNotes, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(payload) });
       const response = await res.json();
       
       if (response.success) {
@@ -647,7 +648,7 @@ export default function FoundrySandTestingNote() {
         ...sectionPayload
       };
 
-      const res = await fetch('http://localhost:5000/api/v1/foundry-sand-testing-notes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(payload) });
+      const res = await fetch(API_ENDPOINTS.foundrySandTestingNotes, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(payload) });
       const response = await res.json();
       
       if (response.success) {

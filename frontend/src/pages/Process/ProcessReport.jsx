@@ -4,6 +4,7 @@ import { FilterButton, ClearButton, CustomPagination, FilterDisaDropdown } from 
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import ProcessReportDetail from './ProcessReportDetail';
 import Loader from '../../Components/Loader';
+import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Process/ProcessReport.css';
 
 const ProcessReport = () => {
@@ -31,7 +32,7 @@ const ProcessReport = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await fetch('http://localhost:5000/api/v1/process', {
+        const response = await fetch(API_ENDPOINTS.process, {
           credentials: 'include'
         });
         

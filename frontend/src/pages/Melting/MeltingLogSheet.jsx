@@ -3,6 +3,7 @@ import { Save, Loader2 } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { CustomTimeInput, Time, ShiftDropdown, FurnaceDropdown, PanelDropdown, DisaDropdown } from '../../Components/Buttons';
 import Sakthi from '../../Components/Sakthi';
+import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Melting/MeltingLogSheet.css';
 
 const MeltingLogSheet = () => {
@@ -896,7 +897,7 @@ const MeltingLogSheet = () => {
         ...prepareTableData(5, table5)
       };
 
-      const res = await fetch('http://localhost:5000/api/v1/melting-logs/table-update', {
+      const res = await fetch(`${API_ENDPOINTS.meltingLogs}/table-update`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -940,7 +941,7 @@ const MeltingLogSheet = () => {
     try {
       // Format date for API (YYYY-MM-DD)
       const dateStr = date instanceof Date ? date.toISOString().split('T')[0] : date;
-      const res = await fetch(`http://localhost:5000/api/v1/melting-logs/primary/${dateStr}?shift=${encodeURIComponent(shift)}&furnaceNo=${encodeURIComponent(furnaceNo)}&panel=${encodeURIComponent(panel)}`, {
+      const res = await fetch(`${API_ENDPOINTS.meltingLogs}/primary/${dateStr}?shift=${encodeURIComponent(shift)}&furnaceNo=${encodeURIComponent(furnaceNo)}&panel=${encodeURIComponent(panel)}`, {
         method: 'GET',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' }
@@ -1318,7 +1319,7 @@ const MeltingLogSheet = () => {
 
     // Save primary data to database (without locking)
     try {
-      const res = await fetch('http://localhost:5000/api/v1/melting-logs/primary', {
+      const res = await fetch(`${API_ENDPOINTS.meltingLogs}/primary`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

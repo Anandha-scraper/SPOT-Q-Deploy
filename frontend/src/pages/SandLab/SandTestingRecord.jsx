@@ -4,6 +4,7 @@ import { BookOpen} from 'lucide-react';
 import Table from '../../Components/Table';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { PlusButton, MinusButton, SubmitButton, CustomTimeInput, Time } from '../../Components/Buttons';
+import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Sandlab/SandTestingRecord.css';
 
 // Get today's date in YYYY-MM-DD format
@@ -672,7 +673,7 @@ const SandTestingRecord = () => {
 
       console.log('Saving data:', dataToSave);
 
-      const response = await fetch('http://localhost:5000/api/v1/sand-testing-records/table/5', {
+      const response = await fetch(`${API_ENDPOINTS.sandTestingRecords}/table/5`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -900,7 +901,7 @@ const SandTestingRecord = () => {
         return;
       }
       
-      const response = await fetch(`http://localhost:5000/api/v1/sand-testing-records/date/${date}`, {
+      const response = await fetch(`${API_ENDPOINTS.sandTestingRecords}/date/${date}`, {
         method: 'GET',
         credentials: 'include'
       });
@@ -1307,7 +1308,7 @@ const SandTestingRecord = () => {
         }
       };
 
-      const response = await fetch('http://localhost:5000/api/v1/sand-testing-records/table/1', {
+      const response = await fetch(`${API_ENDPOINTS.sandTestingRecords}/table/1`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include', // Important: sends authentication cookie
@@ -1372,7 +1373,7 @@ const SandTestingRecord = () => {
         }
       };
 
-      const response = await fetch('http://localhost:5000/api/v1/sand-testing-records/table/2', {
+      const response = await fetch(`${API_ENDPOINTS.sandTestingRecords}/table/2`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -1438,7 +1439,7 @@ const SandTestingRecord = () => {
         }
       };
 
-      const response = await fetch('http://localhost:5000/api/v1/sand-testing-records/table/3', {
+      const response = await fetch(`${API_ENDPOINTS.sandTestingRecords}/table/3`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -1503,7 +1504,7 @@ const SandTestingRecord = () => {
         table4Data.sandFriability = friabilityData;
       }
 
-      const response = await fetch('http://localhost:5000/api/v1/sand-testing-records/table/4', {
+      const response = await fetch(`${API_ENDPOINTS.sandTestingRecords}/table/4`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

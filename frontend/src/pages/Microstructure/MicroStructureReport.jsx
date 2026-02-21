@@ -3,6 +3,7 @@ import { BookOpenCheck } from 'lucide-react';
 import { FilterButton, ClearButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import Table from '../../Components/Table';
+import { API_ENDPOINTS } from '../../config/api';
 import "../../styles/PageStyles/MicroStructure/MicroStructureReport.css";
 
 const MicroStructureReport = () => {
@@ -22,7 +23,7 @@ const MicroStructureReport = () => {
       // Fetch all entries using a wide date range
       const startDate = '2020-01-01';
       const endDate = '2030-12-31';
-      const resp = await fetch(`http://localhost:5000/api/v1/micro-structure/filter?startDate=${startDate}&endDate=${endDate}`, {
+      const resp = await fetch(`${API_ENDPOINTS.microStructure}/filter?startDate=${startDate}&endDate=${endDate}`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -74,7 +75,7 @@ const MicroStructureReport = () => {
   const handleUpdate = async () => {
     try {
       setEditLoading(true);
-      const resp = await fetch(`http://localhost:5000/api/v1/micro-structure/${editingItem._id}`, {
+      const resp = await fetch(`${API_ENDPOINTS.microStructure}/${editingItem._id}`, {
         method: 'PUT',
         credentials: 'include',
         headers: {
@@ -101,7 +102,7 @@ const MicroStructureReport = () => {
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this entry?')) {
       try {
-        const resp = await fetch(`http://localhost:5000/api/v1/micro-structure/${id}`, {
+        const resp = await fetch(`${API_ENDPOINTS.microStructure}/${id}`, {
           method: 'DELETE',
           credentials: 'include',
           headers: {

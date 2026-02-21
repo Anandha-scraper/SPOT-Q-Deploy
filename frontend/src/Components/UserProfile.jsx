@@ -4,6 +4,7 @@ import { AuthContext } from '../context/AuthContext';
 import { User, LogIn, Calendar, Clock, UserRoundPen, Activity, AlertCircle } from 'lucide-react';
 import { EditCard } from './PopUp';
 import { EyeButton } from './Buttons';
+import { API_ENDPOINTS } from '../config/api';
 import '../styles/ComponentStyles/UserProfile.css';
 
 const UserProfile = () => {
@@ -50,7 +51,7 @@ const UserProfile = () => {
     async function fetchLoginHistory() {
       try {
         setHistoryLoading(true);
-        const res = await fetch('http://localhost:5000/api/v1/auth/login-history', { 
+        const res = await fetch(API_ENDPOINTS.loginHistory, { 
           credentials: 'include' 
         });
         const data = await res.json();

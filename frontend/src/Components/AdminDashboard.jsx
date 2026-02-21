@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { DeleteButton } from './Buttons';
 import { Eye, EyeOff, UserRoundPen } from 'lucide-react';
 import DeletingStatus, { CreatingEmployeeStatus } from './Alert';
+import { API_ENDPOINTS } from '../config/api';//deployment ready API endpoints
 import '../styles/ComponentStyles/AdminDashboard.css';
 
 const AdminDashboard = () => {
@@ -54,7 +55,7 @@ const AdminDashboard = () => {
     // Functions
     const fetchDepartments = async () => {
         try {
-            const response = await fetch('http://localhost:5000/api/v1/auth/admin/departments', {
+            const response = await fetch(API_ENDPOINTS.adminDepartments, {
                 credentials: 'include'
             });
             const data = await response.json();
@@ -67,7 +68,7 @@ const AdminDashboard = () => {
     const fetchUsers = async () => {
         try {
             setLoading(true);
-            const response = await fetch('http://localhost:5000/api/v1/auth/admin/users', {
+            const response = await fetch(API_ENDPOINTS.adminUsers, {
                 credentials: 'include'
             });
             const data = await response.json();
@@ -109,7 +110,7 @@ const AdminDashboard = () => {
                 password: formData.password,
                 department: formData.department
             };
-            const response = await fetch('http://localhost:5000/api/v1/auth/admin/users', {
+            const response = await fetch(API_ENDPOINTS.adminUsers, {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json'
@@ -147,7 +148,7 @@ const AdminDashboard = () => {
         setShowDeleteModal(false);
         setIsDeleting(true);
         try {
-            const response = await fetch(`http://localhost:5000/api/v1/auth/admin/users/${userToDelete.userId}`, { 
+            const response = await fetch(`${API_ENDPOINTS.adminUsers}/${userToDelete.userId}`, { 
                 method: 'DELETE',
                 credentials: 'include'
             });
@@ -185,7 +186,7 @@ const AdminDashboard = () => {
         }
         try {
             setPasswordLoading(true);
-            const response = await fetch(`http://localhost:5000/api/v1/auth/admin/users/${selectedUser._id}`, {
+            const response = await fetch(`${API_ENDPOINTS.adminUsers}/${selectedUser._id}`, {
                 method: 'PUT',
                 headers: { 
                     'Content-Type': 'application/json'
