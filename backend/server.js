@@ -11,6 +11,7 @@ const PORT = process.env.PORT || 5000;
 // Configure CORS to accept requests from development and production
 const allowedOrigins = [
     'http://localhost:3000', // Development
+    'http://localhost:5173', // Vite dev server
     process.env.FRONTEND_URL // Production URL from environment variable
 ].filter(Boolean); // Remove undefined values
 
@@ -23,6 +24,7 @@ app.use(cors({
             callback(null, true);
         } else {
             console.log('CORS blocked origin:', origin);
+            console.log('Allowed origins:', allowedOrigins);
             callback(new Error('Not allowed by CORS'));
         }
     },
