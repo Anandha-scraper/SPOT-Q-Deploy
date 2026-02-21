@@ -3,7 +3,6 @@ import { BookOpenCheck } from 'lucide-react';
 import { FilterButton, ClearButton, CustomPagination, FilterDisaDropdown } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import ProcessReportDetail from './ProcessReportDetail';
-import Loader from '../../Components/Loader';
 import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Process/ProcessReport.css';
 
@@ -250,11 +249,6 @@ const ProcessReport = () => {
       render: (item) => item.count
     }
   ];
-
-  // Show loading state
-  if (loading) {
-    return <Loader />;
-  }
 
   // Render detail view if active
   if (showDetailView && detailData) {

@@ -5,6 +5,7 @@ import CustomDatePicker from '../../Components/CustomDatePicker';
 import Sakthi from '../../Components/Sakthi';
 import { InlineLoader } from '../../Components/Alert';
 import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
+import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Process/Process.css';
 
 export default function ProcessControl() {
@@ -443,7 +444,7 @@ export default function ProcessControl() {
         
         const startTime = Date.now();
         
-        const response = await fetch(`/v1/process/check?date=${formData.date}&disa=${encodeURIComponent(formData.disa)}`, {
+        const response = await fetch(`${API_ENDPOINTS.process}/check?date=${formData.date}&disa=${encodeURIComponent(formData.disa)}`, {
           method: 'GET',
           credentials: 'include'
         });
@@ -814,7 +815,7 @@ export default function ProcessControl() {
       const startTime = Date.now();
       
       // Call save-primary API to save date+disa and get entry count
-      const response = await fetch('/v1/process/save-primary', {
+      const response = await fetch(`${API_ENDPOINTS.process}/save-primary`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -825,8 +826,18 @@ export default function ProcessControl() {
           disa: formData.disa
         })
       });
-      
-      const data = await response.json();
+
+      const rawResponse = await response.text();
+      let data = null;
+      if (rawResponse) {
+        try {
+          data = JSON.parse(rawResponse);
+        } catch (parseError) {
+          throw new Error('Invalid server response');
+        }
+      } else {
+        data = { success: false, message: 'Empty response from server' };
+      }
       
       // Ensure minimum 1 second for consistent UX
       const elapsedTime = Date.now() - startTime;
