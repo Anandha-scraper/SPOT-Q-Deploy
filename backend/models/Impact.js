@@ -6,7 +6,7 @@ const ImpactEntrySchema = new mongoose.Schema({
         type: String,
         required: true,
         trim: true,
-        match: /^[A-Za-z\s\-]+$/  // Alphanumeric, spaces, hyphens
+        match: /^[A-Za-z0-9\s\-]+$/  // Alphanumeric, spaces, hyphens
     },
     dateCode: {
         type: String,
@@ -23,7 +23,7 @@ const ImpactEntrySchema = new mongoose.Schema({
         type: String,
         required: true,
         trim: true,
-        match: /^[0-9]+(\s*,\s*[0-9]+)?$/
+        match: /^(\d+([.,]\d+)?)(\s*,\s*\d+([.,]\d+)?)*$/
     },
     remarks: {
         type: String,

@@ -41,8 +41,8 @@ exports.getValidationSchema = async (req, res) => {
             observedValue: { 
                 type: 'string', 
                 required: true, 
-                pattern: /^[0-9]+(\s*,\s*[0-9]+)?$/, 
-                patternMessage: 'Format: numbers separated by comma (e.g: 12 or 34,45)', 
+                pattern: /^(\d+([.,]\d+)?)(\s*,\s*\d+([.,]\d+)?)*$/, 
+                patternMessage: 'Format: numbers with optional decimals, separated by comma (e.g: 12 or 12.5 or 12, 34, 45 or 12.5, 34.6)', 
                 label: 'Observed Value' 
             },
             remarks: { type: 'string', required: true, maxLength: 80, label: 'Remarks' }
