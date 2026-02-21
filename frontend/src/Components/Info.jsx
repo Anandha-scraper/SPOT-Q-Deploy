@@ -5,23 +5,27 @@ import '../styles/ComponentStyles/Info.css';
 /**
  * INFO CARD VALIDATION RANGE CONFIGURATION
  * 
- * Example with all possible properties (using Part Name as example):
+ * Properties that can be included in each validation range object:
  * 
  * {
- *   field: 'Part Name',              // Field name to display (required)
+ *   field: 'Part Name',              // Field name to display (required) - Shows as the heading
  *   required: true,                   // Shows red asterisk (*) if true
- *   type: 'Text',                     // Data type: 'Text', 'Number', 'Date', 'Select'
- *   min: 0,                           // Minimum value (for numbers)
- *   max: 100,                         // Maximum value (for numbers)
- *   unit: '%',                        // Unit of measurement (e.g., '%', 'mm', '°C', 'MPa')
- *   minLength: 2,                     // Minimum string length
- *   maxLength: 100,                   // Maximum string length
- *   pattern: '^[A-Za-z0-9\\s-]+$',   // Regex pattern description
- *   allowedValues: ['Val1', 'Val2'],  // Array of allowed values (for dropdowns)
- *   description: 'Enter the part name' // Additional notes/guidelines
+ *   type: 'Text',                     // Data type: 'Text', 'Number', 'Date', 'Select', 'Time', etc.
+ *   unit: 'Joules',                   // Unit of measurement (e.g., 'Joules', 'Kgs', 'mm', '°C', 'MPa', 'cm²')
+ *   min: 0,                           // Minimum value (for numbers) - Shows as "Min: 0" or "Range: 0 - 100" if max is also provided
+ *   max: 100,                         // Maximum value (for numbers) - Shows as "Max: 100" or "Range: 0 - 100" if min is also provided
+ *   minLength: 2,                     // Minimum string length - Shows as "Min Length: 2"
+ *   maxLength: 100,                   // Maximum string length - Shows as "Max Length: 100"
+ *   pattern: 'e.g., ABC-123',         // Pattern description or example - Shows as "Pattern: e.g., ABC-123"
+ *   allowedValues: ['Val1', 'Val2'],  // Array of allowed values (for dropdowns) - Shows as "Allowed Values: Val1, Val2"
+ *   description: 'Enter the part name' // Additional notes/guidelines - Shows as "Note: Enter the part name"
  * }
  * 
- * Usage:
+ * All properties are optional except 'field'. The Info card will display only the properties
+ * that are provided, creating a clean and relevant validation reference for users.
+ * 
+ * USAGE EXAMPLE:
+ * 
  * const validationRanges = [
  *   {
  *     field: 'Part Name',
@@ -29,10 +33,26 @@ import '../styles/ComponentStyles/Info.css';
  *     type: 'Text',
  *     minLength: 2,
  *     maxLength: 100,
- *     pattern: '^[A-Za-z0-9\\s-]+$',
+ *     pattern: 'Alphanumeric, spaces, hyphens only',
  *     description: 'Enter the name of the part being tested. Only alphanumeric characters, spaces, and hyphens allowed.'
  *   },
- *   // ... more fields
+ *   {
+ *     field: 'Temperature',
+ *     required: true,
+ *     type: 'Number',
+ *     min: 0,
+ *     max: 1500,
+ *     unit: '°C',
+ *     pattern: 'e.g., 1400',
+ *     description: 'Enter the pouring temperature in degrees Celsius'
+ *   },
+ *   {
+ *     field: 'Material Type',
+ *     required: true,
+ *     type: 'Select',
+ *     allowedValues: ['Steel', 'Iron', 'Aluminum'],
+ *     description: 'Select the material type from the dropdown'
+ *   }
  * ];
  */
 
@@ -112,11 +132,36 @@ export const InfoCard = ({ isOpen, onClose, title, validationRanges = [] }) => {
                       </div>
                     )}
                     
+                    {item.unit && (
+                      <div className="info-detail-row">
+                        <span className="info-detail-label">Unit:</span>
+                        <span className="info-detail-value">{item.unit}</span>
+                      </div>
+                    )}
+                    
                     {item.min !== undefined && item.max !== undefined && (
                       <div className="info-detail-row">
                         <span className="info-detail-label">Range:</span>
                         <span className="info-detail-value">
-                          {item.min} - {item.max} {item.unit || ''}
+                          {item.min} - {item.max}
+                        </span>
+                      </div>
+                    )}
+                    
+                    {item.min !== undefined && item.max === undefined && (
+                      <div className="info-detail-row">
+                        <span className="info-detail-label">Min:</span>
+                        <span className="info-detail-value">
+                          {item.min}
+                        </span>
+                      </div>
+                    )}
+                    
+                    {item.max !== undefined && item.min === undefined && (
+                      <div className="info-detail-row">
+                        <span className="info-detail-label">Max:</span>
+                        <span className="info-detail-value">
+                          {item.max}
                         </span>
                       </div>
                     )}

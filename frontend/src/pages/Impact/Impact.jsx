@@ -42,7 +42,7 @@ const Impact = () => {
       required: true,
       type: 'Number',
       min: 0,
-      unit: 'J (Joules)',
+      unit: 'Joules',
       pattern: 'e.g., 15',
       description: 'Enter the impact test specification value in Joules'
     },
@@ -51,7 +51,7 @@ const Impact = () => {
       required: true,
       type: 'Number',
       min: 0,
-      unit: 'J (Joules)',
+      unit: 'Joules',
       pattern: 'e.g., 12 or 12.5 or 12, 34 or 12.5, 34.6',
       description: 'Enter observed impact value(s). Can be single (12) or multiple comma-separated values (12, 34). Decimals allowed using dot or comma (12.5 or 12,5)'
     },
