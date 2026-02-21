@@ -4,9 +4,140 @@ import { SubmitButton, DisaDropdown, LockPrimaryButton } from '../../Components/
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import Sakthi from '../../Components/Sakthi';
 import { InlineLoader } from '../../Components/Alert';
+import { useInfoModal, InfoIcon, InfoCard } from '../../Components/Info';
 import '../../styles/PageStyles/MicroTensile/MicroTensile.css';
 
 const MicroTensile = () => {
+  // Info modal hook
+  const { isOpen, openModal, closeModal } = useInfoModal();
+
+  // ====================== Validation Ranges ======================
+  const validationRanges = [
+    {
+      field: 'Date',
+      required: true,
+      type: 'Date',
+      pattern: 'DD/MM/YYYY',
+      description: 'Select a valid date for the test. Cannot be in the future.'
+    },
+    {
+      field: 'DISA',
+      required: true,
+      type: 'Select',
+      allowedValues: ['DISA 1', 'DISA 2', 'DISA 3', 'DISA 4'],
+      description: 'Select the DISA machine used for production'
+    },
+    {
+      field: 'Item',
+      required: true,
+      type: 'Text',
+      maxLength: 100,
+      pattern: 'e.g., Volvo Bkt 234',
+      description: 'Enter the item name or part number being tested'
+    },
+    {
+      field: 'Item (Optional)',
+      required: false,
+      type: 'Text',
+      maxLength: 100,
+      pattern: 'e.g., 343/34/56',
+      description: 'Enter additional item information (Optional)'
+    },
+    {
+      field: 'Date Code',
+      required: true,
+      type: 'Text',
+      pattern: 'e.g., 5E04',
+      description: 'Enter the date code for the part'
+    },
+    {
+      field: 'Heat Code',
+      required: true,
+      type: 'Number',
+      pattern: 'e.g., 1',
+      description: 'Enter heat code - Number only'
+    },
+    {
+      field: 'Bar Dia',
+      required: true,
+      type: 'Number',
+      min: 0,
+      unit: 'mm',
+      pattern: 'e.g., 6.0',
+      description: 'Enter bar diameter in millimeters'
+    },
+    {
+      field: 'Gauge Length',
+      required: true,
+      type: 'Number',
+      min: 0,
+      unit: 'mm',
+      pattern: 'e.g., 30.0',
+      description: 'Enter gauge length in millimeters'
+    },
+    {
+      field: 'Max Load',
+      required: true,
+      type: 'Number',
+      min: 0,
+      unit: 'Kgs or KN',
+      pattern: 'e.g., 1560',
+      description: 'Enter maximum load in kilograms or kilonewtons'
+    },
+    {
+      field: 'Yield Load',
+      required: true,
+      type: 'Number',
+      min: 0,
+      unit: 'Kgs or KN',
+      pattern: 'e.g., 1290',
+      description: 'Enter yield load in kilograms or kilonewtons'
+    },
+    {
+      field: 'Tensile Strength',
+      required: true,
+      type: 'Number',
+      min: 0,
+      unit: 'Kg/mm² or MPa',
+      pattern: 'e.g., 550',
+      description: 'Enter tensile strength in Kg/mm² or MPa'
+    },
+    {
+      field: 'Yield Strength',
+      required: true,
+      type: 'Number',
+      min: 0,
+      unit: 'Kg/mm² or MPa',
+      pattern: 'e.g., 455',
+      description: 'Enter yield strength in Kg/mm² or MPa'
+    },
+    {
+      field: 'Elongation',
+      required: true,
+      type: 'Number',
+      min: 0,
+      max: 100,
+      unit: '%',
+      pattern: 'e.g., 18.5',
+      description: 'Enter elongation percentage'
+    },
+    {
+      field: 'Remarks',
+      required: false,
+      type: 'Text',
+      maxLength: 80,
+      description: 'Additional notes or observations (Optional, Max 80 characters)'
+    },
+    {
+      field: 'Tested By',
+      required: false,
+      type: 'Text',
+      maxLength: 100,
+      pattern: 'e.g., John Smith',
+      description: 'Name of the person who performed the test (Optional)'
+    }
+  ];
+
   const inputRefs = useRef({});
   const primarySectionRef = useRef(null);
   const [formData, setFormData] = useState({
@@ -443,6 +574,53 @@ const MicroTensile = () => {
     }
   };
 
+  /*
+   * Handle form submission with validation
+   * 
+   * Validation Flow:
+   * 1. Check each required field for empty/invalid values
+   * 2. If invalid, set validation state to false (shows red border)
+   * 3. If valid, set validation state to null (neutral, no color)
+   * 4. If any errors exist, show error message and stop submission
+   * 5. On successful submission, reset all validation states to null
+   * 
+   * ============================================================
+   * AUTO-NAVIGATION TO FIRST ERROR PATTERN:
+   * ============================================================
+   * This pattern ensures the cursor automatically focuses on the 
+   * FIRST error field immediately when the user clicks Submit.
+   * 
+   * HOW IT WORKS:
+   * 1. Initialize a tracking variable BEFORE validation loop:
+   *    let firstErrorField = null;
+   * 
+   * 2. In EACH validation check, set firstErrorField ONLY if it's 
+   *    still null (this captures only the first error):
+   *    if (!formData.fieldName || validation_fails) {
+   *      setFieldValid(false);
+   *      hasErrors = true;
+   *      if (!firstErrorField) firstErrorField = 'fieldName'; // Capture first error
+   *    }
+   * 
+   * 3. AFTER all validations, focus immediately using the tracking variable:
+   *    if (hasErrors) {
+   *      if (firstErrorField) {
+   *        inputRefs.current[firstErrorField]?.focus();
+   *      }
+   *      return;
+   *    }
+   * 
+   * WHY THIS WORKS ON FIRST CLICK:
+   * - Uses a plain variable (not state) to track synchronously
+   * - Doesn't depend on state updates (which are async)
+   * - Focus happens immediately in the same execution cycle
+   * 
+   * TO IMPLEMENT IN ANOTHER PAGE:
+   * - Add: let firstErrorField = null; at start of submit handler
+   * - Add: if (!firstErrorField) firstErrorField = 'refName'; in each validation
+   * - Add: if (firstErrorField) inputRefs.current[firstErrorField]?.focus(); before return
+   * ============================================================
+   */
   const handleSubmit = async () => {
     // Clear any previous error
     setSubmitError('');
@@ -450,12 +628,16 @@ const MicroTensile = () => {
     // Validate required fields with validation states
     // Validate all required fields
     let hasErrors = false;
+    // AUTO-NAVIGATION: Track the first field that fails validation (see comment block above)
+    let firstErrorField = null;
+    
     const dateCodePattern = /^[0-9][A-Z][0-9]{2}$/;
 
     // Validate Item
     if (!formData.item || !formData.item.trim()) {
       setItemValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'item';
     } else {
       setItemValid(null);
     }
@@ -464,6 +646,7 @@ const MicroTensile = () => {
     if (!formData.dateCode || !formData.dateCode.trim() || !dateCodePattern.test(formData.dateCode)) {
       setDateCodeValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'dateCode';
     } else {
       setDateCodeValid(null);
     }
@@ -472,6 +655,7 @@ const MicroTensile = () => {
     if (!formData.heatCode || !formData.heatCode.trim()) {
       setHeatCodeValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'heatCode';
     } else {
       setHeatCodeValid(null);
     }
@@ -480,6 +664,7 @@ const MicroTensile = () => {
     if (!formData.barDia || isNaN(formData.barDia) || parseFloat(formData.barDia) <= 0) {
       setBarDiaValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'barDia';
     } else {
       setBarDiaValid(null);
     }
@@ -488,6 +673,7 @@ const MicroTensile = () => {
     if (!formData.gaugeLength || isNaN(formData.gaugeLength) || parseFloat(formData.gaugeLength) <= 0) {
       setGaugeLengthValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'gaugeLength';
     } else {
       setGaugeLengthValid(null);
     }
@@ -496,6 +682,7 @@ const MicroTensile = () => {
     if (!formData.maxLoad || isNaN(formData.maxLoad) || parseFloat(formData.maxLoad) <= 0) {
       setMaxLoadValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'maxLoad';
     } else {
       setMaxLoadValid(null);
     }
@@ -504,6 +691,7 @@ const MicroTensile = () => {
     if (!formData.yieldLoad || isNaN(formData.yieldLoad) || parseFloat(formData.yieldLoad) <= 0) {
       setYieldLoadValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'yieldLoad';
     } else {
       setYieldLoadValid(null);
     }
@@ -512,6 +700,7 @@ const MicroTensile = () => {
     if (!formData.tensileStrength || isNaN(formData.tensileStrength) || parseFloat(formData.tensileStrength) <= 0) {
       setTensileStrengthValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'tensileStrength';
     } else {
       setTensileStrengthValid(null);
     }
@@ -520,6 +709,7 @@ const MicroTensile = () => {
     if (!formData.yieldStrength || isNaN(formData.yieldStrength) || parseFloat(formData.yieldStrength) <= 0) {
       setYieldStrengthValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'yieldStrength';
     } else {
       setYieldStrengthValid(null);
     }
@@ -528,6 +718,7 @@ const MicroTensile = () => {
     if (!formData.elongation || isNaN(formData.elongation) || parseFloat(formData.elongation) < 0 || parseFloat(formData.elongation) > 100) {
       setElongationValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'elongation';
     } else {
       setElongationValid(null);
     }
@@ -536,6 +727,7 @@ const MicroTensile = () => {
     if (!formData.remarks || !formData.remarks.trim()) {
       setRemarksValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'remarks';
     } else {
       setRemarksValid(null);
     }
@@ -544,12 +736,21 @@ const MicroTensile = () => {
     if (!formData.testedBy || !formData.testedBy.trim()) {
       setTestedByValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'testedBy';
     } else {
       setTestedByValid(null);
     }
 
     if (hasErrors) {
       setSubmitError('Enter data in correct Format');
+      
+      // AUTO-NAVIGATION: Focus on the first field that failed validation
+      // This happens immediately (synchronously) because firstErrorField 
+      // is a plain variable, not state. Works on FIRST submit click.
+      if (firstErrorField) {
+        inputRefs.current[firstErrorField]?.focus();
+      }
+      
       return;
     }
 
@@ -685,6 +886,7 @@ const MicroTensile = () => {
           <h2>
             <Save size={28} style={{ color: '#5B9AA9' }} />
             Micro Tensile Test - Entry Form
+            <InfoIcon onClick={openModal} />
           </h2>
         </div>
         <div aria-label="Date" style={{ fontWeight: 600, color: '#25424c' }}>
@@ -1019,6 +1221,13 @@ const MicroTensile = () => {
             )}
           </SubmitButton>
       </div>
+
+      <InfoCard
+        isOpen={isOpen}
+        onClose={closeModal}
+        title="Micro Tensile Test Validation"
+        validationRanges={validationRanges}
+      />
     </>
   );
 };

@@ -4,9 +4,133 @@ import { SubmitButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import Sakthi from '../../Components/Sakthi';
 import { InlineLoader } from '../../Components/Alert';
+import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import '../../styles/PageStyles/Tensile/Tensile.css';
 
 const Tensile = () => {
+  // Info modal hook
+  const { isOpen, openModal, closeModal } = useInfoModal();
+
+  // ====================== Validation Ranges ======================
+  const validationRanges = [
+    {
+      field: 'Date Of Inspection',
+      required: true,
+      type: 'Date',
+      pattern: 'YYYY-MM-DD',
+      description: 'Select a valid date for the inspection. Cannot be in the future.'
+    },
+    {
+      field: 'Item',
+      required: true,
+      type: 'Text',
+      maxLength: 100,
+      pattern: 'e.g., Cast Iron Bar',
+      description: 'Enter the item name or part number being tested'
+    },
+    {
+      field: 'Date Code',
+      required: true,
+      type: 'Text',
+      pattern: '5E04 (1 digit, 1 letter, 2 digits)',
+      description: 'Enter the date code for the part (format: 5E04)'
+    },
+    {
+      field: 'Heat Code',
+      required: true,
+      type: 'Number',
+      pattern: 'e.g., 12345',
+      description: 'Enter heat code - Numbers only'
+    },
+    {
+      field: 'Dia',
+      required: true,
+      type: 'Number',
+      min: 0,
+      unit: 'mm',
+      pattern: 'e.g., 12.5',
+      description: 'Enter diameter in millimeters (must be greater than 0)'
+    },
+    {
+      field: 'Lo',
+      required: true,
+      type: 'Number',
+      min: 0,
+      unit: 'mm',
+      pattern: 'e.g., 50.0',
+      description: 'Enter original gauge length in millimeters (must be greater than 0)'
+    },
+    {
+      field: 'Li',
+      required: true,
+      type: 'Number',
+      min: 0,
+      unit: 'mm',
+      pattern: 'e.g., 58.0',
+      description: 'Enter final gauge length in millimeters (must be greater than 0)'
+    },
+    {
+      field: 'Breaking Load',
+      required: true,
+      type: 'Number',
+      min: 0,
+      unit: 'kN',
+      pattern: 'e.g., 48.5',
+      description: 'Enter breaking load in kilonewtons (must be greater than 0)'
+    },
+    {
+      field: 'Yield Load',
+      required: true,
+      type: 'Number',
+      min: 0,
+      pattern: 'e.g., 38.0',
+      description: 'Enter yield load (must be greater than 0)'
+    },
+    {
+      field: 'UTS',
+      required: true,
+      type: 'Number',
+      min: 0,
+      unit: 'N/mm²',
+      pattern: 'e.g., 680.0',
+      description: 'Enter ultimate tensile strength in N/mm² (must be greater than 0)'
+    },
+    {
+      field: 'YS',
+      required: true,
+      type: 'Number',
+      min: 0,
+      unit: 'N/mm²',
+      pattern: 'e.g., 460.0',
+      description: 'Enter yield strength in N/mm² (must be greater than 0)'
+    },
+    {
+      field: 'Elongation',
+      required: true,
+      type: 'Number',
+      min: 0,
+      max: 100,
+      unit: '%',
+      pattern: 'e.g., 18.5',
+      description: 'Enter elongation percentage (0-100)'
+    },
+    {
+      field: 'Tested By',
+      required: true,
+      type: 'Text',
+      maxLength: 100,
+      pattern: 'e.g., John Doe',
+      description: 'Name of the person who performed the test'
+    },
+    {
+      field: 'Remarks',
+      required: true,
+      type: 'Text',
+      maxLength: 200,
+      description: 'Additional notes or observations (Max 200 characters)'
+    }
+  ];
+
   // Get current date in YYYY-MM-DD format
   const getCurrentDate = () => {
     const today = new Date();
@@ -57,7 +181,7 @@ const Tensile = () => {
   const [testedByValid, setTestedByValid] = useState(null);
   const [remarksValid, setRemarksValid] = useState(null);
 
-  const firstFieldRef = useRef(null);
+  const inputRefs = useRef({});
   const submitButtonRef = useRef(null);
 
   /*
@@ -157,6 +281,18 @@ const Tensile = () => {
     }
   };
 
+  // Format numeric fields to 1 decimal place on blur (for dia, lo, li, breakingLoad, yieldLoad, uts, ys, elongation)
+  const handleNumericBlur = (e) => {
+    const { name, value } = e.target;
+    if (value && !isNaN(value)) {
+      const numericValue = parseFloat(value);
+      setFormData((prev) => ({
+        ...prev,
+        [name]: numericValue.toFixed(1)
+      }));
+    }
+  };
+
   const handleSubmitKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -174,8 +310,57 @@ const Tensile = () => {
    * 4. If any errors exist, show error message and stop submission
    * 5. On successful submission, reset all validation states to null
    */
+  /*
+   * Handle form submission with validation
+   * 
+   * Validation Flow:
+   * 1. Check each required field for empty/invalid values
+   * 2. If invalid, set validation state to false (shows red border)
+   * 3. If valid, set validation state to null (neutral, no color)
+   * 4. If any errors exist, show error message and stop submission
+   * 5. On successful submission, reset all validation states to null
+   * 
+   * ============================================================
+   * AUTO-NAVIGATION TO FIRST ERROR PATTERN:
+   * ============================================================
+   * This pattern ensures the cursor automatically focuses on the 
+   * FIRST error field immediately when the user clicks Submit.
+   * 
+   * HOW IT WORKS:
+   * 1. Initialize a tracking variable BEFORE validation loop:
+   *    let firstErrorField = null;
+   * 
+   * 2. In EACH validation check, set firstErrorField ONLY if it's 
+   *    still null (this captures only the first error):
+   *    if (!formData.fieldName || validation_fails) {
+   *      setFieldValid(false);
+   *      hasErrors = true;
+   *      if (!firstErrorField) firstErrorField = 'fieldName'; // Capture first error
+   *    }
+   * 
+   * 3. AFTER all validations, focus immediately using the tracking variable:
+   *    if (hasErrors) {
+   *      if (firstErrorField) {
+   *        inputRefs.current[firstErrorField]?.focus();
+   *      }
+   *      return;
+   *    }
+   * 
+   * WHY THIS WORKS ON FIRST CLICK:
+   * - Uses a plain variable (not state) to track synchronously
+   * - Doesn't depend on state updates (which are async)
+   * - Focus happens immediately in the same execution cycle
+   * 
+   * TO IMPLEMENT IN ANOTHER PAGE:
+   * - Add: let firstErrorField = null; at start of submit handler
+   * - Add: if (!firstErrorField) firstErrorField = 'refName'; in each validation
+   * - Add: if (firstErrorField) inputRefs.current[firstErrorField]?.focus(); before return
+   * ============================================================
+   */
   const handleSubmit = async () => {
     let hasErrors = false;
+    // AUTO-NAVIGATION: Track the first field that fails validation (see comment block above)
+    let firstErrorField = null;
 
     const dateCodePattern = /^[0-9][A-Z][0-9]{2}$/;
     const numericPattern = /^\d+$/;
@@ -184,6 +369,7 @@ const Tensile = () => {
     if (!formData.dateOfInspection || !formData.dateOfInspection.trim()) {
       setDateValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'dateOfInspection';
     } else {
       setDateValid(null);
     }
@@ -192,6 +378,7 @@ const Tensile = () => {
     if (!formData.item || !formData.item.trim()) {
       setItemValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'item';
     } else {
       setItemValid(null);
     }
@@ -200,6 +387,7 @@ const Tensile = () => {
     if (!formData.dateCode || !formData.dateCode.trim() || !dateCodePattern.test(formData.dateCode)) {
       setDateCodeValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'dateCode';
     } else {
       setDateCodeValid(null);
     }
@@ -208,6 +396,7 @@ const Tensile = () => {
     if (!formData.heatCode || !formData.heatCode.trim() || !numericPattern.test(formData.heatCode)) {
       setHeatCodeValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'heatCode';
     } else {
       setHeatCodeValid(null);
     }
@@ -216,6 +405,7 @@ const Tensile = () => {
     if (!formData.dia || formData.dia.toString().trim() === '' || isNaN(formData.dia) || parseFloat(formData.dia) <= 0) {
       setDiaValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'dia';
     } else {
       setDiaValid(null);
     }
@@ -224,6 +414,7 @@ const Tensile = () => {
     if (!formData.lo || formData.lo.toString().trim() === '' || isNaN(formData.lo) || parseFloat(formData.lo) <= 0) {
       setLoValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'lo';
     } else {
       setLoValid(null);
     }
@@ -232,6 +423,7 @@ const Tensile = () => {
     if (!formData.li || formData.li.toString().trim() === '' || isNaN(formData.li) || parseFloat(formData.li) <= 0) {
       setLiValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'li';
     } else {
       setLiValid(null);
     }
@@ -240,6 +432,7 @@ const Tensile = () => {
     if (!formData.breakingLoad || formData.breakingLoad.toString().trim() === '' || isNaN(formData.breakingLoad) || parseFloat(formData.breakingLoad) <= 0) {
       setBreakingLoadValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'breakingLoad';
     } else {
       setBreakingLoadValid(null);
     }
@@ -248,6 +441,7 @@ const Tensile = () => {
     if (!formData.yieldLoad || formData.yieldLoad.toString().trim() === '' || isNaN(formData.yieldLoad) || parseFloat(formData.yieldLoad) <= 0) {
       setYieldLoadValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'yieldLoad';
     } else {
       setYieldLoadValid(null);
     }
@@ -256,6 +450,7 @@ const Tensile = () => {
     if (!formData.uts || formData.uts.toString().trim() === '' || isNaN(formData.uts) || parseFloat(formData.uts) <= 0) {
       setUtsValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'uts';
     } else {
       setUtsValid(null);
     }
@@ -264,6 +459,7 @@ const Tensile = () => {
     if (!formData.ys || formData.ys.toString().trim() === '' || isNaN(formData.ys) || parseFloat(formData.ys) <= 0) {
       setYsValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'ys';
     } else {
       setYsValid(null);
     }
@@ -272,11 +468,13 @@ const Tensile = () => {
     if (!formData.elongation || formData.elongation.toString().trim() === '') {
       setElongationValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'elongation';
     } else {
       const num = parseFloat(formData.elongation);
       if (isNaN(num) || num < 0 || num > 100) {
         setElongationValid(false);
         hasErrors = true;
+        if (!firstErrorField) firstErrorField = 'elongation';
       } else {
         setElongationValid(null);
       }
@@ -286,6 +484,7 @@ const Tensile = () => {
     if (!formData.testedBy || !formData.testedBy.trim()) {
       setTestedByValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'testedBy';
     } else {
       setTestedByValid(null);
     }
@@ -294,6 +493,7 @@ const Tensile = () => {
     if (!formData.remarks || !formData.remarks.trim()) {
       setRemarksValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'remarks';
     } else {
       setRemarksValid(null);
     }
@@ -301,6 +501,14 @@ const Tensile = () => {
     // If there are errors, show error message and stop submission
     if (hasErrors) {
       setSubmitErrorMessage('Enter data in correct Format');
+      
+      // AUTO-NAVIGATION: Focus on the first field that failed validation
+      // This happens immediately (synchronously) because firstErrorField 
+      // is a plain variable, not state. Works on FIRST submit click.
+      if (firstErrorField) {
+        inputRefs.current[firstErrorField]?.focus();
+      }
+      
       return;
     }
 
@@ -375,7 +583,7 @@ const Tensile = () => {
         setSubmitErrorMessage('');
 
         setTimeout(() => {
-          firstFieldRef.current?.focus();
+          inputRefs.current.dateOfInspection?.focus();
         }, 100);
       }
     } catch (error) {
@@ -393,6 +601,7 @@ const Tensile = () => {
           <h2>
             <Save size={28} style={{ color: '#5B9AA9' }} />
             Tensile Test - Entry Form
+            <InfoIcon onClick={openModal} />
           </h2>
         </div>
         <div aria-label="Date" style={{ fontWeight: 600, color: '#25424c' }}>
@@ -403,9 +612,9 @@ const Tensile = () => {
       <form className="tensile-form-grid">
         {/* DATE INPUT */}
         <div className="tensile-form-group">
-          <label>Date</label>
+          <label>Date Of Inspection</label>
           <CustomDatePicker
-            ref={firstFieldRef}
+            ref={(el) => inputRefs.current.dateOfInspection = el}
             name="dateOfInspection"
             value={formData.dateOfInspection}
             onChange={handleChange}
@@ -425,6 +634,7 @@ const Tensile = () => {
         <div className="tensile-form-group">
           <label>Item</label>
           <input
+            ref={(el) => inputRefs.current.item = el}
             type="text"
             name="item"
             value={formData.item}
@@ -440,6 +650,7 @@ const Tensile = () => {
         <div className="tensile-form-group">
           <label>Date Code</label>
           <input
+            ref={(el) => inputRefs.current.dateCode = el}
             type="text"
             name="dateCode"
             value={formData.dateCode}
@@ -455,6 +666,7 @@ const Tensile = () => {
         <div className="tensile-form-group">
           <label>Heat Code</label>
           <input
+            ref={(el) => inputRefs.current.heatCode = el}
             type="number"
             name="heatCode"
             value={formData.heatCode}
@@ -470,12 +682,12 @@ const Tensile = () => {
         <div className="tensile-form-group">
           <label>Dia (mm)</label>
           <input
+            ref={(el) => inputRefs.current.dia = el}
             type="number"
             name="dia"
             value={formData.dia}
             onChange={handleChange}
-            onKeyDown={handleKeyDown}
-            step="0.01"
+            onKeyDown={handleKeyDown}            onBlur={handleNumericBlur}            step="0.01"
             placeholder="e.g: 10.5"
             autoComplete="off"
             disabled={!isDateSelected}
@@ -486,12 +698,12 @@ const Tensile = () => {
         <div className="tensile-form-group">
           <label>Lo (mm)</label>
           <input
+            ref={(el) => inputRefs.current.lo = el}
             type="number"
             name="lo"
             value={formData.lo}
             onChange={handleChange}
-            onKeyDown={handleKeyDown}
-            step="0.01"
+            onKeyDown={handleKeyDown}            onBlur={handleNumericBlur}            step="0.01"
             placeholder="e.g: 50.0"
             autoComplete="off"
             disabled={!isDateSelected}
@@ -502,12 +714,12 @@ const Tensile = () => {
         <div className="tensile-form-group">
           <label>Li (mm)</label>
           <input
+            ref={(el) => inputRefs.current.li = el}
             type="number"
             name="li"
             value={formData.li}
             onChange={handleChange}
-            onKeyDown={handleKeyDown}
-            step="0.01"
+            onKeyDown={handleKeyDown}            onBlur={handleNumericBlur}            step="0.01"
             placeholder="e.g: 52.5"
             autoComplete="off"
             disabled={!isDateSelected}
@@ -518,12 +730,12 @@ const Tensile = () => {
         <div className="tensile-form-group">
           <label>Breaking Load (kN)</label>
           <input
+            ref={(el) => inputRefs.current.breakingLoad = el}
             type="number"
             name="breakingLoad"
             value={formData.breakingLoad}
             onChange={handleChange}
-            onKeyDown={handleKeyDown}
-            step="0.01"
+            onKeyDown={handleKeyDown}            onBlur={handleNumericBlur}            step="0.01"
             placeholder="e.g: 45.5"
             autoComplete="off"
             disabled={!isDateSelected}
@@ -534,12 +746,12 @@ const Tensile = () => {
         <div className="tensile-form-group">
           <label>Yield Load</label>
           <input
+            ref={(el) => inputRefs.current.yieldLoad = el}
             type="number"
             name="yieldLoad"
             value={formData.yieldLoad}
             onChange={handleChange}
-            onKeyDown={handleKeyDown}
-            step="0.01"
+            onKeyDown={handleKeyDown}            onBlur={handleNumericBlur}            step="0.01"
             placeholder="e.g: 38.2"
             autoComplete="off"
             disabled={!isDateSelected}
@@ -550,12 +762,12 @@ const Tensile = () => {
         <div className="tensile-form-group">
           <label>UTS (N/mm²)</label>
           <input
+            ref={(el) => inputRefs.current.uts = el}
             type="number"
             name="uts"
             value={formData.uts}
             onChange={handleChange}
-            onKeyDown={handleKeyDown}
-            step="0.01"
+            onKeyDown={handleKeyDown}            onBlur={handleNumericBlur}            step="0.01"
             placeholder="e.g: 550"
             autoComplete="off"
             disabled={!isDateSelected}
@@ -566,11 +778,13 @@ const Tensile = () => {
         <div className="tensile-form-group">
           <label>YS (N/mm²)</label>
           <input
+            ref={(el) => inputRefs.current.ys = el}
             type="number"
             name="ys"
             value={formData.ys}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
+            onBlur={handleNumericBlur}
             step="0.01"
             placeholder="e.g: 460"
             autoComplete="off"
@@ -582,11 +796,13 @@ const Tensile = () => {
         <div className="tensile-form-group">
           <label>Elongation (%)</label>
           <input
+            ref={(el) => inputRefs.current.elongation = el}
             type="number"
             name="elongation"
             value={formData.elongation}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
+            onBlur={handleNumericBlur}
             step="0.01"
             placeholder="e.g: 18.5"
             autoComplete="off"
@@ -598,6 +814,7 @@ const Tensile = () => {
         <div className="tensile-form-group">
           <label>Tested By</label>
           <input
+            ref={(el) => inputRefs.current.testedBy = el}
             type="text"
             name="testedBy"
             value={formData.testedBy}
@@ -613,6 +830,7 @@ const Tensile = () => {
         <div className="tensile-form-group">
           <label>Remarks</label>
           <input
+            ref={(el) => inputRefs.current.remarks = el}
             type="text"
             name="remarks"
             value={formData.remarks}
@@ -637,8 +855,10 @@ const Tensile = () => {
         )}
         <div className="tensile-submit-right">
           <SubmitButton
+            ref={submitButtonRef}
             onClick={handleSubmit}
             disabled={submitLoading}
+            onKeyDown={handleSubmitKeyDown}
           >
             {submitLoading ? 'Saving...' : 'Submit Entry'}
           </SubmitButton>
@@ -651,6 +871,13 @@ const Tensile = () => {
           <Sakthi onComplete={() => setShowSuccessPopup(false)} />
         </div>
       )}
+
+      <InfoCard
+        isOpen={isOpen}
+        onClose={closeModal}
+        title="Tensile Test Validation"
+        validationRanges={validationRanges}
+      />
     </>
   );
 };

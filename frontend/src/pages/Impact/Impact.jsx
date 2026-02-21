@@ -51,8 +51,8 @@ const Impact = () => {
       type: 'Number',
       min: 0,
       unit: 'J (Joules)',
-      pattern: 'e.g., 18.5',
-      description: 'Enter the actual observed impact value in Joules'
+      pattern: 'e.g., 12 or 12.5 or 12, 34 or 12.5, 34.6',
+      description: 'Enter observed impact value(s). Can be single (12) or multiple comma-separated values (12, 34). Decimals allowed using dot or comma (12.5 or 12,5)'
     },
     {
       field: 'Remarks',
@@ -103,7 +103,7 @@ const Impact = () => {
 
   // Refs
   const submitButtonRef = useRef(null);
-  const firstInputRef = useRef(null);
+  const inputRefs = useRef({});
 
   /*
    * Returns the appropriate CSS class for an input field based on validation state:
@@ -198,18 +198,59 @@ const Impact = () => {
    * 3. If valid, set validation state to null (neutral, no color)
    * 4. If any errors exist, show error message and stop submission
    * 5. On successful submission, reset all validation states to null
+   * 
+   * ============================================================
+   * AUTO-NAVIGATION TO FIRST ERROR PATTERN:
+   * ============================================================
+   * This pattern ensures the cursor automatically focuses on the 
+   * FIRST error field immediately when the user clicks Submit.
+   * 
+   * HOW IT WORKS:
+   * 1. Initialize a tracking variable BEFORE validation loop:
+   *    let firstErrorField = null;
+   * 
+   * 2. In EACH validation check, set firstErrorField ONLY if it's 
+   *    still null (this captures only the first error):
+   *    if (!formData.fieldName || validation_fails) {
+   *      setFieldValid(false);
+   *      hasErrors = true;
+   *      if (!firstErrorField) firstErrorField = 'fieldName'; // Capture first error
+   *    }
+   * 
+   * 3. AFTER all validations, focus immediately using the tracking variable:
+   *    if (hasErrors) {
+   *      if (firstErrorField) {
+   *        inputRefs.current[firstErrorField]?.focus();
+   *      }
+   *      return;
+   *    }
+   * 
+   * WHY THIS WORKS ON FIRST CLICK:
+   * - Uses a plain variable (not state) to track synchronously
+   * - Doesn't depend on state updates (which are async)
+   * - Focus happens immediately in the same execution cycle
+   * 
+   * TO IMPLEMENT IN ANOTHER PAGE:
+   * - Add: let firstErrorField = null; at start of submit handler
+   * - Add: if (!firstErrorField) firstErrorField = 'refName'; in each validation
+   * - Add: if (firstErrorField) inputRefs.current[firstErrorField]?.focus(); before return
+   * ============================================================
    */
   const handleSubmit = async () => {
     let hasErrors = false;
+    // AUTO-NAVIGATION: Track the first field that fails validation (see comment block above)
+    let firstErrorField = null;
 
     const dateCodePattern = /^[0-9][A-Z][0-9]{2}$/;
     const partNamePattern = /^[A-Za-z\s]+$/;
-    const observedValuePattern = /^[\d.,\s]+$/;
+    // Allows: "12" or "12.5" or "12,5" or "12, 34" or "12.5, 34.6"
+    const observedValuePattern = /^(\d+([.,]\d+)?)(\s*,\s*\d+([.,]\d+)?)*$/;
 
     // Validate Date
     if (!formData.date || !formData.date.trim()) {
       setDateValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'date';
     } else {
       setDateValid(null);
     }
@@ -218,6 +259,7 @@ const Impact = () => {
     if (!formData.partName || !formData.partName.trim() || !partNamePattern.test(formData.partName)) {
       setPartNameValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'partName';
     } else {
       setPartNameValid(null);
     }
@@ -226,6 +268,7 @@ const Impact = () => {
     if (!formData.dateCode || !formData.dateCode.trim() || !dateCodePattern.test(formData.dateCode)) {
       setDateCodeValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'dateCode';
     } else {
       setDateCodeValid(null);
     }
@@ -234,6 +277,7 @@ const Impact = () => {
     if (!formData.specification || !formData.specification.trim()) {
       setSpecificationValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'specification';
     } else {
       setSpecificationValid(null);
     }
@@ -242,6 +286,7 @@ const Impact = () => {
     if (!formData.observedValue || !formData.observedValue.trim() || !observedValuePattern.test(formData.observedValue)) {
       setObservedValueValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'observedValue';
     } else {
       setObservedValueValid(null);
     }
@@ -250,6 +295,7 @@ const Impact = () => {
     if (!formData.remarks || !formData.remarks.trim()) {
       setRemarksValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'remarks';
     } else {
       setRemarksValid(null);
     }
@@ -257,6 +303,14 @@ const Impact = () => {
     // If there are errors, show error message and stop submission
     if (hasErrors) {
       setSubmitErrorMessage('Enter data in correct Format');
+      
+      // AUTO-NAVIGATION: Focus on the first field that failed validation
+      // This happens immediately (synchronously) because firstErrorField 
+      // is a plain variable, not state. Works on FIRST submit click.
+      if (firstErrorField) {
+        inputRefs.current[firstErrorField]?.focus();
+      }
+      
       return;
     }
 
@@ -299,7 +353,7 @@ const Impact = () => {
         setSubmitErrorMessage('');
 
         setTimeout(() => {
-          firstInputRef.current?.focus();
+          inputRefs.current.date?.focus();
         }, 100);
       }
     } catch (error) {
@@ -341,7 +395,7 @@ const Impact = () => {
           <label>Date</label>
 
           <CustomDatePicker
-            ref={firstInputRef}
+            ref={(el) => inputRefs.current.date = el}
             name="date"
             value={formData.date}
             onChange={handleChange}
@@ -362,6 +416,7 @@ const Impact = () => {
         <div className="impact-form-group">
           <label>Part Name</label>
           <input
+            ref={(el) => inputRefs.current.partName = el}
             type="text"
             name="partName"
             value={formData.partName}
@@ -378,6 +433,7 @@ const Impact = () => {
         <div className="impact-form-group">
           <label>Date Code</label>
           <input
+            ref={(el) => inputRefs.current.dateCode = el}
             type="text"
             name="dateCode"
             value={formData.dateCode}
@@ -394,6 +450,7 @@ const Impact = () => {
         <div className="impact-form-group">
           <label>Specification</label>
           <input
+            ref={(el) => inputRefs.current.specification = el}
             type="text"
             name="specification"
             value={formData.specification}
@@ -410,12 +467,13 @@ const Impact = () => {
         <div className="impact-form-group">
           <label>Observed Value</label>
           <input
+            ref={(el) => inputRefs.current.observedValue = el}
             type="text"
             name="observedValue"
             value={formData.observedValue}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
-            placeholder="e.g: 12 or 34,45"
+            placeholder="e.g: 12 or 12.5 or 12, 34"
             autoComplete="off"
             disabled={!isDateSelected}
             className={getInputClassName(observedValueValid)}
@@ -426,6 +484,7 @@ const Impact = () => {
         <div className="impact-form-group medium-width">
           <label>Remarks</label>
           <input
+            ref={(el) => inputRefs.current.remarks = el}
             type="text"
             name="remarks"
             value={formData.remarks}

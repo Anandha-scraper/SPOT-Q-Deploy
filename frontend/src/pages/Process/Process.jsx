@@ -137,23 +137,23 @@ export default function ProcessControl() {
     {
       field: 'Pouring Temp',
       required: true,
-      type: 'Number',
+      type: 'Number Range',
       min: 0,
       unit: '°C',
-      pattern: 'e.g., 1450',
-      description: 'Temperature at which pouring was performed in Celsius'
+      pattern: 'Min - Max (e.g., 1400 - 1500)',
+      description: 'Temperature range for pouring operation. Min must be less than Max. Max can be 0.'
     },
     {
       field: 'PP Code',
       required: true,
-      type: 'Number',
-      description: 'Production Process code - Number only'
+      type: 'Integer',
+      description: 'Production Process code - Integer only (auto-formats with leading zero, e.g., 1 becomes 01)'
     },
     {
       field: 'Treatment No',
       required: true,
-      type: 'Number',
-      description: 'Treatment number - Number only'
+      type: 'Integer',
+      description: 'Treatment number - Integer only (auto-formats with leading zero, e.g., 1 becomes 01)'
     },
     {
       field: 'F/C No.',
@@ -302,7 +302,8 @@ export default function ProcessControl() {
     date: '', disa: '', partName: '', datecode: '', heatcode: '', quantityOfMoulds: '', metalCompositionC: '', metalCompositionSi: '',
     metalCompositionMn: '', metalCompositionP: '', metalCompositionS: '', metalCompositionMgFL: '',
     metalCompositionCr: '', metalCompositionCu: '', 
-    pouringTemperature: '',
+    pouringTemperatureMin: '',
+    pouringTemperatureMax: '',
     ppCode: '', treatmentNo: '', fcNo: '', heatNo: '', conNo: '', 
     correctiveAdditionC: '',
     correctiveAdditionSi: '', correctiveAdditionMn: '', correctiveAdditionS: '', correctiveAdditionCr: '',
@@ -541,7 +542,7 @@ export default function ProcessControl() {
 
   const fieldOrder = ['date', 'disa', 'partName', 'datecode', 'heatcode', 'quantityOfMoulds', 'metalCompositionC', 'metalCompositionSi',
     'metalCompositionMn', 'metalCompositionP', 'metalCompositionS', 'metalCompositionMgFL', 'metalCompositionCu',
-    'metalCompositionCr', 'pouringTemperature', 'ppCode', 'treatmentNo', 'fcNo', 'heatNo', 'conNo', 'tappingTime',
+    'metalCompositionCr', 'pouringTemperatureMin', 'pouringTemperatureMax', 'ppCode', 'treatmentNo', 'fcNo', 'heatNo', 'conNo', 'tappingTime',
     'correctiveAdditionC', 'correctiveAdditionSi', 'correctiveAdditionMn', 'correctiveAdditionS',
     'correctiveAdditionCr', 'correctiveAdditionCu', 'correctiveAdditionSn', 'tappingWt', 'mg', 'resMgConvertor',
     'recOfMg', 'streamInoculant', 'pTime', 'remarks'];
@@ -563,7 +564,7 @@ export default function ProcessControl() {
           metalCompositionC: '', metalCompositionSi: '', metalCompositionMn: '',
           metalCompositionP: '', metalCompositionS: '', metalCompositionMgFL: '',
           metalCompositionCr: '', metalCompositionCu: '',
-          pouringTemperature: '', ppCode: '', treatmentNo: '', fcNo: '',
+          pouringTemperatureMin: '', pouringTemperatureMax: '', ppCode: '', treatmentNo: '', fcNo: '',
           heatNo: '', conNo: '', correctiveAdditionC: '', correctiveAdditionSi: '',
           correctiveAdditionMn: '', correctiveAdditionS: '', correctiveAdditionCr: '',
           correctiveAdditionCu: '', correctiveAdditionSn: '', tappingWt: '',
@@ -649,7 +650,8 @@ export default function ProcessControl() {
       case 'metalCompositionCr':
         setMetalCrValid(null);
         break;
-      case 'pouringTemperature':
+      case 'pouringTemperatureMin':
+      case 'pouringTemperatureMax':
         setPouringTempValid(null);
         break;
       case 'ppCode':
@@ -718,7 +720,24 @@ export default function ProcessControl() {
       return;
     }
 
+    // Handle PP Code and Treatment No - only allow integers (no decimals)
+    if (name === 'ppCode' || name === 'treatmentNo') {
+      // Remove any non-digit characters (including decimal points)
+      const sanitizedValue = value.replace(/[^0-9]/g, '');
+      setFormData({...formData, [name]: sanitizedValue});
+      return;
+    }
+
     setFormData({...formData, [name]: value});
+  };
+  
+  // Handle blur event for PP Code and Treatment No to add leading zero
+  const handleIntegerBlur = (fieldName) => {
+    const value = formData[fieldName];
+    if (value && value.length === 1) {
+      // Add leading zero if single digit
+      setFormData(prev => ({...prev, [fieldName]: '0' + value}));
+    }
   };
   
   const handleKeyDown = (e, field) => {
@@ -773,6 +792,14 @@ export default function ProcessControl() {
     // Validate required fields
     if (!formData.date || !formData.disa) {
       alert('Please fill in Date and DISA');
+      
+      // Auto-focus on the first empty field
+      if (!formData.date) {
+        inputRefs.current.date?.focus();
+      } else if (!formData.disa) {
+        inputRefs.current.disa?.focus();
+      }
+      
       return;
     }
 
@@ -843,16 +870,61 @@ export default function ProcessControl() {
    * 3. If valid, set validation state to null (neutral, no color)
    * 4. If any errors exist, show error message and stop submission
    * 5. On successful submission, reset all validation states to null
+   * 
+   * ============================================================
+   * AUTO-NAVIGATION TO FIRST ERROR PATTERN:
+   * ============================================================
+   * This pattern ensures the cursor automatically focuses on the 
+   * FIRST error field immediately when the user clicks Submit.
+   * 
+   * HOW IT WORKS:
+   * 1. Initialize a tracking variable BEFORE validation loop:
+   *    let firstErrorField = null;
+   * 
+   * 2. In EACH validation check, set firstErrorField ONLY if it's 
+   *    still null (this captures only the first error):
+   *    if (!formData.fieldName || validation_fails) {
+   *      setFieldValid(false);
+   *      hasErrors = true;
+   *      if (!firstErrorField) firstErrorField = 'fieldName'; // Capture first error
+   *    }
+   * 
+   * 3. AFTER all validations, focus immediately using the tracking variable:
+   *    if (hasErrors) {
+   *      if (firstErrorField) {
+   *        inputRefs.current[firstErrorField]?.focus();
+   *      }
+   *      return;
+   *    }
+   * 
+   * WHY THIS WORKS ON FIRST CLICK:
+   * - Uses a plain variable (not state) to track synchronously
+   * - Doesn't depend on state updates (which are async)
+   * - Focus happens immediately in the same execution cycle
+   * 
+   * TO IMPLEMENT IN ANOTHER PAGE:
+   * - Add: let firstErrorField = null; at start of submit handler
+   * - Add: if (!firstErrorField) firstErrorField = 'refName'; in each validation
+   * - Add: if (firstErrorField) inputRefs.current[firstErrorField]?.focus(); before return
+   * ============================================================
    */
   const handleSubmit = async () => {
     let hasErrors = false;
+    // AUTO-NAVIGATION: Track the first field that fails validation (see comment block above)
+    let firstErrorField = null;
 
     const datecodePattern = /^[0-9][A-Z][0-9]{2}$/;
     const numericPattern = /^\d+$/;
 
+    // Example validation with auto-navigation tracking:
+    // 1. Check if field is invalid
+    // 2. Set validation state to false (red border)
+    // 3. Mark hasErrors flag
+    // 4. Save field name in firstErrorField ONLY if it's the first error
     if (!formData.partName || !formData.partName.trim()) {
       setPartNameValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'partName'; // Only set if this is the FIRST error
     } else {
       setPartNameValid(null);
     }
@@ -860,6 +932,7 @@ export default function ProcessControl() {
     if (!formData.datecode || !formData.datecode.trim() || !datecodePattern.test(formData.datecode)) {
       setDatecodeValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'datecode';
     } else {
       setDatecodeValid(null);
     }
@@ -867,6 +940,7 @@ export default function ProcessControl() {
     if (!formData.heatcode || !formData.heatcode.trim() || !numericPattern.test(formData.heatcode)) {
       setHeatcodeValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'heatcode';
     } else {
       setHeatcodeValid(null);
     }
@@ -874,6 +948,7 @@ export default function ProcessControl() {
     if (!formData.quantityOfMoulds || formData.quantityOfMoulds.trim() === '' || isNaN(formData.quantityOfMoulds) || parseFloat(formData.quantityOfMoulds) < 0) {
       setQuantityOfMouldsValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'quantityOfMoulds';
     } else {
       setQuantityOfMouldsValid(null);
     }
@@ -881,6 +956,7 @@ export default function ProcessControl() {
     if (!formData.metalCompositionC || formData.metalCompositionC.trim() === '' || isNaN(formData.metalCompositionC) || parseFloat(formData.metalCompositionC) < 0 || parseFloat(formData.metalCompositionC) > 100) {
       setMetalCValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'metalCompositionC';
     } else {
       setMetalCValid(null);
     }
@@ -888,6 +964,7 @@ export default function ProcessControl() {
     if (!formData.metalCompositionSi || formData.metalCompositionSi.trim() === '' || isNaN(formData.metalCompositionSi) || parseFloat(formData.metalCompositionSi) < 0 || parseFloat(formData.metalCompositionSi) > 100) {
       setMetalSiValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'metalCompositionSi';
     } else {
       setMetalSiValid(null);
     }
@@ -895,6 +972,7 @@ export default function ProcessControl() {
     if (!formData.metalCompositionMn || formData.metalCompositionMn.trim() === '' || isNaN(formData.metalCompositionMn) || parseFloat(formData.metalCompositionMn) < 0 || parseFloat(formData.metalCompositionMn) > 100) {
       setMetalMnValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'metalCompositionMn';
     } else {
       setMetalMnValid(null);
     }
@@ -902,6 +980,7 @@ export default function ProcessControl() {
     if (!formData.metalCompositionP || formData.metalCompositionP.trim() === '' || isNaN(formData.metalCompositionP) || parseFloat(formData.metalCompositionP) < 0 || parseFloat(formData.metalCompositionP) > 100) {
       setMetalPValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'metalCompositionP';
     } else {
       setMetalPValid(null);
     }
@@ -909,6 +988,7 @@ export default function ProcessControl() {
     if (!formData.metalCompositionS || formData.metalCompositionS.trim() === '' || isNaN(formData.metalCompositionS) || parseFloat(formData.metalCompositionS) < 0 || parseFloat(formData.metalCompositionS) > 100) {
       setMetalSValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'metalCompositionS';
     } else {
       setMetalSValid(null);
     }
@@ -916,6 +996,7 @@ export default function ProcessControl() {
     if (!formData.metalCompositionMgFL || formData.metalCompositionMgFL.trim() === '' || isNaN(formData.metalCompositionMgFL) || parseFloat(formData.metalCompositionMgFL) < 0 || parseFloat(formData.metalCompositionMgFL) > 100) {
       setMetalMgFLValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'metalCompositionMgFL';
     } else {
       setMetalMgFLValid(null);
     }
@@ -923,6 +1004,7 @@ export default function ProcessControl() {
     if (!formData.metalCompositionCu || formData.metalCompositionCu.trim() === '' || isNaN(formData.metalCompositionCu) || parseFloat(formData.metalCompositionCu) < 0 || parseFloat(formData.metalCompositionCu) > 100) {
       setMetalCuValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'metalCompositionCu';
     } else {
       setMetalCuValid(null);
     }
@@ -930,6 +1012,7 @@ export default function ProcessControl() {
     if (!formData.metalCompositionCr || formData.metalCompositionCr.trim() === '' || isNaN(formData.metalCompositionCr) || parseFloat(formData.metalCompositionCr) < 0 || parseFloat(formData.metalCompositionCr) > 100) {
       setMetalCrValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'metalCompositionCr';
     } else {
       setMetalCrValid(null);
     }
@@ -937,6 +1020,7 @@ export default function ProcessControl() {
     if (!formData.ppCode || !formData.ppCode.trim() || !numericPattern.test(formData.ppCode)) {
       setPpCodeValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'ppCode';
     } else {
       setPpCodeValid(null);
     }
@@ -944,6 +1028,7 @@ export default function ProcessControl() {
     if (!formData.treatmentNo || !formData.treatmentNo.trim() || !numericPattern.test(formData.treatmentNo)) {
       setTreatmentNoValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'treatmentNo';
     } else {
       setTreatmentNoValid(null);
     }
@@ -951,6 +1036,7 @@ export default function ProcessControl() {
     if (!formData.fcNo || !formData.fcNo.trim()) {
       setFcNoValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'fcNo';
     } else {
       setFcNoValid(null);
     }
@@ -958,6 +1044,7 @@ export default function ProcessControl() {
     if (!formData.heatNo || !formData.heatNo.trim()) {
       setHeatNoValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'heatNo';
     } else {
       setHeatNoValid(null);
     }
@@ -965,13 +1052,33 @@ export default function ProcessControl() {
     if (!formData.conNo || formData.conNo.trim() === '' || isNaN(formData.conNo) || parseFloat(formData.conNo) < 0) {
       setConNoValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'conNo';
     } else {
       setConNoValid(null);
     }
 
-    if (!formData.pouringTemperature || isNaN(formData.pouringTemperature) || parseFloat(formData.pouringTemperature) <= 0) {
+    // Validate Pouring Temperature Min and Max
+    const tempMin = formData.pouringTemperatureMin ? parseFloat(formData.pouringTemperatureMin) : null;
+    const tempMax = formData.pouringTemperatureMax ? parseFloat(formData.pouringTemperatureMax) : null;
+    
+    if (!formData.pouringTemperatureMin || isNaN(tempMin) || tempMin < 0) {
       setPouringTempValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'pouringTemperatureMin';
+    } else if (formData.pouringTemperatureMax === '' || isNaN(tempMax)) {
+      setPouringTempValid(false);
+      hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'pouringTemperatureMax';
+    } else if (tempMax < 0) {
+      setPouringTempValid(false);
+      setSubmitErrorMessage('Pouring Temp: Max cannot be negative');
+      hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'pouringTemperatureMax';
+    } else if (tempMax !== 0 && tempMin >= tempMax) {
+      setPouringTempValid(false);
+      setSubmitErrorMessage('Pouring Temp: Min must be less than Max');
+      hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'pouringTemperatureMin';
     } else {
       setPouringTempValid(null);
     }
@@ -979,6 +1086,7 @@ export default function ProcessControl() {
     if (!pouringFromTime || !pouringToTime) {
       setPouringTimeValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'pouringFromTime';
     } else {
       // Convert Time objects to minutes for comparison
       const fromMinutes = pouringFromTime.hour * 60 + pouringFromTime.minute;
@@ -989,12 +1097,14 @@ export default function ProcessControl() {
         setPouringTimeValid(false);
         setSubmitErrorMessage('Time of Pouring: Start time must be less than end time');
         hasErrors = true;
+        if (!firstErrorField) firstErrorField = 'pouringFromTime';
       } 
       // Check if difference is more than 1 hour (60 minutes)
       else if ((toMinutes - fromMinutes) > 60) {
         setPouringTimeValid(false);
         setSubmitErrorMessage('Time of Pouring: Maximum allowed difference is 1 hour');
         hasErrors = true;
+        if (!firstErrorField) firstErrorField = 'pouringFromTime';
       } else {
         setPouringTimeValid(null);
       }
@@ -1003,6 +1113,7 @@ export default function ProcessControl() {
     if (!tappingTime) {
       setTappingTimeValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'tappingTime';
     } else {
       setTappingTimeValid(null);
     }
@@ -1010,6 +1121,7 @@ export default function ProcessControl() {
     if (!formData.correctiveAdditionC || formData.correctiveAdditionC.trim() === '' || isNaN(formData.correctiveAdditionC) || parseFloat(formData.correctiveAdditionC) < 0) {
       setCorrCValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'correctiveAdditionC';
     } else {
       setCorrCValid(null);
     }
@@ -1017,6 +1129,7 @@ export default function ProcessControl() {
     if (!formData.correctiveAdditionSi || formData.correctiveAdditionSi.trim() === '' || isNaN(formData.correctiveAdditionSi) || parseFloat(formData.correctiveAdditionSi) < 0) {
       setCorrSiValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'correctiveAdditionSi';
     } else {
       setCorrSiValid(null);
     }
@@ -1024,6 +1137,7 @@ export default function ProcessControl() {
     if (!formData.correctiveAdditionMn || formData.correctiveAdditionMn.trim() === '' || isNaN(formData.correctiveAdditionMn) || parseFloat(formData.correctiveAdditionMn) < 0) {
       setCorrMnValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'correctiveAdditionMn';
     } else {
       setCorrMnValid(null);
     }
@@ -1031,6 +1145,7 @@ export default function ProcessControl() {
     if (!formData.correctiveAdditionS || formData.correctiveAdditionS.trim() === '' || isNaN(formData.correctiveAdditionS) || parseFloat(formData.correctiveAdditionS) < 0) {
       setCorrSValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'correctiveAdditionS';
     } else {
       setCorrSValid(null);
     }
@@ -1038,6 +1153,7 @@ export default function ProcessControl() {
     if (!formData.correctiveAdditionCr || formData.correctiveAdditionCr.trim() === '' || isNaN(formData.correctiveAdditionCr) || parseFloat(formData.correctiveAdditionCr) < 0) {
       setCorrCrValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'correctiveAdditionCr';
     } else {
       setCorrCrValid(null);
     }
@@ -1045,6 +1161,7 @@ export default function ProcessControl() {
     if (!formData.correctiveAdditionCu || formData.correctiveAdditionCu.trim() === '' || isNaN(formData.correctiveAdditionCu) || parseFloat(formData.correctiveAdditionCu) < 0) {
       setCorrCuValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'correctiveAdditionCu';
     } else {
       setCorrCuValid(null);
     }
@@ -1052,6 +1169,7 @@ export default function ProcessControl() {
     if (!formData.correctiveAdditionSn || formData.correctiveAdditionSn.trim() === '' || isNaN(formData.correctiveAdditionSn) || parseFloat(formData.correctiveAdditionSn) < 0) {
       setCorrSnValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'correctiveAdditionSn';
     } else {
       setCorrSnValid(null);
     }
@@ -1059,6 +1177,7 @@ export default function ProcessControl() {
     if (!formData.tappingWt || isNaN(formData.tappingWt) || parseFloat(formData.tappingWt) <= 0) {
       setTappingWtValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'tappingWt';
     } else {
       setTappingWtValid(null);
     }
@@ -1066,6 +1185,7 @@ export default function ProcessControl() {
     if (!formData.mg || formData.mg.trim() === '' || isNaN(formData.mg) || parseFloat(formData.mg) < 0) {
       setMgValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'mg';
     } else {
       setMgValid(null);
     }
@@ -1073,6 +1193,7 @@ export default function ProcessControl() {
     if (!formData.resMgConvertor || formData.resMgConvertor.trim() === '' || isNaN(formData.resMgConvertor) || parseFloat(formData.resMgConvertor) < 0) {
       setResMgConvertorValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'resMgConvertor';
     } else {
       setResMgConvertorValid(null);
     }
@@ -1080,6 +1201,7 @@ export default function ProcessControl() {
     if (!formData.recOfMg || formData.recOfMg.trim() === '' || isNaN(formData.recOfMg) || parseFloat(formData.recOfMg) < 0) {
       setRecOfMgValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'recOfMg';
     } else {
       setRecOfMgValid(null);
     }
@@ -1087,6 +1209,7 @@ export default function ProcessControl() {
     if (!formData.streamInoculant || isNaN(formData.streamInoculant) || parseFloat(formData.streamInoculant) < 0) {
       setStreamInoculantValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'streamInoculant';
     } else {
       setStreamInoculantValid(null);
     }
@@ -1094,6 +1217,7 @@ export default function ProcessControl() {
     if (!formData.pTime || formData.pTime.trim() === '' || isNaN(formData.pTime) || parseFloat(formData.pTime) < 0) {
       setPTimeValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'pTime';
     } else {
       setPTimeValid(null);
     }
@@ -1101,12 +1225,21 @@ export default function ProcessControl() {
     if (!formData.remarks || !formData.remarks.trim()) {
       setRemarksValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'remarks';
     } else {
       setRemarksValid(null);
     }
 
     if (hasErrors) {
       setSubmitErrorMessage('Enter data in correct Format');
+      
+      // AUTO-NAVIGATION: Focus on the first field that failed validation
+      // This happens immediately (synchronously) because firstErrorField 
+      // is a plain variable, not state. Works on FIRST submit click.
+      if (firstErrorField) {
+        inputRefs.current[firstErrorField]?.focus();
+      }
+      
       return;
     }
 
@@ -1427,7 +1560,7 @@ export default function ProcessControl() {
             </div>
 
             <div className="process-form-group">
-              <label>Qty. Of Moulds *</label>
+              <label>Qty. Of Moulds </label>
               <input 
                 ref={el => inputRefs.current.quantityOfMoulds = el} 
                 type="number" 
@@ -1597,47 +1730,70 @@ export default function ProcessControl() {
             </div>
 
             <div className="pouring-details-row" style={{ gridColumn: '1 / -1', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-              <div className="process-form-group" style={{ flex: '1', minWidth: '130px' }}>
+              <div className="process-form-group" style={{ flex: '1', minWidth: '280px' }}>
                 <label>Pouring Temp (°C) </label>
-                <input 
-                  ref={el => inputRefs.current.pouringTemperature = el} 
-                  type="number" 
-                  name="pouringTemperature" 
-                  step="0.01" 
-                  value={formData.pouringTemperature} 
-                  onChange={handleChange} 
-                  onKeyDown={e => handleKeyDown(e, 'pouringTemperature')}
-                  placeholder="e.g., 1450"
-                  disabled={!isPrimarySaved}
-                  className={getInputClassName('pouringTemperature', pouringTempValid)}
-                />
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <input 
+                    ref={el => inputRefs.current.pouringTemperatureMin = el} 
+                    type="number" 
+                    name="pouringTemperatureMin" 
+                    step="0.01" 
+                    value={formData.pouringTemperatureMin} 
+                    onChange={handleChange} 
+                    onKeyDown={e => handleKeyDown(e, 'pouringTemperatureMin')}
+                    placeholder="Min"
+                    disabled={!isPrimarySaved}
+                    className={getInputClassName('pouringTemperatureMin', pouringTempValid)}
+                    style={{ flex: 1 }}
+                  />
+                  <span style={{ fontWeight: '600', color: '#64748b' }}>-</span>
+                  <input 
+                    ref={el => inputRefs.current.pouringTemperatureMax = el} 
+                    type="number" 
+                    name="pouringTemperatureMax" 
+                    step="0.01" 
+                    value={formData.pouringTemperatureMax} 
+                    onChange={handleChange} 
+                    onKeyDown={e => handleKeyDown(e, 'pouringTemperatureMax')}
+                    placeholder="Max"
+                    disabled={!isPrimarySaved}
+                    className={getInputClassName('pouringTemperatureMax', pouringTempValid)}
+                    style={{ flex: 1 }}
+                  />
+                </div>
               </div>
               <div className="process-form-group" style={{ flex: '1', minWidth: '130px' }}>
                 <label>PP Code </label>
                 <input 
                   ref={el => inputRefs.current.ppCode = el} 
-                  type="number" 
+                  type="text" 
                   name="ppCode" 
                   value={formData.ppCode} 
                   onChange={handleChange} 
+                  onBlur={() => handleIntegerBlur('ppCode')}
                   onKeyDown={e => handleKeyDown(e, 'ppCode')}
                   placeholder="Enter number only"
                   disabled={!isPrimarySaved}
                   className={getInputClassName('ppCode', ppCodeValid)}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                 />
               </div>
               <div className="process-form-group" style={{ flex: '1', minWidth: '130px' }}>
                 <label>Treatment No </label>
                 <input 
                   ref={el => inputRefs.current.treatmentNo = el} 
-                  type="number" 
+                  type="text" 
                   name="treatmentNo" 
                   value={formData.treatmentNo} 
                   onChange={handleChange} 
+                  onBlur={() => handleIntegerBlur('treatmentNo')}
                   onKeyDown={e => handleKeyDown(e, 'treatmentNo')}
                   placeholder="Enter number only"
                   disabled={!isPrimarySaved}
                   className={getInputClassName('treatmentNo', treatmentNoValid)}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                 />
               </div>
               <div className="process-form-group" style={{ flex: '1', minWidth: '130px' }}>

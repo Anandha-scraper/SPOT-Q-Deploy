@@ -208,7 +208,11 @@ const ProcessReportDetail = ({ detailData, detailType, onBack }) => {
                         <td style={{ ...tdStyle, width: columnWidths.metalCr }}>{item.metalCompositionCr || '-'}</td>
                       </>
                     )}
-                    <td style={{ ...tdStyle, width: columnWidths.pouringTemp }}>{item.pouringTemperature || '-'}</td>
+                    <td style={{ ...tdStyle, width: columnWidths.pouringTemp }}>
+                      {item.pouringTemperatureMin && item.pouringTemperatureMax 
+                        ? `${item.pouringTemperatureMin} - ${item.pouringTemperatureMax}` 
+                        : '-'}
+                    </td>
                     <td style={{ ...tdStyle, width: columnWidths.timeOfPouring }}>{item.timeOfPouring || '-'}</td>
                     <td style={{ ...tdStyle, width: columnWidths.ppCode }}>{item.ppCode || '-'}</td>
                     <td style={{ ...tdStyle, width: columnWidths.treatmentNo }}>{item.treatmentNo || '-'}</td>

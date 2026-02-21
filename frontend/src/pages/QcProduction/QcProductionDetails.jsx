@@ -4,9 +4,164 @@ import { SubmitButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { InlineLoader } from '../../Components/Alert';
 import Sakthi from '../../Components/Sakthi';
+import { useInfoModal, InfoIcon, InfoCard } from '../../Components/Info';
 import '../../styles/PageStyles/QcProduction/QcProductionDetails.css';
 
 const QcProductionDetails = () => {
+  // Info modal hook
+  const { isOpen, openModal, closeModal } = useInfoModal();
+
+  // ====================== Validation Ranges ======================
+  const validationRanges = [
+    {
+      field: 'Date',
+      required: true,
+      type: 'Date',
+      pattern: 'DD/MM/YYYY',
+      description: 'Select a valid date for QC production entry. Cannot be in the future.'
+    },
+    {
+      field: 'Part Name',
+      required: true,
+      type: 'Text',
+      maxLength: 100,
+      pattern: 'e.g., Brake Disc',
+      description: 'Enter the name of the part being produced'
+    },
+    {
+      field: 'No. of Moulds',
+      required: true,
+      type: 'Number',
+      min: 1,
+      description: 'Enter the number of moulds produced'
+    },
+    {
+      field: 'C % (Carbon)',
+      required: true,
+      type: 'Number Range',
+      min: 0,
+      max: 100,
+      unit: '%',
+      description: 'Carbon percentage - Enter Min and Max values. If only one value, set Max to 0.'
+    },
+    {
+      field: 'Si % (Silicon)',
+      required: true,
+      type: 'Number Range',
+      min: 0,
+      max: 100,
+      unit: '%',
+      description: 'Silicon percentage - Enter Min and Max values. If only one value, set Max to 0.'
+    },
+    {
+      field: 'Mn % (Manganese)',
+      required: true,
+      type: 'Number Range',
+      min: 0,
+      max: 100,
+      unit: '%',
+      description: 'Manganese percentage - Enter Min and Max values. If only one value, set Max to 0.'
+    },
+    {
+      field: 'P % (Phosphorus)',
+      required: true,
+      type: 'Number Range',
+      min: 0,
+      max: 100,
+      unit: '%',
+      description: 'Phosphorus percentage - Enter Min and Max values. If only one value, set Max to 0.'
+    },
+    {
+      field: 'S % (Sulfur)',
+      required: true,
+      type: 'Number Range',
+      min: 0,
+      max: 100,
+      unit: '%',
+      description: 'Sulfur percentage - Enter Min and Max values. If only one value, set Max to 0.'
+    },
+    {
+      field: 'Mg % (Magnesium)',
+      required: true,
+      type: 'Number Range',
+      min: 0,
+      max: 100,
+      unit: '%',
+      description: 'Magnesium percentage - Enter Min and Max values. If only one value, set Max to 0.'
+    },
+    {
+      field: 'Cu % (Copper)',
+      required: true,
+      type: 'Number Range',
+      min: 0,
+      max: 100,
+      unit: '%',
+      description: 'Copper percentage - Enter Min and Max values. If only one value, set Max to 0.'
+    },
+    {
+      field: 'Cr % (Chromium)',
+      required: true,
+      type: 'Number Range',
+      min: 0,
+      max: 100,
+      unit: '%',
+      description: 'Chromium percentage - Enter Min and Max values. If only one value, set Max to 0.'
+    },
+    {
+      field: 'Nodularity',
+      required: true,
+      type: 'Number Range',
+      min: 0,
+      description: 'Nodularity value - Enter Min and Max values. If only one value, set Max to 0.'
+    },
+    {
+      field: 'Graphite Type',
+      required: true,
+      type: 'Number Range',
+      min: 0,
+      description: 'Graphite type value - Enter Min and Max values. If only one value, set Max to 0.'
+    },
+    {
+      field: 'Pearlite Ferrite',
+      required: true,
+      type: 'Number Range',
+      min: 0,
+      description: 'Pearlite Ferrite value - Enter Min and Max values. If only one value, set Max to 0.'
+    },
+    {
+      field: 'Hardness BHN',
+      required: true,
+      type: 'Number Range',
+      min: 0,
+      unit: 'BHN',
+      description: 'Brinell Hardness Number - Enter Min and Max values. If only one value, set Max to 0.'
+    },
+    {
+      field: 'TS (Tensile Strength)',
+      required: true,
+      type: 'Number Range',
+      min: 0,
+      unit: 'MPa',
+      description: 'Tensile Strength in MPa - Enter Min and Max values. If only one value, set Max to 0.'
+    },
+    {
+      field: 'YS (Yield Strength)',
+      required: true,
+      type: 'Number Range',
+      min: 0,
+      unit: 'MPa',
+      description: 'Yield Strength in MPa - Enter Min and Max values. If only one value, set Max to 0.'
+    },
+    {
+      field: 'EL (Elongation)',
+      required: true,
+      type: 'Number Range',
+      min: 0,
+      unit: '%',
+      description: 'Elongation percentage - Enter Min and Max values. If only one value, set Max to 0.'
+    }
+  ];
+
   // Helper: display DD/MM/YYYY
   const formatDisplayDate = (iso) => {
     if (!iso || typeof iso !== 'string' || !iso.includes('-')) return '';
@@ -102,9 +257,9 @@ const QcProductionDetails = () => {
   const [elMinValid, setElMinValid] = useState(null);
   const [elMaxValid, setElMaxValid] = useState(null);
 
-  // Refs for navigation
+  // Refs for navigation and auto-focus on first error
   const submitButtonRef = useRef(null);
-  const firstInputRef = useRef(null);
+  const inputRefs = useRef({});
 
   /*
    * Returns the appropriate CSS class for an input field based on validation state:
@@ -313,31 +468,85 @@ const QcProductionDetails = () => {
     }
   };
 
+  /*
+   * Handle form submission with validation
+   * 
+   * Validation Flow:
+   * 1. Check each required field for empty/invalid values
+   * 2. If invalid, set validation state to false (shows red border)
+   * 3. If valid, set validation state to null (neutral, no color)
+   * 4. If any errors exist, show error message and stop submission
+   * 5. On successful submission, reset all validation states to null
+   * 
+   * ============================================================
+   * AUTO-NAVIGATION TO FIRST ERROR PATTERN:
+   * ============================================================
+   * This pattern ensures the cursor automatically focuses on the 
+   * FIRST error field immediately when the user clicks Submit.
+   * 
+   * HOW IT WORKS:
+   * 1. Initialize a tracking variable BEFORE validation loop:
+   *    let firstErrorField = null;
+   * 
+   * 2. In EACH validation check, set firstErrorField ONLY if it's 
+   *    still null (this captures only the first error):
+   *    if (!formData.fieldName || validation_fails) {
+   *      setFieldValid(false);
+   *      hasErrors = true;
+   *      if (!firstErrorField) firstErrorField = 'fieldName'; // Capture first error
+   *    }
+   * 
+   * 3. AFTER all validations, focus immediately using the tracking variable:
+   *    if (hasErrors) {
+   *      if (firstErrorField) {
+   *        inputRefs.current[firstErrorField]?.focus();
+   *      }
+   *      return;
+   *    }
+   * 
+   * WHY THIS WORKS ON FIRST CLICK:
+   * - Uses a plain variable (not state) to track synchronously
+   * - Doesn't depend on state updates (which are async)
+   * - Focus happens immediately in the same execution cycle
+   * 
+   * TO IMPLEMENT IN ANOTHER PAGE:
+   * - Add: let firstErrorField = null; at start of submit handler
+   * - Add: if (!firstErrorField) firstErrorField = 'refName'; in each validation
+   * - Add: if (firstErrorField) inputRefs.current[firstErrorField]?.focus(); before return
+   * ============================================================
+   */
   const handleSubmit = async () => {
     // Check all required fields and set validation states
     let hasErrors = false;
+    // AUTO-NAVIGATION: Track the first field that fails validation (see comment block above)
+    let firstErrorField = null;
 
     if (!formData.date || formData.date.trim() === '') {
       setDateValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'date';
     }
     if (!formData.partName || formData.partName.trim() === '') {
       setPartNameValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'partName';
     }
     if (!formData.noOfMoulds || isNaN(formData.noOfMoulds) || parseFloat(formData.noOfMoulds) < 1) {
       setNoOfMouldsValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'noOfMoulds';
     }
 
     // Validate C % min/max
     if (!formData.cPercentMin || isNaN(formData.cPercentMin)) {
       setCPercentMinValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'cPercentMin';
     }
     if (!formData.cPercentMax || isNaN(formData.cPercentMax)) {
       setCPercentMaxValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'cPercentMax';
     }
     if (formData.cPercentMin && formData.cPercentMax && !isNaN(formData.cPercentMin) && !isNaN(formData.cPercentMax)) {
       const min = parseFloat(formData.cPercentMin);
@@ -346,6 +555,7 @@ const QcProductionDetails = () => {
         setCPercentMinValid(false);
         setCPercentMaxValid(false);
         hasErrors = true;
+        if (!firstErrorField) firstErrorField = 'cPercentMin';
       }
     }
 
@@ -353,10 +563,12 @@ const QcProductionDetails = () => {
     if (!formData.siPercentMin || isNaN(formData.siPercentMin)) {
       setSiPercentMinValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'siPercentMin';
     }
     if (!formData.siPercentMax || isNaN(formData.siPercentMax)) {
       setSiPercentMaxValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'siPercentMax';
     }
     if (formData.siPercentMin && formData.siPercentMax && !isNaN(formData.siPercentMin) && !isNaN(formData.siPercentMax)) {
       const min = parseFloat(formData.siPercentMin);
@@ -365,6 +577,7 @@ const QcProductionDetails = () => {
         setSiPercentMinValid(false);
         setSiPercentMaxValid(false);
         hasErrors = true;
+        if (!firstErrorField) firstErrorField = 'siPercentMin';
       }
     }
 
@@ -372,10 +585,12 @@ const QcProductionDetails = () => {
     if (!formData.mnPercentMin || isNaN(formData.mnPercentMin)) {
       setMnPercentMinValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'mnPercentMin';
     }
     if (!formData.mnPercentMax || isNaN(formData.mnPercentMax)) {
       setMnPercentMaxValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'mnPercentMax';
     }
     if (formData.mnPercentMin && formData.mnPercentMax && !isNaN(formData.mnPercentMin) && !isNaN(formData.mnPercentMax)) {
       const min = parseFloat(formData.mnPercentMin);
@@ -384,6 +599,7 @@ const QcProductionDetails = () => {
         setMnPercentMinValid(false);
         setMnPercentMaxValid(false);
         hasErrors = true;
+        if (!firstErrorField) firstErrorField = 'mnPercentMin';
       }
     }
 
@@ -391,10 +607,12 @@ const QcProductionDetails = () => {
     if (!formData.pPercentMin || isNaN(formData.pPercentMin)) {
       setPPercentMinValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'pPercentMin';
     }
     if (!formData.pPercentMax || isNaN(formData.pPercentMax)) {
       setPPercentMaxValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'pPercentMax';
     }
     if (formData.pPercentMin && formData.pPercentMax && !isNaN(formData.pPercentMin) && !isNaN(formData.pPercentMax)) {
       const min = parseFloat(formData.pPercentMin);
@@ -403,6 +621,7 @@ const QcProductionDetails = () => {
         setPPercentMinValid(false);
         setPPercentMaxValid(false);
         hasErrors = true;
+        if (!firstErrorField) firstErrorField = 'pPercentMin';
       }
     }
 
@@ -410,10 +629,12 @@ const QcProductionDetails = () => {
     if (!formData.sPercentMin || isNaN(formData.sPercentMin)) {
       setSPercentMinValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'sPercentMin';
     }
     if (!formData.sPercentMax || isNaN(formData.sPercentMax)) {
       setSPercentMaxValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'sPercentMax';
     }
     if (formData.sPercentMin && formData.sPercentMax && !isNaN(formData.sPercentMin) && !isNaN(formData.sPercentMax)) {
       const min = parseFloat(formData.sPercentMin);
@@ -422,6 +643,7 @@ const QcProductionDetails = () => {
         setSPercentMinValid(false);
         setSPercentMaxValid(false);
         hasErrors = true;
+        if (!firstErrorField) firstErrorField = 'sPercentMin';
       }
     }
 
@@ -429,10 +651,12 @@ const QcProductionDetails = () => {
     if (!formData.mgPercentMin || isNaN(formData.mgPercentMin)) {
       setMgPercentMinValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'mgPercentMin';
     }
     if (!formData.mgPercentMax || isNaN(formData.mgPercentMax)) {
       setMgPercentMaxValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'mgPercentMax';
     }
     if (formData.mgPercentMin && formData.mgPercentMax && !isNaN(formData.mgPercentMin) && !isNaN(formData.mgPercentMax)) {
       const min = parseFloat(formData.mgPercentMin);
@@ -441,6 +665,7 @@ const QcProductionDetails = () => {
         setMgPercentMinValid(false);
         setMgPercentMaxValid(false);
         hasErrors = true;
+        if (!firstErrorField) firstErrorField = 'mgPercentMin';
       }
     }
 
@@ -448,10 +673,12 @@ const QcProductionDetails = () => {
     if (!formData.cuPercentMin || isNaN(formData.cuPercentMin)) {
       setCuPercentMinValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'cuPercentMin';
     }
     if (!formData.cuPercentMax || isNaN(formData.cuPercentMax)) {
       setCuPercentMaxValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'cuPercentMax';
     }
     if (formData.cuPercentMin && formData.cuPercentMax && !isNaN(formData.cuPercentMin) && !isNaN(formData.cuPercentMax)) {
       const min = parseFloat(formData.cuPercentMin);
@@ -460,6 +687,7 @@ const QcProductionDetails = () => {
         setCuPercentMinValid(false);
         setCuPercentMaxValid(false);
         hasErrors = true;
+        if (!firstErrorField) firstErrorField = 'cuPercentMin';
       }
     }
 
@@ -467,10 +695,12 @@ const QcProductionDetails = () => {
     if (!formData.crPercentMin || isNaN(formData.crPercentMin)) {
       setCrPercentMinValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'crPercentMin';
     }
     if (!formData.crPercentMax || isNaN(formData.crPercentMax)) {
       setCrPercentMaxValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'crPercentMax';
     }
     if (formData.crPercentMin && formData.crPercentMax && !isNaN(formData.crPercentMin) && !isNaN(formData.crPercentMax)) {
       const min = parseFloat(formData.crPercentMin);
@@ -479,6 +709,7 @@ const QcProductionDetails = () => {
         setCrPercentMinValid(false);
         setCrPercentMaxValid(false);
         hasErrors = true;
+        if (!firstErrorField) firstErrorField = 'crPercentMin';
       }
     }
 
@@ -486,10 +717,12 @@ const QcProductionDetails = () => {
     if (!formData.nodularityMin || isNaN(formData.nodularityMin)) {
       setNodularityMinValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'nodularityMin';
     }
     if (!formData.nodularityMax || isNaN(formData.nodularityMax)) {
       setNodularityMaxValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'nodularityMax';
     }
     if (formData.nodularityMin && formData.nodularityMax && !isNaN(formData.nodularityMin) && !isNaN(formData.nodularityMax)) {
       const min = parseFloat(formData.nodularityMin);
@@ -498,6 +731,7 @@ const QcProductionDetails = () => {
         setNodularityMinValid(false);
         setNodularityMaxValid(false);
         hasErrors = true;
+        if (!firstErrorField) firstErrorField = 'nodularityMin';
       }
     }
 
@@ -505,10 +739,12 @@ const QcProductionDetails = () => {
     if (!formData.graphiteTypeMin || isNaN(formData.graphiteTypeMin)) {
       setGraphiteTypeMinValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'graphiteTypeMin';
     }
     if (!formData.graphiteTypeMax || isNaN(formData.graphiteTypeMax)) {
       setGraphiteTypeMaxValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'graphiteTypeMax';
     }
     if (formData.graphiteTypeMin && formData.graphiteTypeMax && !isNaN(formData.graphiteTypeMin) && !isNaN(formData.graphiteTypeMax)) {
       const min = parseFloat(formData.graphiteTypeMin);
@@ -517,6 +753,7 @@ const QcProductionDetails = () => {
         setGraphiteTypeMinValid(false);
         setGraphiteTypeMaxValid(false);
         hasErrors = true;
+        if (!firstErrorField) firstErrorField = 'graphiteTypeMin';
       }
     }
 
@@ -524,10 +761,12 @@ const QcProductionDetails = () => {
     if (!formData.pearliteFertiteMin || isNaN(formData.pearliteFertiteMin)) {
       setPearliteFertiteMinValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'pearliteFertiteMin';
     }
     if (!formData.pearliteFertiteMax || isNaN(formData.pearliteFertiteMax)) {
       setPearliteFertiteMaxValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'pearliteFertiteMax';
     }
     if (formData.pearliteFertiteMin && formData.pearliteFertiteMax && !isNaN(formData.pearliteFertiteMin) && !isNaN(formData.pearliteFertiteMax)) {
       const min = parseFloat(formData.pearliteFertiteMin);
@@ -536,6 +775,7 @@ const QcProductionDetails = () => {
         setPearliteFertiteMinValid(false);
         setPearliteFertiteMaxValid(false);
         hasErrors = true;
+        if (!firstErrorField) firstErrorField = 'pearliteFertiteMin';
       }
     }
 
@@ -543,10 +783,12 @@ const QcProductionDetails = () => {
     if (!formData.hardnessBHNMin || isNaN(formData.hardnessBHNMin)) {
       setHardnessBHNMinValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'hardnessBHNMin';
     }
     if (!formData.hardnessBHNMax || isNaN(formData.hardnessBHNMax)) {
       setHardnessBHNMaxValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'hardnessBHNMax';
     }
     if (formData.hardnessBHNMin && formData.hardnessBHNMax && !isNaN(formData.hardnessBHNMin) && !isNaN(formData.hardnessBHNMax)) {
       const min = parseFloat(formData.hardnessBHNMin);
@@ -555,6 +797,7 @@ const QcProductionDetails = () => {
         setHardnessBHNMinValid(false);
         setHardnessBHNMaxValid(false);
         hasErrors = true;
+        if (!firstErrorField) firstErrorField = 'hardnessBHNMin';
       }
     }
 
@@ -562,10 +805,12 @@ const QcProductionDetails = () => {
     if (!formData.tsMin || isNaN(formData.tsMin)) {
       setTsMinValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'tsMin';
     }
     if (!formData.tsMax || isNaN(formData.tsMax)) {
       setTsMaxValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'tsMax';
     }
     if (formData.tsMin && formData.tsMax && !isNaN(formData.tsMin) && !isNaN(formData.tsMax)) {
       const min = parseFloat(formData.tsMin);
@@ -574,6 +819,7 @@ const QcProductionDetails = () => {
         setTsMinValid(false);
         setTsMaxValid(false);
         hasErrors = true;
+        if (!firstErrorField) firstErrorField = 'tsMin';
       }
     }
 
@@ -581,10 +827,12 @@ const QcProductionDetails = () => {
     if (!formData.ysMin || isNaN(formData.ysMin)) {
       setYsMinValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'ysMin';
     }
     if (!formData.ysMax || isNaN(formData.ysMax)) {
       setYsMaxValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'ysMax';
     }
     if (formData.ysMin && formData.ysMax && !isNaN(formData.ysMin) && !isNaN(formData.ysMax)) {
       const min = parseFloat(formData.ysMin);
@@ -593,6 +841,7 @@ const QcProductionDetails = () => {
         setYsMinValid(false);
         setYsMaxValid(false);
         hasErrors = true;
+        if (!firstErrorField) firstErrorField = 'ysMin';
       }
     }
 
@@ -600,10 +849,12 @@ const QcProductionDetails = () => {
     if (!formData.elMin || isNaN(formData.elMin)) {
       setElMinValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'elMin';
     }
     if (!formData.elMax || isNaN(formData.elMax)) {
       setElMaxValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'elMax';
     }
     if (formData.elMin && formData.elMax && !isNaN(formData.elMin) && !isNaN(formData.elMax)) {
       const min = parseFloat(formData.elMin);
@@ -612,11 +863,20 @@ const QcProductionDetails = () => {
         setElMinValid(false);
         setElMaxValid(false);
         hasErrors = true;
+        if (!firstErrorField) firstErrorField = 'elMin';
       }
     }
 
     if (hasErrors) {
       setSubmitErrorMessage('Enter data in correct Format');
+      
+      // AUTO-NAVIGATION: Focus on the first field that failed validation
+      // This happens immediately (synchronously) because firstErrorField 
+      // is a plain variable, not state. Works on FIRST submit click.
+      if (firstErrorField) {
+        inputRefs.current[firstErrorField]?.focus();
+      }
+      
       return;
     }
 
@@ -780,9 +1040,7 @@ const QcProductionDetails = () => {
         
         // Focus first input after Sakthi animation completes
         setTimeout(() => {
-          if (firstInputRef.current && firstInputRef.current.focus) {
-            firstInputRef.current.focus();
-          }
+          inputRefs.current.date?.focus();
         }, 1600);
       } else {
         // Show error message
@@ -829,6 +1087,7 @@ const QcProductionDetails = () => {
           <h2>
             <Save size={28} style={{ color: '#5B9AA9' }} />
             QC Production Details - Entry Form
+            <InfoIcon onClick={openModal} />
           </h2>
         </div>
         <div aria-label="Date" style={{ fontWeight: 600, color: '#25424c' }}>
@@ -841,7 +1100,7 @@ const QcProductionDetails = () => {
             <div className="qcproduction-form-group">
               <label>Date</label>
               <CustomDatePicker
-                ref={firstInputRef}
+                ref={(el) => inputRefs.current.date = el}
                 name="date"
                 value={formData.date}
                 onChange={handleChange}
@@ -861,7 +1120,7 @@ const QcProductionDetails = () => {
             <div className="qcproduction-form-group">
               <label>Part Name</label>
               <input
-                ref={firstInputRef}
+                ref={(el) => inputRefs.current.partName = el}
                 type="text"
                 name="partName"
                 value={formData.partName}
@@ -875,6 +1134,7 @@ const QcProductionDetails = () => {
             <div className="qcproduction-form-group">
               <label>No. of Moulds</label>
               <input
+                ref={(el) => inputRefs.current.noOfMoulds = el}
                 type="text"
                 name="noOfMoulds"
                 value={formData.noOfMoulds}
@@ -890,6 +1150,7 @@ const QcProductionDetails = () => {
               <label>C %</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <input
+                  ref={(el) => inputRefs.current.cPercentMin = el}
                   type="text"
                   name="cPercentMin"
                   value={formData.cPercentMin}
@@ -902,6 +1163,7 @@ const QcProductionDetails = () => {
                 />
                 <span style={{ color: '#64748b', fontWeight: '500' }}>-</span>
                 <input
+                  ref={(el) => inputRefs.current.cPercentMax = el}
                   type="text"
                   name="cPercentMax"
                   value={formData.cPercentMax}
@@ -919,6 +1181,7 @@ const QcProductionDetails = () => {
               <label>Si %</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <input
+                  ref={(el) => inputRefs.current.siPercentMin = el}
                   type="text"
                   name="siPercentMin"
                   value={formData.siPercentMin}
@@ -931,6 +1194,7 @@ const QcProductionDetails = () => {
                 />
                 <span style={{ color: '#64748b', fontWeight: '500' }}>-</span>
                 <input
+                  ref={(el) => inputRefs.current.siPercentMax = el}
                   type="text"
                   name="siPercentMax"
                   value={formData.siPercentMax}
@@ -948,6 +1212,7 @@ const QcProductionDetails = () => {
               <label>Mn %</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <input
+                  ref={(el) => inputRefs.current.mnPercentMin = el}
                   type="text"
                   name="mnPercentMin"
                   value={formData.mnPercentMin}
@@ -960,6 +1225,7 @@ const QcProductionDetails = () => {
                 />
                 <span style={{ color: '#64748b', fontWeight: '500' }}>-</span>
                 <input
+                  ref={(el) => inputRefs.current.mnPercentMax = el}
                   type="text"
                   name="mnPercentMax"
                   value={formData.mnPercentMax}
@@ -977,6 +1243,7 @@ const QcProductionDetails = () => {
               <label>P %</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <input
+                  ref={(el) => inputRefs.current.pPercentMin = el}
                   type="text"
                   name="pPercentMin"
                   value={formData.pPercentMin}
@@ -989,6 +1256,7 @@ const QcProductionDetails = () => {
                 />
                 <span style={{ color: '#64748b', fontWeight: '500' }}>-</span>
                 <input
+                  ref={(el) => inputRefs.current.pPercentMax = el}
                   type="text"
                   name="pPercentMax"
                   value={formData.pPercentMax}
@@ -1006,6 +1274,7 @@ const QcProductionDetails = () => {
               <label>S %</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <input
+                  ref={(el) => inputRefs.current.sPercentMin = el}
                   type="text"
                   name="sPercentMin"
                   value={formData.sPercentMin}
@@ -1018,6 +1287,7 @@ const QcProductionDetails = () => {
                 />
                 <span style={{ color: '#64748b', fontWeight: '500' }}>-</span>
                 <input
+                  ref={(el) => inputRefs.current.sPercentMax = el}
                   type="text"
                   name="sPercentMax"
                   value={formData.sPercentMax}
@@ -1035,6 +1305,7 @@ const QcProductionDetails = () => {
               <label>Mg %</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <input
+                  ref={(el) => inputRefs.current.mgPercentMin = el}
                   type="text"
                   name="mgPercentMin"
                   value={formData.mgPercentMin}
@@ -1047,6 +1318,7 @@ const QcProductionDetails = () => {
                 />
                 <span style={{ color: '#64748b', fontWeight: '500' }}>-</span>
                 <input
+                  ref={(el) => inputRefs.current.mgPercentMax = el}
                   type="text"
                   name="mgPercentMax"
                   value={formData.mgPercentMax}
@@ -1064,6 +1336,7 @@ const QcProductionDetails = () => {
               <label>Cu %</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <input
+                  ref={(el) => inputRefs.current.cuPercentMin = el}
                   type="text"
                   name="cuPercentMin"
                   value={formData.cuPercentMin}
@@ -1076,6 +1349,7 @@ const QcProductionDetails = () => {
                 />
                 <span style={{ color: '#64748b', fontWeight: '500' }}>-</span>
                 <input
+                  ref={(el) => inputRefs.current.cuPercentMax = el}
                   type="text"
                   name="cuPercentMax"
                   value={formData.cuPercentMax}
@@ -1093,6 +1367,7 @@ const QcProductionDetails = () => {
               <label>Cr %</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <input
+                  ref={(el) => inputRefs.current.crPercentMin = el}
                   type="text"
                   name="crPercentMin"
                   value={formData.crPercentMin}
@@ -1105,6 +1380,7 @@ const QcProductionDetails = () => {
                 />
                 <span style={{ color: '#64748b', fontWeight: '500' }}>-</span>
                 <input
+                  ref={(el) => inputRefs.current.crPercentMax = el}
                   type="text"
                   name="crPercentMax"
                   value={formData.crPercentMax}
@@ -1122,6 +1398,7 @@ const QcProductionDetails = () => {
               <label>Nodularity</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <input
+                  ref={(el) => inputRefs.current.nodularityMin = el}
                   type="text"
                   name="nodularityMin"
                   value={formData.nodularityMin}
@@ -1134,6 +1411,7 @@ const QcProductionDetails = () => {
                 />
                 <span style={{ color: '#64748b', fontWeight: '500' }}>-</span>
                 <input
+                  ref={(el) => inputRefs.current.nodularityMax = el}
                   type="text"
                   name="nodularityMax"
                   value={formData.nodularityMax}
@@ -1151,6 +1429,7 @@ const QcProductionDetails = () => {
               <label>Graphite Type</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <input
+                  ref={(el) => inputRefs.current.graphiteTypeMin = el}
                   type="text"
                   name="graphiteTypeMin"
                   value={formData.graphiteTypeMin}
@@ -1163,6 +1442,7 @@ const QcProductionDetails = () => {
                 />
                 <span style={{ color: '#64748b', fontWeight: '500' }}>-</span>
                 <input
+                  ref={(el) => inputRefs.current.graphiteTypeMax = el}
                   type="text"
                   name="graphiteTypeMax"
                   value={formData.graphiteTypeMax}
@@ -1180,6 +1460,7 @@ const QcProductionDetails = () => {
               <label>Pearlite Ferrite</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <input
+                  ref={(el) => inputRefs.current.pearliteFertiteMin = el}
                   type="text"
                   name="pearliteFertiteMin"
                   value={formData.pearliteFertiteMin}
@@ -1192,6 +1473,7 @@ const QcProductionDetails = () => {
                 />
                 <span style={{ color: '#64748b', fontWeight: '500' }}>-</span>
                 <input
+                  ref={(el) => inputRefs.current.pearliteFertiteMax = el}
                   type="text"
                   name="pearliteFertiteMax"
                   value={formData.pearliteFertiteMax}
@@ -1209,6 +1491,7 @@ const QcProductionDetails = () => {
               <label>Hardness BHN</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <input
+                  ref={(el) => inputRefs.current.hardnessBHNMin = el}
                   type="text"
                   name="hardnessBHNMin"
                   value={formData.hardnessBHNMin}
@@ -1221,6 +1504,7 @@ const QcProductionDetails = () => {
                 />
                 <span style={{ color: '#64748b', fontWeight: '500' }}>-</span>
                 <input
+                  ref={(el) => inputRefs.current.hardnessBHNMax = el}
                   type="text"
                   name="hardnessBHNMax"
                   value={formData.hardnessBHNMax}
@@ -1238,6 +1522,7 @@ const QcProductionDetails = () => {
               <label>TS (Tensile Strength)</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <input
+                  ref={(el) => inputRefs.current.tsMin = el}
                   type="text"
                   name="tsMin"
                   value={formData.tsMin}
@@ -1250,6 +1535,7 @@ const QcProductionDetails = () => {
                 />
                 <span style={{ color: '#64748b', fontWeight: '500' }}>-</span>
                 <input
+                  ref={(el) => inputRefs.current.tsMax = el}
                   type="text"
                   name="tsMax"
                   value={formData.tsMax}
@@ -1267,6 +1553,7 @@ const QcProductionDetails = () => {
               <label>YS (Yield Strength)</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <input
+                  ref={(el) => inputRefs.current.ysMin = el}
                   type="text"
                   name="ysMin"
                   value={formData.ysMin}
@@ -1279,6 +1566,7 @@ const QcProductionDetails = () => {
                 />
                 <span style={{ color: '#64748b', fontWeight: '500' }}>-</span>
                 <input
+                  ref={(el) => inputRefs.current.ysMax = el}
                   type="text"
                   name="ysMax"
                   value={formData.ysMax}
@@ -1296,6 +1584,7 @@ const QcProductionDetails = () => {
               <label>EL (Elongation)</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <input
+                  ref={(el) => inputRefs.current.elMin = el}
                   type="text"
                   name="elMin"
                   value={formData.elMin}
@@ -1308,6 +1597,7 @@ const QcProductionDetails = () => {
                 />
                 <span style={{ color: '#64748b', fontWeight: '500' }}>-</span>
                 <input
+                  ref={(el) => inputRefs.current.elMax = el}
                   type="text"
                   name="elMax"
                   value={formData.elMax}
@@ -1348,6 +1638,13 @@ const QcProductionDetails = () => {
             )}
           </SubmitButton>
       </div>
+
+      <InfoCard
+        isOpen={isOpen}
+        onClose={closeModal}
+        title="QC Production Details Validation"
+        validationRanges={validationRanges}
+      />
     </>
   );
 };

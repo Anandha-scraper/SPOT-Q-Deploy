@@ -572,13 +572,63 @@ const MicroStructure = () => {
     }
   };
 
+  /*
+   * Handle form submission with validation
+   * 
+   * Validation Flow:
+   * 1. Check each required field for empty/invalid values
+   * 2. If invalid, set validation state to false (shows red border)
+   * 3. If valid, set validation state to null (neutral, no color)
+   * 4. If any errors exist, show error message and stop submission
+   * 5. On successful submission, reset all validation states to null
+   * 
+   * ============================================================
+   * AUTO-NAVIGATION TO FIRST ERROR PATTERN:
+   * ============================================================
+   * This pattern ensures the cursor automatically focuses on the 
+   * FIRST error field immediately when the user clicks Submit.
+   * 
+   * HOW IT WORKS:
+   * 1. Initialize a tracking variable BEFORE validation loop:
+   *    let firstErrorField = null;
+   * 
+   * 2. In EACH validation check, set firstErrorField ONLY if it's 
+   *    still null (this captures only the first error):
+   *    if (!formData.fieldName || validation_fails) {
+   *      setFieldValid(false);
+   *      hasErrors = true;
+   *      if (!firstErrorField) firstErrorField = 'fieldName'; // Capture first error
+   *    }
+   * 
+   * 3. AFTER all validations, focus immediately using the tracking variable:
+   *    if (hasErrors) {
+   *      if (firstErrorField) {
+   *        inputRefs.current[firstErrorField]?.focus();
+   *      }
+   *      return;
+   *    }
+   * 
+   * WHY THIS WORKS ON FIRST CLICK:
+   * - Uses a plain variable (not state) to track synchronously
+   * - Doesn't depend on state updates (which are async)
+   * - Focus happens immediately in the same execution cycle
+   * 
+   * TO IMPLEMENT IN ANOTHER PAGE:
+   * - Add: let firstErrorField = null; at start of submit handler
+   * - Add: if (!firstErrorField) firstErrorField = 'refName'; in each validation
+   * - Add: if (firstErrorField) inputRefs.current[firstErrorField]?.focus(); before return
+   * ============================================================
+   */
   const handleSubmit = async () => {
     let hasErrors = false;
+    // AUTO-NAVIGATION: Track the first field that fails validation (see comment block above)
+    let firstErrorField = null;
 
     // Validate Part Name
     if (!partName || !partName.trim()) {
       setPartNameValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'partName';
     } else {
       setPartNameValid(null);
     }
@@ -587,6 +637,7 @@ const MicroStructure = () => {
     if (!dateCode || !dateCode.trim()) {
       setDateCodeValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'dateCode';
     } else {
       setDateCodeValid(null);
     }
@@ -595,6 +646,7 @@ const MicroStructure = () => {
     if (!heatCode || !heatCode.trim()) {
       setHeatCodeValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'heatCode';
     } else {
       setHeatCodeValid(null);
     }
@@ -603,6 +655,7 @@ const MicroStructure = () => {
     if (!validatePercentage(nodularity)) {
       setNodularityValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'nodularity';
     } else {
       setNodularityValid(null);
     }
@@ -611,6 +664,7 @@ const MicroStructure = () => {
     if (!graphiteType || !graphiteType.trim()) {
       setGraphiteTypeValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'graphiteType';
     } else {
       setGraphiteTypeValid(null);
     }
@@ -620,12 +674,14 @@ const MicroStructure = () => {
     if (!countRange.minValid) {
       setCountMinValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'countMin';
     } else {
       setCountMinValid(null);
     }
     if (!countRange.maxValid) {
       setCountMaxValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'countMax';
     } else {
       setCountMaxValid(null);
     }
@@ -635,12 +691,14 @@ const MicroStructure = () => {
     if (!sizeRange.minValid) {
       setSizeMinValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'sizeMin';
     } else {
       setSizeMinValid(null);
     }
     if (!sizeRange.maxValid) {
       setSizeMaxValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'sizeMax';
     } else {
       setSizeMaxValid(null);
     }
@@ -650,12 +708,14 @@ const MicroStructure = () => {
     if (!ferriteRange.minValid) {
       setFerriteMinValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'ferriteMin';
     } else {
       setFerriteMinValid(null);
     }
     if (!ferriteRange.maxValid) {
       setFerriteMaxValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'ferriteMax';
     } else {
       setFerriteMaxValid(null);
     }
@@ -665,12 +725,14 @@ const MicroStructure = () => {
     if (!pearliteRange.minValid) {
       setPearliteMinValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'pearliteMin';
     } else {
       setPearliteMinValid(null);
     }
     if (!pearliteRange.maxValid) {
       setPearliteMaxValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'pearliteMax';
     } else {
       setPearliteMaxValid(null);
     }
@@ -680,12 +742,14 @@ const MicroStructure = () => {
     if (!carbideRange.minValid) {
       setCarbideMinValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'carbideMin';
     } else {
       setCarbideMinValid(null);
     }
     if (!carbideRange.maxValid) {
       setCarbideMaxValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'carbideMax';
     } else {
       setCarbideMaxValid(null);
     }
@@ -694,12 +758,21 @@ const MicroStructure = () => {
     if (!remarks || !remarks.trim()) {
       setRemarksValid(false);
       hasErrors = true;
+      if (!firstErrorField) firstErrorField = 'remarks';
     } else {
       setRemarksValid(null);
     }
 
     if (hasErrors) {
       setSubmitErrorMessage('Enter data in correct format');
+      
+      // AUTO-NAVIGATION: Focus on the first field that failed validation
+      // This happens immediately (synchronously) because firstErrorField 
+      // is a plain variable, not state. Works on FIRST submit click.
+      if (firstErrorField) {
+        inputRefs.current[firstErrorField]?.focus();
+      }
+      
       return;
     }
 
@@ -857,7 +930,7 @@ const MicroStructure = () => {
 
         <div className="microstructure-form-row" style={{ flexWrap: 'wrap' }}>
           <div className="microstructure-field" style={{ maxWidth: '200px', position: 'relative', zIndex: 100 }}>
-            <label>Date</label>
+            <label>Ins. Date</label>
             <CustomDatePicker
               ref={el => inputRefs.current.date = el}
               value={date}
@@ -868,13 +941,10 @@ const MicroStructure = () => {
               style={{
                 border: highlightPrimaryFields ? '2px solid #ef4444' : '2px solid #cbd5e1',
                 width: '100%',
-                padding: '0.625rem 0.875rem',
                 borderRadius: '8px',
                 fontSize: '0.875rem',
                 backgroundColor: highlightPrimaryFields ? '#fee2e2' : '#fff',
-                transition: 'all 0.3s ease',
-                position: 'relative',
-                zIndex: 100
+                transition: 'all 0.3s ease'
               }}
             />
           </div>
