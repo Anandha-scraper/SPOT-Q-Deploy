@@ -1,6 +1,7 @@
 const User = require('../models/user');
 const LoginActivity = require('../models/LoginActivity');
 const { generateToken } = require('../utils/jwt');
+const { keepLastNLoginActivitiesForUser } = require('../utils/cleanupLoginActivity');
 const { hashPassword, comparePassword } = require('../utils/password');
 // Centralized Department List
 const DEPARTMENTS = [
@@ -66,6 +67,9 @@ exports.login = async (req, res) => {
                 ip: req.ip || req.headers['x-forwarded-for'],
                 userAgent: req.headers['user-agent'] || 'Unknown'
             });
+
+            // Keep only the last 5 login activities for this user
+            await keepLastNLoginActivitiesForUser(user._id, 5);
         } catch (auditError) {
             console.error('Audit Log failed:', auditError.message);
         }
