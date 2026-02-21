@@ -64,11 +64,32 @@ const dmmCtrl = require('./controllers/Moulding-DmmSettingParameters');
 const meltingCtrl = require('./controllers/Melting-MeltingLogsheet');
 
 // 5. Database Connection & Global Sync
-mongoose.connect(process.env.MONGODB_URI)
+console.log('Attempting MongoDB connection to:', process.env.MONGODB_URI?.replace(/\/\/([^:]+):([^@]+)@/, '//$1:****@'));
+mongoose.connect(process.env.MONGODB_URI, {
+  serverSelectionTimeoutMS: 5000,
+  socketTimeoutMS: 45000,
+})
   .then(async () => {
-    console.log('SPOT-Q Database Connected');
+    console.log('✅ SPOT-Q Database Connected');
+    console.log('Database Name:', mongoose.connection.db.databaseName);
   })
-  .catch(err => console.error('MongoDB Connection Error:', err));
+  .catch(err => {
+    console.error('❌ MongoDB Connection Error:', err.message);
+    console.error('Full Error:', err);
+  });
+
+// Mongoose connection event listeners
+mongoose.connection.on('connected', () => {
+  console.log('Mongoose connected to DB');
+});
+
+mongoose.connection.on('error', (err) => {
+  console.error('Mongoose connection error:', err);
+});
+
+mongoose.connection.on('disconnected', () => {
+  console.warn('Mongoose disconnected from DB');
+});
 
 // 6. Mount Routes
 // Public
