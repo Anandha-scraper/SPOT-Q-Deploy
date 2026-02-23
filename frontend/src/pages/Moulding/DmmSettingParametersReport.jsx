@@ -29,6 +29,7 @@ const DmmSettingParametersReport = () => {
   const [toDate, setToDate] = useState(todayStr);
   const [selectedMachine, setSelectedMachine] = useState('');
   const [selectedShift, setSelectedShift] = useState('');
+  const [appliedShift, setAppliedShift] = useState('');
   const [reports, setReports] = useState([]);
   const [filteredReports, setFilteredReports] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -109,6 +110,7 @@ const DmmSettingParametersReport = () => {
 
   const handleFilter = () => {
     if (isFilterEnabled) {
+      setAppliedShift(selectedShift);
       applyFilters();
       setCurrentPage(1);
     }
@@ -119,6 +121,7 @@ const DmmSettingParametersReport = () => {
     setToDate('');
     setSelectedMachine('');
     setSelectedShift('');
+    setAppliedShift('');
     setFilteredReports([]);
     setCurrentPage(1);
   };
@@ -129,7 +132,7 @@ const DmmSettingParametersReport = () => {
     if (report.parameters) {
       ['shift1','shift2','shift3'].forEach(shiftKey => {
         // Only show data for the selected shift
-        if (selectedShift && selectedShift !== shiftKey.replace('shift','Shift ')) return;
+        if (appliedShift && appliedShift !== shiftKey.replace('shift','Shift ')) return;
         const arr = report.parameters[shiftKey];
         if (Array.isArray(arr) && arr.length > 0) {
           arr.forEach((param, rowIndex) => {
@@ -248,7 +251,7 @@ const DmmSettingParametersReport = () => {
                   <th style={{ padding: '14px 18px', textAlign: 'center', fontWeight: 600, fontSize: '0.875rem', background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>Machine</th>
                   <th style={{ padding: '14px 18px', textAlign: 'center', fontWeight: 600, fontSize: '0.875rem', background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>Shift</th>
                   <th style={{ padding: '14px 18px', textAlign: 'center', fontWeight: 600, fontSize: '0.875rem', background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>Operator Name</th>
-                  <th style={{ padding: '14px 18px', textAlign: 'center', fontWeight: 600, fontSize: '0.875rem', background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>Checked By</th>
+                  <th style={{ padding: '14px 18px', textAlign: 'center', fontWeight: 600, fontSize: '0.875rem', background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>Operated By</th>
                   <th style={{ padding: '14px 18px', textAlign: 'center', fontWeight: 600, fontSize: '0.875rem', background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>Customer</th>
                   <th style={{ padding: '14px 18px', textAlign: 'center', fontWeight: 600, fontSize: '0.875rem', background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>Item Description</th>
                   <th style={{ padding: '14px 18px', textAlign: 'center', fontWeight: 600, fontSize: '0.875rem', background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>Time</th>

@@ -33,7 +33,31 @@ exports.getCurrentDate = async (req, res) => {
     }
 };
 
-/** 2. CHECK DATE+DISA ENTRIES COUNT **/
+/** 2. GET LAST USED DISA **/
+
+// Returns the most recently used DISA value from the database
+// Looks at the latest document (by date) and returns the last savedDisa
+exports.getLastDisa = async (req, res) => {
+    try {
+        // Find the most recent document that has savedDisas
+        const latestDoc = await MicroStructure.findOne(
+            { savedDisas: { $exists: true, $ne: [] } }
+        ).sort({ date: -1 });
+
+        if (!latestDoc || !latestDoc.savedDisas || latestDoc.savedDisas.length === 0) {
+            return res.status(200).json({ success: true, lastDisa: '' });
+        }
+
+        // Return the last DISA in the savedDisas array of the most recent document
+        const lastDisa = latestDoc.savedDisas[latestDoc.savedDisas.length - 1];
+        res.status(200).json({ success: true, lastDisa });
+    } catch (error) {
+        console.error('Error fetching last DISA:', error);
+        res.status(500).json({ success: false, message: 'Error fetching last DISA.' });
+    }
+};
+
+/** 3. CHECK DATE+DISA ENTRIES COUNT **/
 exports.checkDateDisaEntries = async (req, res) => {
     try {
         const { date, disa } = req.query;

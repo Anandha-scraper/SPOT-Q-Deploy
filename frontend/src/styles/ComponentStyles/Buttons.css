@@ -751,6 +751,13 @@
   color: #64748b;
 }
 
+/* Custom Time Input Component - compact height */
+.custom-time-input-container {
+  min-height: 40px !important;
+  height: 40px !important;
+  padding: 0.35rem 0.75rem !important;
+}
+
 /* Custom Time Input Component Disabled Styles */
 .custom-time-input-container.disabled {
   cursor: not-allowed !important;

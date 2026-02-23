@@ -6,7 +6,6 @@ async function keepLastNLoginActivities(keepCount = 5) {
         // Get all unique userIds
         const userIds = await LoginActivity.distinct('userId');
         if (userIds.length === 0) {
-            console.log('[Cleanup] No login activities found');
             return { deletedCount: 0 };
         }
         let totalDeleted = 0;
@@ -26,10 +25,8 @@ async function keepLastNLoginActivities(keepCount = 5) {
                     _id: { $nin: idsToKeep }
                 });
                 totalDeleted += result.deletedCount;
-                console.log(`[Cleanup] User ${userId}: Kept ${keepCount} most recent, deleted ${result.deletedCount} older activities`);
             }
         }
-        console.log(`[Cleanup] Total deleted: ${totalDeleted} login activities (keeping last ${keepCount} per user)`);
         return { deletedCount: totalDeleted };
     } catch (error) {
         console.error('[Cleanup] Error keeping last N login activities:', error);
@@ -75,7 +72,6 @@ async function deleteOrphanedLoginActivities() {
         const loginActivityUserIds = await LoginActivity.distinct('userId');
         
         if (loginActivityUserIds.length === 0) {
-            console.log('[Cleanup] No login activities found to check for orphans');
             return { deletedCount: 0 };
         }
 
@@ -91,7 +87,6 @@ async function deleteOrphanedLoginActivities() {
         );
 
         if (orphanedUserIds.length === 0) {
-            console.log('[Cleanup] No orphaned login activities found');
             return { deletedCount: 0 };
         }
 
@@ -100,7 +95,6 @@ async function deleteOrphanedLoginActivities() {
             userId: { $in: orphanedUserIds }
         });
 
-        console.log(`[Cleanup] Deleted ${result.deletedCount} orphaned login activities for ${orphanedUserIds.length} non-existent users`);
         return { deletedCount: result.deletedCount };
     } catch (error) {
         console.error('[Cleanup] Error deleting orphaned login activities:', error);
@@ -108,8 +102,6 @@ async function deleteOrphanedLoginActivities() {
     }
 }
 async function cleanupLoginActivity(keepCount = 5) {
-    console.log('[Cleanup] Starting login activity cleanup...');
-    
     try {
         // Keep only last N records per user
         const excessResult = await keepLastNLoginActivities(keepCount);
@@ -118,8 +110,6 @@ async function cleanupLoginActivity(keepCount = 5) {
         const orphanedResult = await deleteOrphanedLoginActivities();
         
         const totalDeleted = excessResult.deletedCount + orphanedResult.deletedCount;
-        
-        console.log(`[Cleanup] Cleanup completed. Total records deleted: ${totalDeleted} (${excessResult.deletedCount} excess + ${orphanedResult.deletedCount} orphaned)`);
         
         return {
             excess: excessResult.deletedCount,

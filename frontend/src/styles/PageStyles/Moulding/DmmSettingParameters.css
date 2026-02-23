@@ -595,6 +595,37 @@
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
 }
 
+.invalid-input:focus {
+  outline: none;
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
+}
+
+.dmm-form-group input.invalid-input,
+.dmm-form-group select.invalid-input,
+.dmm-form-group textarea.invalid-input {
+  border-color: #ef4444 !important;
+  background-color: #fef2f2 !important;
+}
+
+.dmm-form-group input.invalid-input:focus,
+.dmm-form-group select.invalid-input:focus,
+.dmm-form-group textarea.invalid-input:focus {
+  outline: none;
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
+}
+
+/* CustomTimeInput sizing - match other input heights in the grid */
+.dmm-shift-form-grid .custom-time-input-container,
+.dmm-form-grid .custom-time-input-container {
+  width: 100%;
+  min-height: 40px;
+  height: 40px;
+  box-sizing: border-box;
+  padding: 0.35rem 0.75rem;
+}
+
 /* Responsive Design */
 @media (max-width: 1200px) {
   .dmm-form-grid {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BookOpenCheck } from 'lucide-react';
-import { FilterButton, ClearButton, CustomPagination } from '../../Components/Buttons';
+import { FilterButton, ClearButton, CustomPagination, SectionToggles } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Moulding/DisamaticProductReport.css';
@@ -28,7 +28,6 @@ const MeltingLogSheetReport = () => {
   const [itemsPerPage] = useState(15);
   const [show, setShow] = useState({ primary: false, table1: false, table2: false, table3: false, table4: false, table5: false });
   const toggle = (key) => setShow(prev => ({ ...prev, [key]: !prev[key] }));
-  const anySection = show.primary || show.table1 || show.table2 || show.table3 || show.table4 || show.table5;
 
   // Filter is enabled if at least one filter is set
   const isFilterEnabled = (fromDate && fromDate.trim() !== '') || (selectedShift && selectedShift.trim() !== '') || (selectedFurnace && selectedFurnace.trim() !== '') || (selectedPanel && selectedPanel.trim() !== '');
@@ -235,39 +234,22 @@ const MeltingLogSheetReport = () => {
         </div>
         <FilterButton onClick={handleFilter} disabled={!isFilterEnabled} />
         <ClearButton onClick={handleClear} />
-        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', marginLeft: '0.75rem', paddingLeft: '1rem', borderLeft: '2px solid #e2e8f0' }}>
-          {[
-            { key: 'primary', label: 'Primary' },
-            { key: 'table1', label: 'Table 1' },
-            { key: 'table2', label: 'Table 2' },
-            { key: 'table3', label: 'Table 3' },
-            { key: 'table4', label: 'Table 4' },
-            { key: 'table5', label: 'Table 5' }
-          ].map(({ key, label }) => (
-            <label key={key} style={{
-              display: 'inline-flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer',
-              fontSize: '0.9rem', fontWeight: 600, color: show[key] ? '#0f766e' : '#64748b',
-              userSelect: 'none', whiteSpace: 'nowrap',
-              padding: '0.35rem 0.65rem', borderRadius: '6px',
-              background: show[key] ? '#f0fdfa' : 'transparent',
-              border: show[key] ? '1.5px solid #99f6e4' : '1.5px solid transparent',
-              transition: 'all 0.2s ease'
-            }}>
-              <input type="checkbox" checked={show[key]} onChange={() => toggle(key)}
-                style={{ accentColor: '#0f766e', width: '17px', height: '17px', cursor: 'pointer' }} />
-              {label}
-            </label>
-          ))}
-          {anySection && (
-            <button onClick={() => setShow({ primary: false, table1: false, table2: false, table3: false, table4: false, table5: false })}
-              style={{
-                padding: '0.3rem 0.7rem', borderRadius: '6px', border: '1.5px solid #fca5a5',
-                background: '#fef2f2', color: '#dc2626', fontSize: '0.8rem', fontWeight: 600,
-                cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.2s ease'
-              }}>Clear</button>
-          )}
-        </div>
       </div>
+
+      {/* Section Toggles */}
+      <SectionToggles
+        sections={[
+          { key: 'primary', label: 'Primary' },
+          { key: 'table1', label: 'Table 1' },
+          { key: 'table2', label: 'Table 2' },
+          { key: 'table3', label: 'Table 3' },
+          { key: 'table4', label: 'Table 4' },
+          { key: 'table5', label: 'Table 5' }
+        ]}
+        show={show}
+        onToggle={toggle}
+        onClear={() => setShow({ primary: false, table1: false, table2: false, table3: false, table4: false, table5: false })}
+      />
 
       {loading ? <div className="impact-loader-container"><div>Loading...</div></div> : (
         <div className="impact-table-container" style={{ overflowX: 'auto' }}>

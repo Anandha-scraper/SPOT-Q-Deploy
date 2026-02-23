@@ -672,7 +672,7 @@ export const CustomTimeInput = forwardRef(({ value, onChange, className = '', ha
         display: 'flex',
         alignItems: 'center',
         gap: '0.5rem',
-        padding: '0.625rem 0.875rem',
+        padding: '0.25rem 0.75rem',
         border: hasError ? '2px solid #ef4444' : '2px solid #cbd5e1',
         borderRadius: '8px',
         backgroundColor: disabled ? '#f3f4f6' : '#fff',
@@ -763,6 +763,40 @@ export const CustomTimeInput = forwardRef(({ value, onChange, className = '', ha
   );
 });
 CustomTimeInput.displayName = 'CustomTimeInput';
+
+// Section Toggles Component (reusable checkboxes with clear button)
+
+export const SectionToggles = ({ sections = [], show = {}, onToggle, onClear }) => {
+  const anyActive = Object.values(show).some(Boolean);
+
+  return (
+    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '1.5rem' }}>
+      {sections.map(({ key, label }) => (
+        <label key={key} style={{
+          display: 'inline-flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer',
+          fontSize: '0.9rem', fontWeight: 600, color: show[key] ? '#0f766e' : '#64748b',
+          userSelect: 'none', whiteSpace: 'nowrap',
+          padding: '0.35rem 0.65rem', borderRadius: '6px',
+          background: show[key] ? '#f0fdfa' : 'transparent',
+          border: show[key] ? '1.5px solid #99f6e4' : '1.5px solid transparent',
+          transition: 'all 0.2s ease'
+        }}>
+          <input type="checkbox" checked={!!show[key]} onChange={() => onToggle(key)}
+            style={{ accentColor: '#0f766e', width: '17px', height: '17px', cursor: 'pointer' }} />
+          {label}
+        </label>
+      ))}
+      {anyActive && (
+        <button onClick={onClear}
+          style={{
+            padding: '0.3rem 0.7rem', borderRadius: '6px', border: '1.5px solid #fca5a5',
+            background: '#fef2f2', color: '#dc2626', fontSize: '0.8rem', fontWeight: 600,
+            cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.2s ease'
+          }}>Clear</button>
+      )}
+    </div>
+  );
+};
 
 // Pagination Component
 

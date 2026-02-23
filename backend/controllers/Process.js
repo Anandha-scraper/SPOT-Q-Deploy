@@ -112,6 +112,7 @@ exports.checkDateDisaEntries = async (req, res) => {
                 exists: false,
                 isSaved: false,
                 count: 0,
+                lastEntry: null,
                 message: 'No entries found for this date.'
             });
         }
@@ -123,11 +124,15 @@ exports.checkDateDisaEntries = async (req, res) => {
         const disaEntries = document.entries.filter(entry => entry.disa === disa);
         const count = disaEntries.length;
 
+        // Get the last entry for this DISA (most recently added)
+        const lastEntry = count > 0 ? disaEntries[count - 1].toObject() : null;
+
         res.status(200).json({
             success: true,
             exists: isSaved,
             isSaved: isSaved,
             count: count,
+            lastEntry: lastEntry,
             totalEntriesForDate: document.entries.length,
             message: isSaved ? `Primary saved. Found ${count} entries for ${disa} on ${date}.` : 'Primary not saved yet.'
         });

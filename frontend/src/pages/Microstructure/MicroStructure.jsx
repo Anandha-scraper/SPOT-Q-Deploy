@@ -207,18 +207,31 @@ const MicroStructure = () => {
 
   // ====================== Effects ======================
   
-  // Set current date and load previous DISA on mount
+  // Set current date and load previous DISA from database on mount
   useEffect(() => {
     const today = new Date();
     const y = today.getFullYear();
     const m = String(today.getMonth() + 1).padStart(2, '0');
     const d = String(today.getDate()).padStart(2, '0');
     
-    // Load previously saved DISA from localStorage
-    const savedDisa = localStorage.getItem('microstructure_last_disa');
-    
     setDate(`${y}-${m}-${d}`);
-    setDisa(savedDisa || '');
+
+    // Fetch last used DISA from database
+    const fetchLastDisa = async () => {
+      try {
+        const response = await fetch(`${API_ENDPOINTS.microStructure}/last-disa`, {
+          method: 'GET',
+          credentials: 'include'
+        });
+        const data = await response.json();
+        if (data.success && data.lastDisa) {
+          setDisa(data.lastDisa);
+        }
+      } catch (error) {
+        console.error('Error fetching last DISA:', error);
+      }
+    };
+    fetchLastDisa();
   }, []);
   
   // Check if date+disa combination exists in database
@@ -253,9 +266,6 @@ const MicroStructure = () => {
         setSavePrimaryLoading(false);
         
         if (data.success && data.exists) {
-          // Save DISA to localStorage for future use
-          localStorage.setItem('microstructure_last_disa', disa);
-          
           setShowCombinationFound(true);
           
           // Hide "Combination found" message after 1.5 seconds
@@ -543,9 +553,6 @@ const MicroStructure = () => {
       setSavePrimaryLoading(false);
       
       if (data.success) {
-        // Save DISA to localStorage for future use
-        localStorage.setItem('microstructure_last_disa', disa);
-        
         setShowCombinationAdded(true);
         
         // Hide "Combination Added" message after 1 second
@@ -935,7 +942,7 @@ const MicroStructure = () => {
         </h3>
 
         <div className="microstructure-form-row" style={{ flexWrap: 'wrap' }}>
-          <div className="microstructure-field" style={{ maxWidth: '200px', position: 'relative', zIndex: 100 }}>
+          <div className="microstructure-field" style={{ maxWidth: '10%', position: 'relative', zIndex: 100 }}>
             <label>Ins. Date</label>
             <CustomDatePicker
               ref={el => inputRefs.current.date = el}
@@ -954,7 +961,7 @@ const MicroStructure = () => {
               }}
             />
           </div>
-          <div className="microstructure-field" style={{ maxWidth: '200px' }}>
+          <div className="microstructure-field" style={{ maxWidth: '5%' }}>
             <label>DISA</label>
             <DisaDropdown
               ref={el => inputRefs.current.disa = el}
@@ -1005,7 +1012,7 @@ const MicroStructure = () => {
               </div>
             )}
           </div>
-          <div className="microstructure-field" style={{ maxWidth: '200px' }}>
+          <div className="microstructure-field" style={{ maxWidth: '25%' }}>
             <label>&nbsp;</label>
             <LockPrimaryButton
               onClick={handlePrimarySubmit}
@@ -1019,7 +1026,7 @@ const MicroStructure = () => {
       <div className="microstructure-divider"></div>
 
       <div className="microstructure-form-row" style={{ flexWrap: 'wrap' }}>
-        <div className="microstructure-field" style={{ maxWidth: '250px' }}>
+        <div className="microstructure-field" style={{ maxWidth: '20%' }}>
           <label>Part Name</label>
           <input
             ref={el => inputRefs.current.partName = el}
@@ -1033,7 +1040,7 @@ const MicroStructure = () => {
             className={getInputClassName('microstructure-input', partNameValid)}
           />
         </div>
-        <div className="microstructure-field" style={{ maxWidth: '200px' }}>
+        <div className="microstructure-field" style={{ maxWidth: '10%' }}>
           <label>Date Code</label>
           <input
             ref={el => inputRefs.current.dateCode = el}
@@ -1047,7 +1054,7 @@ const MicroStructure = () => {
             className={getInputClassName('microstructure-input', dateCodeValid)}
           />
         </div>
-        <div className="microstructure-field" style={{ maxWidth: '200px' }}>
+        <div className="microstructure-field" style={{ maxWidth: '10%' }}>
           <label>Heat Code</label>
           <input
             ref={el => inputRefs.current.heatCode = el}
@@ -1069,8 +1076,8 @@ const MicroStructure = () => {
         <h3>Micro Structure : </h3>
       </div>
 
-      <div className="microstructure-form-row">
-        <div className="microstructure-field">
+      <div className="microstructure-form-row" style={{ flexWrap: 'wrap' }}>
+        <div className="microstructure-field" style={{ maxWidth: '14%', minWidth: '12%' }}>
           <label>Nodularity %</label>
           <input
             ref={el => inputRefs.current.nodularity = el}
@@ -1087,7 +1094,7 @@ const MicroStructure = () => {
             className={getInputClassName('microstructure-input', nodularityValid)}
           />
         </div>
-        <div className="microstructure-field">
+        <div className="microstructure-field" style={{ maxWidth: '14%', minWidth: '12%' }}>
           <label>Graphite Type</label>
           <input
             ref={el => inputRefs.current.graphiteType = el}
@@ -1101,7 +1108,7 @@ const MicroStructure = () => {
             className={getInputClassName('microstructure-input', graphiteTypeValid)}
           />
         </div>
-        <div className="microstructure-field">
+        <div className="microstructure-field" style={{ maxWidth: '14%', minWidth: '12%' }}>
           <label>Count (Nos / mm²)</label>
           <div className="microstructure-range-input">
             <input
@@ -1133,7 +1140,7 @@ const MicroStructure = () => {
             />
           </div>
         </div>
-        <div className="microstructure-field">
+        <div className="microstructure-field" style={{ maxWidth: '14%', minWidth: '12%' }}>
           <label>Size</label>
           <div className="microstructure-range-input">
             <input
@@ -1165,7 +1172,7 @@ const MicroStructure = () => {
             />
           </div>
         </div>
-        <div className="microstructure-field">
+        <div className="microstructure-field" style={{ maxWidth: '14%', minWidth: '12%' }}>
           <label>Ferrite %</label>
           <div className="microstructure-range-input">
             <input
@@ -1199,7 +1206,7 @@ const MicroStructure = () => {
             />
           </div>
         </div>
-        <div className="microstructure-field">
+        <div className="microstructure-field" style={{ maxWidth: '14%', minWidth: '12%' }}>
           <label>Pearlite %</label>
           <div className="microstructure-range-input">
             <input
@@ -1233,7 +1240,7 @@ const MicroStructure = () => {
             />
           </div>
         </div>
-        <div className="microstructure-field">
+        <div className="microstructure-field" style={{ maxWidth: '14%', minWidth: '12%' }}>
           <label>Carbide %</label>
           <div className="microstructure-range-input">
             <input
@@ -1272,7 +1279,7 @@ const MicroStructure = () => {
       <div className="microstructure-divider"></div>
 
       <div className="microstructure-form-row" style={{ alignItems: 'flex-end', flexWrap: 'wrap', gap: '1rem' }}>
-        <div className="microstructure-field" style={{ minWidth: '300px', maxWidth: '400px' }}>
+        <div className="microstructure-field" style={{ minWidth: '30%', maxWidth: '50%' }}>
           <label>Remarks *</label>
           <input
             ref={el => inputRefs.current.remarks = el}

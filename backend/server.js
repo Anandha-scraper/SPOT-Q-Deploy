@@ -6,7 +6,7 @@ const path = require('path');
 require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 5000;
-const { cleanupLoginActivity } = require('./utils/cleanupLoginActivity');
+
 
 // 1. Global Middleware
 // Configure CORS to accept requests from development and production
@@ -70,9 +70,8 @@ const meltingCtrl = require('./controllers/Melting-MeltingLogsheet');
 
 // 5. Database Connection & Global Sync
 mongoose.connect(process.env.MONGODB_URI)
-  .then(async () => {
+  .then(() => {
     console.log('SPOT-Q Database Connected');
-    await cleanupLoginActivity(5);
   })
   .catch(err => console.error('MongoDB Connection Error:', err));
 

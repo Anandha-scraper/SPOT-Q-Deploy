@@ -1,12 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { BookOpenCheck } from 'lucide-react';
-import { FilterButton, ClearButton } from '../../Components/Buttons';
+import { FilterButton, ClearButton, CustomPagination } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import Table from '../../Components/Table';
 import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Tensile/TensileReport.css';
 
 const TensileReport = () => {
+  const formatDateLocal = (d) => {
+    if (!d) return '';
+    const dt = new Date(d);
+    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+  };
+
+  const getTodayLocal = () => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  };
+
+  const todayStr = getTodayLocal();
+
   // Helper: display date in readable format (e.g., "23 / 01 / 2026")
   const formatDateDisplay = (dateStr) => {
     if (!dateStr) return '-';
@@ -19,115 +32,91 @@ const TensileReport = () => {
     }
   };
 
-  const [currentDate, setCurrentDate] = useState('');
-  const [entries, setEntries] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState(todayStr);
+  const [allEntries, setAllEntries] = useState([]);
+  const [filteredEntries, setFilteredEntries] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
 
-  // Filter states
-  const [startDate, setStartDate] = useState(null);
-  const [endDate, setEndDate] = useState(null);
-  const [isFilterActive, setIsFilterActive] = useState(false);
+  const itemsPerPage = 15;
 
+  const isFilterEnabled = toDate && toDate.trim() !== '' && !(fromDate && fromDate.trim() !== '' && toDate <= fromDate);
+
+  // Fetch ALL entries once on mount
   useEffect(() => {
-    fetchCurrentDateAndEntries();
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(API_ENDPOINTS.tensile, { credentials: 'include' });
+        if (!response.ok) throw new Error('Failed to fetch tensile data');
+        const result = await response.json();
+
+        if (result.success && result.data) {
+          setAllEntries(result.data);
+
+          // Default: show only today's entries
+          const todayFiltered = result.data.filter(r => {
+            const d = r.date;
+            if (!d) return false;
+            return formatDateLocal(d) === todayStr;
+          });
+          setFilteredEntries(todayFiltered);
+        }
+      } catch (error) {
+        console.error('Error fetching tensile data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
   }, []);
 
-  const refreshData = async () => {
-    if (isFilterActive && startDate) {
-      // Re-fetch filtered data
-      await fetchFilteredData();
-    } else {
-      // Re-fetch current date data
-      await fetchCurrentDateAndEntries();
-    }
-  };
+  const handleFilter = () => {
+    if (!toDate) { setFilteredEntries([]); return; }
 
-  const fetchFilteredData = async () => {
-    try {
-      setLoading(true);
+    const toDateStr = toDate;
+    const fromDateStr = fromDate || '';
 
-      // Build query params
-      let query = `startDate=${startDate}`;
-      if (endDate) {
-        query += `&endDate=${endDate}`;
+    const filtered = allEntries.filter(r => {
+      const d = r.date;
+      if (!d) return false;
+      const reportDate = formatDateLocal(d);
+      if (fromDateStr) {
+        return reportDate >= fromDateStr && reportDate <= toDateStr;
       }
+      return reportDate === toDateStr;
+    });
 
-      const response = await fetch(`${API_ENDPOINTS.tensile}/filter?${query}`, {
-        credentials: 'include'
-      });
-      const data = await response.json();
-
-      if (data.success) {
-        setEntries(data.data || []);
-      }
-    } catch (error) {
-      console.error('Error filtering entries:', error);
-      alert('Failed to filter entries: ' + (error.message || 'Unknown error'));
-    } finally {
-      setLoading(false);
-    }
+    setFilteredEntries(filtered);
+    setCurrentPage(1);
   };
 
-  const fetchCurrentDateAndEntries = async () => {
-    try {
-      setLoading(true);
-      // Get current date (client-side)
-      const today = new Date();
-      const year = today.getFullYear();
-      const month = String(today.getMonth() + 1).padStart(2, '0');
-      const day = String(today.getDate()).padStart(2, '0');
-      const todayStr = `${year}-${month}-${day}`;
-      setCurrentDate(todayStr);
+  const handleClear = () => {
+    setFromDate('');
+    setToDate(todayStr);
 
-      // Fetch entries for current date
-      const response = await fetch(`${API_ENDPOINTS.tensile}/by-date?date=${todayStr}`, {
-        credentials: 'include'
-      });
-      const data = await response.json();
-
-      if (data.success) {
-        setEntries(data.data || []);
-      }
-    } catch (error) {
-      console.error('Error fetching tensile tests:', error);
-    } finally {
-      setLoading(false);
-    }
+    const todayFiltered = allEntries.filter(r => {
+      const d = r.date;
+      if (!d) return false;
+      return formatDateLocal(d) === todayStr;
+    });
+    setFilteredEntries(todayFiltered);
+    setCurrentPage(1);
   };
 
-  // Helpers for remarks truncation and modal
-  const splitIntoSentences = (text) => {
-    if (!text) return [];
-    return text
-      .replace(/\n+/g, ' ')
-      .trim()
-      .split(/(?<=[.!?])\s+/)
-      .filter(Boolean);
-  };
+  // Sort: date descending
+  const sortedEntries = useMemo(() => {
+    return [...filteredEntries].sort((a, b) => {
+      const da = new Date(a.date);
+      const db = new Date(b.date);
+      return db - da;
+    });
+  }, [filteredEntries]);
 
-  const getTwoSentencePreview = (text) => {
-    const sentences = splitIntoSentences(text);
-    if (sentences.length <= 2) return { preview: text, truncated: false };
-    const preview = sentences.slice(0, 2).join(' ');
-    return { preview, truncated: true };
-  };
-
-  const handleFilter = async () => {
-    if (!startDate) {
-      alert('Please select a start date');
-      return;
-    }
-
-    setIsFilterActive(true);
-    await fetchFilteredData();
-  };
-
-  const handleClearFilter = () => {
-    setStartDate(null);
-    setEndDate(null);
-    setIsFilterActive(false);
-    fetchCurrentDateAndEntries();
-  };
+  const totalPages = Math.ceil(sortedEntries.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedEntries = sortedEntries.slice(startIndex, startIndex + itemsPerPage);
 
   return (
     <>
@@ -139,33 +128,29 @@ const TensileReport = () => {
           </h2>
         </div>
         <div aria-label="Date" style={{ fontWeight: 600, color: '#25424c' }}>
-          {loading ? 'Loading...' : `DATE : ${formatDateDisplay(currentDate)}`}
+          {loading ? 'Loading...' : `DATE : ${formatDateDisplay(todayStr)}`}
         </div>
       </div>
 
       <div className="impact-filter-container">
         <div className="impact-filter-group">
-          <label>Start Date</label>
+          <label>From Date</label>
           <CustomDatePicker
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            placeholder="Select start date"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            placeholder="From date"
           />
         </div>
         <div className="impact-filter-group">
-          <label>End Date</label>
+          <label>To Date</label>
           <CustomDatePicker
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            placeholder="Select end date"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+            placeholder="To date"
           />
         </div>
-        <FilterButton onClick={handleFilter} disabled={!startDate}>
-          Filter
-        </FilterButton>
-        <ClearButton onClick={handleClearFilter} disabled={!startDate && !endDate}>
-          Clear
-        </ClearButton>
+        <FilterButton onClick={handleFilter} disabled={!isFilterEnabled} />
+        <ClearButton onClick={handleClear} />
       </div>
 
       {loading ? (
@@ -175,14 +160,14 @@ const TensileReport = () => {
       ) : (
         <Table
           columns={[
-            { 
-              key: 'date', 
-              label: 'Date of Inspection', 
-              width: '140px', 
+            {
+              key: 'date',
+              label: 'Date of Inspection',
+              width: '140px',
               bold: true,
               align: 'center',
               render: (item) => {
-                const dateToUse = item.date || currentDate;
+                const dateToUse = item.date;
                 if (!dateToUse) return '-';
                 const dateStr = typeof dateToUse === 'string' ? dateToUse : dateToUse.toString();
                 const isoDate = dateStr.split('T')[0];
@@ -201,16 +186,24 @@ const TensileReport = () => {
             { key: 'ys', label: 'YS (N/mm²)', width: '120px', align: 'center' },
             { key: 'elongation', label: 'Elongation (%)', width: '140px', align: 'center' },
             { key: 'testedBy', label: 'Tested By', width: '140px', align: 'center' },
-            { 
-              key: 'remarks', 
-              label: 'Remarks', 
+            {
+              key: 'remarks',
+              label: 'Remarks',
               width: '200px',
               align: 'center'
             }
           ]}
-          data={entries}
+          data={paginatedEntries}
           groupByColumn="date"
           noDataMessage="No records found"
+        />
+      )}
+
+      {!loading && sortedEntries.length > itemsPerPage && (
+        <CustomPagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
         />
       )}
     </>

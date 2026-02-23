@@ -54,7 +54,6 @@ const MicroTensile = () => {
       field: 'Bar Dia',
       required: true,
       type: 'Number',
-      min: 0,
       unit: 'mm',
       pattern: 'e.g., 6.0'
     },
@@ -62,7 +61,6 @@ const MicroTensile = () => {
       field: 'Gauge Length',
       required: true,
       type: 'Number',
-      min: 0,
       unit: 'mm',
       pattern: 'e.g., 30.0'
     },
@@ -310,9 +308,46 @@ const MicroTensile = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    // Reset primary saved state when date or disa changes
+    // Reset primary saved state and clear all fields when date or disa changes
     if (name === 'date' || name === 'disa') {
       setIsPrimarySaved(false);
+
+      // Clear all form fields except date and disa
+      setFormData(prev => ({
+        date: name === 'date' ? value : prev.date,
+        disa: name === 'disa' ? value : prev.disa,
+        item: '',
+        itemSecond: '',
+        dateCode: '',
+        heatCode: '',
+        barDia: '',
+        gaugeLength: '',
+        maxLoad: '',
+        yieldLoad: '',
+        tensileStrength: '',
+        yieldStrength: '',
+        elongation: '',
+        remarks: '',
+        testedBy: ''
+      }));
+
+      // Reset all validation states
+      setItemValid(null);
+      setItemSecondValid(null);
+      setDateCodeValid(null);
+      setHeatCodeValid(null);
+      setBarDiaValid(null);
+      setGaugeLengthValid(null);
+      setMaxLoadValid(null);
+      setYieldLoadValid(null);
+      setTensileStrengthValid(null);
+      setYieldStrengthValid(null);
+      setElongationValid(null);
+      setRemarksValid(null);
+      setTestedByValid(null);
+      setErrors({});
+      setSubmitError('');
+      return;
     }
 
     // --- RESET ITEM VALIDATION ---

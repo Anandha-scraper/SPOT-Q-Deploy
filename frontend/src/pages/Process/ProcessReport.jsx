@@ -1,271 +1,264 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BookOpenCheck } from 'lucide-react';
-import { FilterButton, ClearButton, CustomPagination, FilterDisaDropdown } from '../../Components/Buttons';
+import { FilterButton, ClearButton, FilterDisaDropdown, CustomPagination, SectionToggles } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import ProcessReportDetail from './ProcessReportDetail';
 import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Process/ProcessReport.css';
+import '../../styles/ComponentStyles/Table.css';
 
 const ProcessReport = () => {
-  const [startDate, setStartDate] = useState(null);
-  const [endDate, setEndDate] = useState(null);
-  const [selectedDisa, setSelectedDisa] = useState('All');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [hoveredDateGroup, setHoveredDateGroup] = useState(null);
-  const [hoveredRow, setHoveredRow] = useState(null);
-  
-  // Detail view state
-  const [showDetailView, setShowDetailView] = useState(false);
-  const [detailData, setDetailData] = useState(null);
-  const [detailType, setDetailType] = useState(null); // 'date' or 'entry'
-  
-  // Data fetching states
-  const [allEntries, setAllEntries] = useState([]);
-  const [reportData, setReportData] = useState([]);
-  const [loading, setLoading] = useState(true);
-  
-  const itemsPerPage = 15; // Show 15 items per page
 
-  // Fetch all entries from database
+  // ========================================================================
+  // FILTER SYSTEM — Reusable pattern for date-range + optional dropdown filter
+  // ========================================================================
+  //
+  // HOW IT WORKS:
+  // 1. On mount, ALL entries are fetched once from the API and stored in `allEntries`.
+  // 2. `filteredEntries` is a subset of `allEntries` — this is what the table renders.
+  // 3. By default, only today's entries are shown (filtered on mount).
+  //
+  // FILTER STATES:
+  //   - fromDate  : Start of date range (optional — if empty, no lower bound)
+  //   - toDate    : End of date range (required — defaults to today)
+  //   - selectedX : Any additional dropdown filter (e.g., DISA, Part Name, etc.)
+  //
+  // FILTER BUTTON ENABLE LOGIC:
+  //   - Enabled when toDate is set AND toDate > fromDate (if fromDate is provided).
+  //   - This prevents filtering with an invalid/empty range.
+  //
+  // handleFilter():
+  //   - Filters `allEntries` client-side by comparing each entry's date (converted
+  //     to 'YYYY-MM-DD' string) against the fromDate–toDate range.
+  //   - If fromDate is empty, shows only entries matching toDate exactly.
+  //   - Then applies any additional dropdown filter (e.g., DISA).
+  //   - Resets pagination to page 1.
+  //
+  // handleClear():
+  //   - Resets fromDate to '', toDate to today, dropdown to 'All'.
+  //   - Re-filters to today's entries only (same as initial load, NOT all entries).
+  //   - Resets pagination to page 1.
+  //
+  // TO REUSE IN OTHER PAGES:
+  //   1. Copy the state declarations: fromDate, toDate, allEntries, filteredEntries, currentPage.
+  //   2. Copy formatDateLocal() helper for consistent date comparison.
+  //   3. Copy the useEffect fetch — store full data in allEntries, filter today's into filteredEntries.
+  //   4. Copy handleFilter() — adjust the additional dropdown filter condition as needed.
+  //   5. Copy handleClear() — adjust the dropdown reset value.
+  //   6. Copy isFilterEnabled logic.
+  //   7. In JSX, use the same filter bar layout: CustomDatePicker x2 + optional dropdown + FilterButton + ClearButton.
+  //   8. Render `paginatedEntries` (sliced from sorted filteredEntries) in the table.
+  // ========================================================================
+
+  // Helper: Convert any date value to 'YYYY-MM-DD' string in local timezone
+  // Used for consistent date comparisons (avoids timezone issues with toISOString)
+  const formatDateLocal = (d) => {
+    if (!d) return '';
+    const dt = new Date(d);
+    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+  };
+
+  const getTodayLocal = () => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  };
+
+  const todayStr = getTodayLocal();
+
+  // --- Filter States ---
+  const [fromDate, setFromDate] = useState('');           // Start date (optional — empty means no lower bound)
+  const [toDate, setToDate] = useState(todayStr);         // End date (required — defaults to today)
+  const [selectedDisa, setSelectedDisa] = useState('All'); // Additional dropdown filter (replace with your own field)
+  const [allEntries, setAllEntries] = useState([]);        // Full dataset fetched once from API
+  const [filteredEntries, setFilteredEntries] = useState([]); // Filtered subset shown in table
+  const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);      // Pagination — reset to 1 on every filter/clear
+  const [show, setShow] = useState({ metalComposition: true, correctiveAdditions: true });
+  const toggle = (key) => setShow(prev => ({ ...prev, [key]: !prev[key] }));
+  const [remarksModal, setRemarksModal] = useState({ show: false, content: '', title: 'Remarks' });
+
+  const itemsPerPage = 15;
+
+  // FILTER BUTTON ENABLE LOGIC:
+  // Enabled when: toDate exists AND (fromDate is empty OR toDate > fromDate)
+  // This prevents users from filtering with an invalid range (e.g., toDate before fromDate)
+  const isFilterEnabled = toDate && toDate.trim() !== '' && !(fromDate && fromDate.trim() !== '' && toDate <= fromDate);
+
+  // Get unique DISA values
+  const disaOptions = useMemo(() => {
+    return Array.from(new Set(allEntries.map(item => item.disa).filter(Boolean))).sort();
+  }, [allEntries]);
+
+  // STEP 1: Fetch ALL entries once on mount.
+  // Store full dataset in `allEntries` (never mutated after fetch).
+  // Apply initial filter: show only today's entries by default.
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await fetch(API_ENDPOINTS.process, {
-          credentials: 'include'
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch process data');
-        }
-        
+        const response = await fetch(API_ENDPOINTS.process, { credentials: 'include' });
+        if (!response.ok) throw new Error('Failed to fetch process data');
         const result = await response.json();
-        
+
         if (result.success && result.data) {
-          // Filter out entries with empty disa
+          // Optional: pre-filter invalid entries (adjust condition per page)
           const validEntries = result.data.filter(entry => entry.disa && entry.disa.trim() !== '');
-          setAllEntries(validEntries);
-          
-          // Group entries by date and DISA
-          const grouped = groupEntriesByDateAndDisa(validEntries);
-          setReportData(grouped);
-          setFilteredData(grouped);
+          setAllEntries(validEntries); // Store full dataset
+
+          // Default view: only today's entries
+          const todayFiltered = validEntries.filter(r => {
+            if (!r.date) return false;
+            return formatDateLocal(r.date) === todayStr;
+          });
+          setFilteredEntries(todayFiltered);
         }
       } catch (error) {
         console.error('Error fetching process data:', error);
-        alert('Failed to load process data. Please try again.');
       } finally {
         setLoading(false);
       }
     };
-    
     fetchData();
   }, []);
 
-  // Group entries by date and DISA combination
-  const groupEntriesByDateAndDisa = (entries) => {
-    const groups = {};
-    
-    entries.forEach(entry => {
-      const key = `${entry.date}_${entry.disa}`;
-      
-      if (!groups[key]) {
-        groups[key] = {
-          _id: key,
-          date: entry.date,
-          disa: entry.disa,
-          entries: [],
-          count: 0
-        };
+  // STEP 2: handleFilter — Client-side filtering of `allEntries`.
+  // Filters by date range first, then by any additional dropdown selection.
+  // Always resets pagination to page 1.
+  const handleFilter = () => {
+    // Guard: toDate is required
+    if (!toDate) {
+      setFilteredEntries([]);
+      return;
+    }
+
+    const toDateStr = toDate;
+    const fromDateStr = fromDate || '';
+
+    // Date range filter:
+    // - If fromDate is set: entry date must be >= fromDate AND <= toDate
+    // - If fromDate is empty: show only entries matching toDate exactly
+    let filtered = allEntries.filter(r => {
+      if (!r.date) return false;
+      const reportDate = formatDateLocal(r.date);
+      if (fromDateStr) {
+        return reportDate >= fromDateStr && reportDate <= toDateStr;
       }
-      
-      groups[key].entries.push(entry);
-      groups[key].count++;
+      return reportDate === toDateStr;
     });
-    
-    // Convert to array and sort by date (newest first) and then by disa
-    return Object.values(groups).sort((a, b) => {
+
+    // Additional dropdown filter (e.g., DISA) — skip if 'All' is selected
+    // Replace `r.disa` and `selectedDisa` with your own field when reusing
+    if (selectedDisa && selectedDisa !== 'All') {
+      filtered = filtered.filter(r => r.disa === selectedDisa);
+    }
+
+    setFilteredEntries(filtered);
+    setCurrentPage(1); // Always reset to first page after filtering
+  };
+
+  // STEP 3: handleClear — Reset all filters to defaults.
+  // Shows only today's entries (same as initial load), resets dates, dropdown, and pagination.
+  const handleClear = () => {
+    setFromDate('');              // Clear start date
+    setToDate(todayStr);          // Reset end date to today
+    setSelectedDisa('All');       // Reset dropdown to 'All'
+    // Re-filter to today's entries only (not all entries)
+    const todayFiltered = allEntries.filter(r => {
+      if (!r.date) return false;
+      return formatDateLocal(r.date) === todayStr;
+    });
+    setFilteredEntries(todayFiltered);
+    setCurrentPage(1);            // Reset pagination
+  };
+
+  const formatDisplayDate = (dateString) => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return `${String(date.getDate()).padStart(2, '0')} / ${String(date.getMonth() + 1).padStart(2, '0')} / ${date.getFullYear()}`;
+  };
+
+  // Sort entries by date descending, then by disa
+  const sortedEntries = useMemo(() => {
+    return [...filteredEntries].sort((a, b) => {
       const dateCompare = new Date(b.date) - new Date(a.date);
       if (dateCompare !== 0) return dateCompare;
-      return a.disa.localeCompare(b.disa);
+      return (a.disa || '').localeCompare(b.disa || '');
     });
-  };
-
-  // Get unique DISA values from all entries - recalculate when allEntries changes
-  const disaOptions = useMemo(() => {
-    const uniqueDisa = Array.from(new Set(allEntries.map(item => item.disa).filter(Boolean))).sort();
-    return ['All', ...uniqueDisa];
-  }, [allEntries]);
-
-  const [filteredData, setFilteredData] = useState([]);
-
-  const handleFilter = () => {
-    // Validate that end date is not before start date
-    if (endDate && startDate && new Date(endDate) < new Date(startDate)) {
-      alert('End date cannot be before start date');
-      return;
-    }
-
-    if (!startDate) {
-      return;
-    }
-
-    const filtered = reportData.filter(item => {
-      const itemDate = new Date(item.date);
-      itemDate.setHours(0, 0, 0, 0);
-      const startD = new Date(startDate);
-      startD.setHours(0, 0, 0, 0);
-
-      // Date filter
-      let dateMatch = false;
-      if (endDate) {
-        const endD = new Date(endDate);
-        endD.setHours(23, 59, 59, 999);
-        dateMatch = itemDate >= startD && itemDate <= endD;
-      } else {
-        dateMatch = itemDate.getTime() === startD.getTime();
-      }
-
-      // DISA filter
-      const disaMatch = selectedDisa === 'All' || item.disa === selectedDisa;
-
-      return dateMatch && disaMatch;
-    });
-
-    setFilteredData(filtered);
-    setCurrentPage(1);
-  };
-
-  const handleClearFilter = () => {
-    setStartDate(null);
-    setEndDate(null);
-    setSelectedDisa('All');
-    setFilteredData(reportData);
-    setCurrentPage(1);
-  };
-
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
-  };
+  }, [filteredEntries]);
 
   // Pagination
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const totalPages = Math.ceil(sortedEntries.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentData = filteredData.slice(startIndex, endIndex);
+  const paginatedEntries = sortedEntries.slice(startIndex, startIndex + itemsPerPage);
 
-  const handlePageChange = (page) => {
-    setCurrentPage(page);
+  const showRemarksPopup = (content, title = 'Remarks') => {
+    setRemarksModal({ show: true, content, title });
   };
 
-  // Calculate rowspans for date grouping
-  const calculateDateGroups = () => {
+  const closeRemarksModal = () => {
+    setRemarksModal({ show: false, content: '', title: 'Remarks' });
+  };
+
+  // Calculate column count for colSpan
+  const baseColCount = 22;
+  const metalColCount = show.metalComposition ? 8 : 0;
+  const correctiveColCount = show.correctiveAdditions ? 7 : 0;
+  const totalColCount = baseColCount + metalColCount + correctiveColCount;
+
+  // Group calculation for date rowSpan
+  const getGroupInfo = () => {
     const groups = {};
     let currentDate = null;
-    let groupStart = 0;
-    
-    currentData.forEach((item, index) => {
-      if (item.date !== currentDate) {
+    let groupStartIdx = 0;
+
+    paginatedEntries.forEach((item, idx) => {
+      const itemDate = formatDateLocal(item.date);
+      if (itemDate !== currentDate) {
         if (currentDate !== null) {
-          groups[groupStart] = {
-            rowspan: index - groupStart,
-            date: currentDate
-          };
+          groups[groupStartIdx] = { rowspan: idx - groupStartIdx, date: currentDate };
         }
-        currentDate = item.date;
-        groupStart = index;
+        currentDate = itemDate;
+        groupStartIdx = idx;
       }
-      
-      if (index === currentData.length - 1) {
-        groups[groupStart] = {
-          rowspan: index - groupStart + 1,
-          date: currentDate
-        };
+      if (idx === paginatedEntries.length - 1) {
+        groups[groupStartIdx] = { rowspan: idx - groupStartIdx + 1, date: currentDate };
       }
     });
-    
     return groups;
   };
 
-  const dateGroups = calculateDateGroups();
+  const dateGroups = getGroupInfo();
 
-  // Check if a row belongs to a hovered date group
-  const isRowInHoveredDateGroup = (rowIndex) => {
-    if (!hoveredDateGroup) return false;
-    return currentData[rowIndex]?.date === hoveredDateGroup;
+  // Group calculation for DISA rowSpan (consecutive same date+disa)
+  const getDisaGroupInfo = () => {
+    const groups = {};
+    let currentKey = null;
+    let groupStartIdx = 0;
+
+    paginatedEntries.forEach((item, idx) => {
+      const itemDate = formatDateLocal(item.date);
+      const itemDisa = item.disa || '';
+      const key = `${itemDate}|${itemDisa}`;
+
+      if (key !== currentKey) {
+        if (currentKey !== null) {
+          groups[groupStartIdx] = { rowspan: idx - groupStartIdx, disa: currentKey.split('|')[1] };
+        }
+        currentKey = key;
+        groupStartIdx = idx;
+      }
+      if (idx === paginatedEntries.length - 1) {
+        groups[groupStartIdx] = { rowspan: idx - groupStartIdx + 1, disa: currentKey.split('|')[1] };
+      }
+    });
+    return groups;
   };
 
-  // Get the date for a specific row (to highlight date cell when hovering row)
-  const getDateForRow = (rowIndex) => {
-    return currentData[rowIndex]?.date;
-  };
+  const disaGroups = getDisaGroupInfo();
 
-  // Handle click on date to show all entries for that date
-  const handleDateClick = (date) => {
-    const dateEntries = allEntries.filter(item => item.date === date);
-    setDetailData(dateEntries);
-    setDetailType('date');
-    setShowDetailView(true);
-  };
-
-  // Handle click on specific row to show detailed entry
-  const handleRowClick = (item) => {
-    // item.entries contains all entries for this date+disa combination
-    setDetailData(item.entries);
-    setDetailType('entry');
-    setShowDetailView(true);
-  };
-
-  // Handle back to main view
-  const handleBackToMain = () => {
-    setShowDetailView(false);
-    setDetailData(null);
-    setDetailType(null);
-  };
-
-  const columns = [
-    { 
-      key: 'date', 
-      label: 'Date', 
-      width: '150px',
-      align: 'center',
-      render: (item) => formatDate(item.date)
-    },
-    { 
-      key: 'disa', 
-      label: 'DISA', 
-      width: '150px', 
-      align: 'center' 
-    },
-    { 
-      key: 'entries', 
-      label: 'No. of Entries', 
-      width: '150px',
-      align: 'center',
-      render: (item) => item.count
-    }
-  ];
-
-  // Render detail view if active
-  if (showDetailView && detailData) {
-    return (
-      <ProcessReportDetail 
-        detailData={detailData}
-        detailType={detailType}
-        onBack={handleBackToMain}
-      />
-    );
-  }
-
-  // Main report view
   return (
-    <>
-      <div className="impact-report-header">
-        <div className="impact-report-header-text">
+    <div className="page-wrapper">
+      <div className="process-report-header">
+        <div className="process-report-header-text">
           <h2>
             <BookOpenCheck size={28} style={{ color: '#5B9AA9' }} />
             Process Control - Report
@@ -273,163 +266,219 @@ const ProcessReport = () => {
         </div>
       </div>
 
-      <div className="impact-filter-container">
-        <div className="impact-filter-group">
-          <label>Start Date</label>
-          <CustomDatePicker
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            placeholder="Select start date"
-          />
+      {/* Filters */}
+      <div className="process-report-filter-wrapper">
+        <div className="process-filter-group">
+          <label className="process-report-filter-label">From Date</label>
+          <CustomDatePicker value={fromDate} onChange={(e) => setFromDate(e.target.value)} placeholder="From date" />
         </div>
-        <div className="impact-filter-group">
-          <label>End Date</label>
-          <CustomDatePicker
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            placeholder="Select end date"
-            min={startDate}
-          />
+        <div className="process-filter-group">
+          <label className="process-report-filter-label">To Date</label>
+          <CustomDatePicker value={toDate} onChange={(e) => setToDate(e.target.value)} placeholder="To date" />
         </div>
-        <div className="impact-filter-group">
-          <label>DISA</label>
+        <div className="process-filter-group">
+          <label className="process-report-filter-label">DISA (Optional)</label>
           <FilterDisaDropdown
             value={selectedDisa}
             onChange={(e) => setSelectedDisa(e.target.value)}
-            options={disaOptions.filter(disa => disa !== 'All')}
+            options={disaOptions}
           />
         </div>
-        <FilterButton onClick={handleFilter} disabled={!startDate}>
-          Filter
-        </FilterButton>
-        <ClearButton onClick={handleClearFilter} disabled={!startDate && !endDate}>
-          Clear
-        </ClearButton>
+        <FilterButton onClick={handleFilter} disabled={!isFilterEnabled} />
+        <ClearButton onClick={handleClear} />
       </div>
 
-      {/* Custom Table with Grouped Date Hover */}
-      <div className="reusable-table-container">
-        <table 
-          className="reusable-table"
-          style={{ minWidth: '500px' }}
-        >
-          <thead>
-            <tr>
-              {columns.map((col, index) => (
-                <th 
-                  key={col.key || index}
-                  style={{
-                    width: col.width || 'auto',
-                    textAlign: col.align || 'center'
-                  }}
-                >
-                  {col.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {currentData.length === 0 ? (
+      {/* Section Toggles */}
+      <SectionToggles
+        sections={[
+          { key: 'metalComposition', label: 'Metal Composition (%)' },
+          { key: 'correctiveAdditions', label: 'Corrective Additions (Kgs)' }
+        ]}
+        show={show}
+        onToggle={toggle}
+        onClear={() => setShow({ metalComposition: false, correctiveAdditions: false })}
+      />
+
+      {/* Table */}
+      {loading ? (
+        <div className="process-loader-container"><div>Loading...</div></div>
+      ) : (
+        <div className="reusable-table-container">
+          <table className="reusable-table" style={{ tableLayout: 'auto' }}>
+            <thead>
+              {/* Group Headers */}
               <tr>
-                <td 
-                  colSpan={columns.length} 
-                  className="reusable-table-no-records"
-                >
-                  No records found
-                </td>
+                <th rowSpan={2} style={{ minWidth: '150px', textAlign: 'center', whiteSpace: 'nowrap' }}>Date</th>
+                <th rowSpan={2} style={{ minWidth: '80px', textAlign: 'center', whiteSpace: 'nowrap' }}>DISA</th>
+                <th rowSpan={2} style={{ minWidth: '200px', textAlign: 'center', whiteSpace: 'nowrap' }}>Part Name</th>
+                <th rowSpan={2} style={{ minWidth: '80px', textAlign: 'center', whiteSpace: 'nowrap' }}>Date Code</th>
+                <th rowSpan={2} style={{ minWidth: '90px', textAlign: 'center', whiteSpace: 'nowrap' }}>Heat Code</th>
+                <th rowSpan={2} style={{ minWidth: '90px', textAlign: 'center', whiteSpace: 'nowrap' }}>Qty of Moulds</th>
+                {show.metalComposition && <th colSpan={8} style={{ textAlign: 'center' }}>Metal Composition (%)</th>}
+                <th rowSpan={2} style={{ minWidth: '100px', textAlign: 'center', whiteSpace: 'nowrap' }}>Pouring Temp</th>
+                <th rowSpan={2} style={{ minWidth: '200px', textAlign: 'center', whiteSpace: 'nowrap' }}>Time of Pouring</th>
+                <th rowSpan={2} style={{ minWidth: '80px', textAlign: 'center', whiteSpace: 'nowrap' }}>PP Code</th>
+                <th rowSpan={2} style={{ minWidth: '90px', textAlign: 'center', whiteSpace: 'nowrap' }}>Treatment No</th>
+                <th rowSpan={2} style={{ minWidth: '70px', textAlign: 'center', whiteSpace: 'nowrap' }}>FC No</th>
+                <th rowSpan={2} style={{ minWidth: '80px', textAlign: 'center', whiteSpace: 'nowrap' }}>Heat No</th>
+                <th rowSpan={2} style={{ minWidth: '70px', textAlign: 'center', whiteSpace: 'nowrap' }}>Con No</th>
+                {show.correctiveAdditions && <th colSpan={7} style={{ textAlign: 'center' }}>Corrective Additions (Kgs)</th>}
+                <th rowSpan={2} style={{ minWidth: '90px', textAlign: 'center', whiteSpace: 'nowrap' }}>Tapping Wt</th>
+                <th rowSpan={2} style={{ minWidth: '90px', textAlign: 'center', whiteSpace: 'nowrap' }}>Tapping Time</th>
+                <th rowSpan={2} style={{ minWidth: '60px', textAlign: 'center', whiteSpace: 'nowrap' }}>Mg</th>
+                <th rowSpan={2} style={{ minWidth: '110px', textAlign: 'center', whiteSpace: 'nowrap' }}>Res Mg Convertor</th>
+                <th rowSpan={2} style={{ minWidth: '90px', textAlign: 'center', whiteSpace: 'nowrap' }}>Rec of Mg</th>
+                <th rowSpan={2} style={{ minWidth: '110px', textAlign: 'center', whiteSpace: 'nowrap' }}>Stream Inoculant</th>
+                <th rowSpan={2} style={{ minWidth: '70px', textAlign: 'center', whiteSpace: 'nowrap' }}>P Time</th>
+                <th rowSpan={2} style={{ minWidth: '100px', textAlign: 'center', whiteSpace: 'nowrap' }}>Remarks</th>
               </tr>
-            ) : (
-              currentData.map((item, rowIndex) => {
-                const isDateGroupStart = dateGroups[rowIndex];
-                const isInHoveredGroup = isRowInHoveredDateGroup(rowIndex);
-                const isRowHovered = hoveredRow === rowIndex;
-                
-                // Check if this date cell should be highlighted due to row hover
-                const shouldHighlightDateCell = hoveredRow !== null && 
-                  isDateGroupStart && 
-                  getDateForRow(hoveredRow) === item.date;
-                
-                return (
-                  <tr 
-                    key={item._id || rowIndex}
-                    className={`${isInHoveredGroup && !isRowHovered ? 'date-group-hovered' : ''} ${isRowHovered ? 'row-hovered' : ''}`}
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => handleRowClick(item)}
-                  >
-                    {isDateGroupStart ? (
-                      <td 
-                        rowSpan={isDateGroupStart.rowspan}
-                        className={`date-cell ${shouldHighlightDateCell ? 'date-cell-row-hovered' : ''}`}
-                        onMouseEnter={(e) => {
-                          e.stopPropagation();
-                          setHoveredDateGroup(item.date);
-                          setHoveredRow(null);
-                        }}
-                        onMouseLeave={(e) => {
-                          e.stopPropagation();
-                          setHoveredDateGroup(null);
-                        }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDateClick(item.date);
-                        }}
-                        style={{
-                          ...{
-                            width: '150px',
-                            textAlign: 'center',
-                            verticalAlign: 'middle',
-                            color: '#475569'
-                          },
-                          cursor: 'pointer'
-                        }}
-                      >
-                        {formatDate(item.date)}
-                      </td>
-                    ) : null}
-                    <td 
-                      style={{
-                        width: '150px',
-                        textAlign: 'center',
-                        color: '#475569'
-                      }}
-                      onMouseEnter={() => {
-                        setHoveredRow(rowIndex);
-                        setHoveredDateGroup(null);
-                      }}
-                      onMouseLeave={() => setHoveredRow(null)}
-                    >
-                      {item.disa}
-                    </td>
-                    <td 
-                      style={{
-                        width: '150px',
-                        textAlign: 'center',
-                        color: '#475569'
-                      }}
-                      onMouseEnter={() => {
-                        setHoveredRow(rowIndex);
-                        setHoveredDateGroup(null);
-                      }}
-                      onMouseLeave={() => setHoveredRow(null)}
-                    >
-                      {item.count}
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+              {/* Sub Headers */}
+              <tr>
+                {show.metalComposition && (
+                  <>
+                    <th style={{ minWidth: '60px', textAlign: 'center' }}>C</th>
+                    <th style={{ minWidth: '60px', textAlign: 'center' }}>Si</th>
+                    <th style={{ minWidth: '60px', textAlign: 'center' }}>Mn</th>
+                    <th style={{ minWidth: '60px', textAlign: 'center' }}>P</th>
+                    <th style={{ minWidth: '60px', textAlign: 'center' }}>S</th>
+                    <th style={{ minWidth: '90px', textAlign: 'center' }}>Mg FL</th>
+                    <th style={{ minWidth: '60px', textAlign: 'center' }}>Cu</th>
+                    <th style={{ minWidth: '60px', textAlign: 'center' }}>Cr</th>
+                  </>
+                )}
+                {show.correctiveAdditions && (
+                  <>
+                    <th style={{ minWidth: '60px', textAlign: 'center' }}>C</th>
+                    <th style={{ minWidth: '60px', textAlign: 'center' }}>Si</th>
+                    <th style={{ minWidth: '60px', textAlign: 'center' }}>Mn</th>
+                    <th style={{ minWidth: '60px', textAlign: 'center' }}>S</th>
+                    <th style={{ minWidth: '60px', textAlign: 'center' }}>Cr</th>
+                    <th style={{ minWidth: '60px', textAlign: 'center' }}>Cu</th>
+                    <th style={{ minWidth: '60px', textAlign: 'center' }}>Sn</th>
+                  </>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {paginatedEntries.length === 0 ? (
+                <tr>
+                  <td colSpan={totalColCount} className="reusable-table-no-records">No records found</td>
+                </tr>
+              ) : (
+                paginatedEntries.map((item, idx) => {
+                  const isDateGroupStart = dateGroups[idx];
+                  const itemDate = formatDateLocal(item.date);
 
-      {totalPages > 1 && (
-        <CustomPagination 
+                  const prevItem = idx > 0 ? paginatedEntries[idx - 1] : null;
+                  const nextItem = idx < paginatedEntries.length - 1 ? paginatedEntries[idx + 1] : null;
+                  const isFirstInGroup = !prevItem || formatDateLocal(prevItem.date) !== itemDate;
+                  const isLastInGroup = !nextItem || formatDateLocal(nextItem.date) !== itemDate;
+                  const isDisaGroupStart = disaGroups[idx];
+
+                  return (
+                    <tr
+                      key={item._id || idx}
+                      className={`process-report-data-row${isFirstInGroup && idx > 0 ? ' group-first' : ''}`}
+                    >
+                      {isDateGroupStart ? (
+                        <td
+                          rowSpan={isDateGroupStart.rowspan}
+                          className={`process-report-date-cell${idx > 0 ? ' border-top' : ''}`}
+                        >
+                          {formatDisplayDate(item.date)}
+                        </td>
+                      ) : null}
+                      {isDisaGroupStart ? (
+                        <td
+                          rowSpan={isDisaGroupStart.rowspan}
+                          className="process-report-disa-cell"
+                        >
+                          {item.disa || '-'}
+                        </td>
+                      ) : null}
+                      <td>{item.partName || '-'}</td>
+                      <td>{item.datecode || '-'}</td>
+                      <td>{item.heatcode || '-'}</td>
+                      <td>{item.quantityOfMoulds || '-'}</td>
+                      {show.metalComposition && (
+                        <>
+                          <td>{item.metalCompositionC || '-'}</td>
+                          <td>{item.metalCompositionSi || '-'}</td>
+                          <td>{item.metalCompositionMn || '-'}</td>
+                          <td>{item.metalCompositionP || '-'}</td>
+                          <td>{item.metalCompositionS || '-'}</td>
+                          <td>{item.metalCompositionMgFL || '-'}</td>
+                          <td>{item.metalCompositionCu || '-'}</td>
+                          <td>{item.metalCompositionCr || '-'}</td>
+                        </>
+                      )}
+                      <td>
+                        {item.pouringTemperatureMin && item.pouringTemperatureMax
+                          ? `${item.pouringTemperatureMin} - ${item.pouringTemperatureMax}`
+                          : '-'}
+                      </td>
+                      <td>{item.timeOfPouring || '-'}</td>
+                      <td>{item.ppCode || '-'}</td>
+                      <td>{item.treatmentNo || '-'}</td>
+                      <td>{item.fcNo || '-'}</td>
+                      <td>{item.heatNo || '-'}</td>
+                      <td>{item.conNo || '-'}</td>
+                      {show.correctiveAdditions && (
+                        <>
+                          <td>{item.correctiveAdditionC || '-'}</td>
+                          <td>{item.correctiveAdditionSi || '-'}</td>
+                          <td>{item.correctiveAdditionMn || '-'}</td>
+                          <td>{item.correctiveAdditionS || '-'}</td>
+                          <td>{item.correctiveAdditionCr || '-'}</td>
+                          <td>{item.correctiveAdditionCu || '-'}</td>
+                          <td>{item.correctiveAdditionSn || '-'}</td>
+                        </>
+                      )}
+                      <td>{item.tappingWt || '-'}</td>
+                      <td>{item.tappingTime || '-'}</td>
+                      <td>{item.mg || '-'}</td>
+                      <td>{item.resMgConvertor || '-'}</td>
+                      <td>{item.recOfMg || '-'}</td>
+                      <td>{item.streamInoculant || '-'}</td>
+                      <td>{item.pTime || '-'}</td>
+                      <td
+                        className={`process-report-remarks-cell ${item.remarks ? 'clickable' : 'empty'}`}
+                        onClick={() => item.remarks && showRemarksPopup(item.remarks)}
+                        title={item.remarks || 'No remarks'}
+                      >
+                        {item.remarks || '-'}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {!loading && sortedEntries.length > itemsPerPage && (
+        <CustomPagination
           currentPage={currentPage}
           totalPages={totalPages}
-          onPageChange={handlePageChange}
+          onPageChange={setCurrentPage}
         />
       )}
-    </>
+
+      {/* Remarks Modal */}
+      {remarksModal.show && (
+        <div className="process-report-modal-overlay" onClick={closeRemarksModal}>
+          <div className="process-report-modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="process-report-modal-header">
+              <h3 className="process-report-modal-title">{remarksModal.title}</h3>
+              <button onClick={closeRemarksModal} className="process-report-modal-close">&times;</button>
+            </div>
+            <p className="process-report-modal-text">{remarksModal.content}</p>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 

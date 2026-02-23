@@ -378,13 +378,9 @@ export default function ProcessControl() {
     const m = String(today.getMonth() + 1).padStart(2, '0');
     const d = String(today.getDate()).padStart(2, '0');
     
-    // Load previously saved DISA from localStorage
-    const savedDisa = localStorage.getItem('process_last_disa');
-    
     setFormData(prev => ({
       ...prev,
-      date: `${y}-${m}-${d}`,
-      disa: savedDisa || ''
+      date: `${y}-${m}-${d}`
     }));
   }, []);
 
@@ -420,9 +416,6 @@ export default function ProcessControl() {
         setSavePrimaryLoading(false);
         
         if (data.success && data.exists) {
-          // Save DISA to localStorage for future use
-          localStorage.setItem('process_last_disa', formData.disa);
-          
           setShowCombinationFound(true);
           
           // Hide "Combination found" message after 1.5 seconds
@@ -809,9 +802,6 @@ export default function ProcessControl() {
       setSavePrimaryLoading(false);
       
       if (data.success) {
-        // Save DISA to localStorage for future use
-        localStorage.setItem('process_last_disa', formData.disa);
-        
         setShowCombinationAdded(true);
         
         // Hide "Combination Added" message after 1 second
@@ -939,7 +929,7 @@ export default function ProcessControl() {
       hasErrors = true;
       if (!firstErrorField) firstErrorField = 'metalCompositionSi';
     } else {
-      setMetalSiValid(null);
+      setMetalSiValid(null);          
     }
 
     if (!formData.metalCompositionMn || formData.metalCompositionMn.trim() === '' || isNaN(formData.metalCompositionMn) || parseFloat(formData.metalCompositionMn) < 0 || parseFloat(formData.metalCompositionMn) > 100) {

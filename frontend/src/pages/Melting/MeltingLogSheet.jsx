@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Save, Loader2 } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { CustomTimeInput, Time, ShiftDropdown, FurnaceDropdown, PanelDropdown, DisaDropdown } from '../../Components/Buttons';
+import { InlineLoader } from '../../Components/Alert';
 import Sakthi from '../../Components/Sakthi';
 import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Melting/MeltingLogSheet.css';
@@ -27,7 +28,9 @@ const MeltingLogSheet = () => {
   const [primaryDataOriginal, setPrimaryDataOriginal] = useState(null);
   const [entryCount, setEntryCount] = useState(0);
   const [dynamicCheckAlert, setDynamicCheckAlert] = useState(false);
+  const [showCombinationFound, setShowCombinationFound] = useState(false);
   const [showSakthi, setShowSakthi] = useState(false);
+  const [showPrimaryWarning, setShowPrimaryWarning] = useState(false);
   
   // Sequential validation highlighting
   const [dateErrorHighlight, setDateErrorHighlight] = useState(false);
@@ -53,6 +56,7 @@ const MeltingLogSheet = () => {
   const totalUnitsRef = useRef(null);
   const cumulativeUnitsRef = useRef(null);
   const primarySaveButtonRef = useRef(null);
+  const primarySectionRef = useRef(null);
 
   // Table input refs for Enter key navigation
   // Table 1
@@ -147,15 +151,13 @@ const MeltingLogSheet = () => {
   const classFor = (value, submitted, required = false, locked = false) => {
     if (locked) return '';
     const has = value !== undefined && value !== null && String(value).trim() !== '';
-    if (has) return 'melting-success-outline';
-    if (submitted && required) return 'melting-error-outline';
+    if (submitted && required && !has) return 'melting-error-outline';
     return '';
   };
 
   // Helper for numeric validation classes
   const getNumericValidationClass = (validState, locked = false) => {
     if (locked) return '';
-    if (validState === true) return 'valid-input';
     if (validState === false) return 'invalid-input';
     return '';
   };
@@ -239,7 +241,7 @@ const MeltingLogSheet = () => {
     furnace4KwHr: ''
   });
 
-  // Validation states (null = neutral, true = valid/green, false = invalid/red)
+  // Validation states (null = neutral/no border, false = invalid/red border - no green used)
   // Table 1 validations
   const [heatNoValid, setHeatNoValid] = useState(null);
   const [gradeValid, setGradeValid] = useState(null);
@@ -344,104 +346,23 @@ const MeltingLogSheet = () => {
   }, [validationErrorMessage]);
 
   const handleTableChange = (tableNum, field, value) => {
-    // Validation logic for Table 1
+    // Validation logic for Table 1 - reset to neutral on any input
     if (tableNum === 1) {
-      if (field === 'heatNo') {
-        if (value.trim() === '') {
-          setHeatNoValid(null);
-        } else {
-          setHeatNoValid(value.trim().length > 0);
-        }
-      }
-      if (field === 'grade') {
-        if (value.trim() === '') {
-          setGradeValid(null);
-        } else {
-          setGradeValid(value.trim().length > 0);
-        }
-      }
-      // Charging time validation
-      if (field.includes('chargingTime')) {
-        const updatedData = {...table1, [field]: value};
-        const hasTime = updatedData.chargingTimeHour && updatedData.chargingTimeMinute;
-        const allEmpty = !updatedData.chargingTimeHour && !updatedData.chargingTimeMinute;
-        
-        if (allEmpty) {
-          setChargingTimeValid(null);
-        } else if (hasTime) {
-          setChargingTimeValid(true);
-        } else {
-          setChargingTimeValid(false);
-        }
-      }
-      if (field === 'ifBath') {
-        if (value.trim() === '') {
-          setIfBathValid(null);
-        } else {
-          setIfBathValid(value.trim().length > 0);
-        }
-      }
-      if (field === 'liquidMetalPressPour') {
-        if (value.trim() === '') {
-          setLiquidMetalPressPourValid(null);
-        } else {
-          setLiquidMetalPressPourValid(!isNaN(value) && parseFloat(value) >= 0);
-        }
-      }
-      if (field === 'liquidMetalHolder') {
-        if (value.trim() === '') {
-          setLiquidMetalHolderValid(null);
-        } else {
-          setLiquidMetalHolderValid(!isNaN(value) && parseFloat(value) >= 0);
-        }
-      }
-      if (field === 'sgMsSteel') {
-        if (value.trim() === '') {
-          setSgMsSteelValid(null);
-        } else {
-          const num = parseFloat(value);
-          setSgMsSteelValid(!isNaN(value) && num >= 400 && num <= 2500);
-        }
-      }
-      if (field === 'greyMsSteel') {
-        if (value.trim() === '') {
-          setGreyMsSteelValid(null);
-        } else {
-          const num = parseFloat(value);
-          setGreyMsSteelValid(!isNaN(value) && num >= 400 && num <= 2500);
-        }
-      }
-      if (field === 'returnsSg') {
-        if (value.trim() === '') {
-          setReturnsSgValid(null);
-        } else {
-          setReturnsSgValid(!isNaN(value) && parseFloat(value) >= 0);
-        }
-      }
-      if (field === 'pigIron') {
-        if (value.trim() === '') {
-          setPigIronValid(null);
-        } else {
-          setPigIronValid(!isNaN(value) && parseFloat(value) >= 0);
-        }
-      }
-      if (field === 'borings') {
-        if (value.trim() === '') {
-          setBoringsValid(null);
-        } else {
-          setBoringsValid(!isNaN(value) && parseFloat(value) >= 0);
-        }
-      }
-      if (field === 'finalBath') {
-        if (value.trim() === '') {
-          setFinalBathValid(null);
-        } else {
-          setFinalBathValid(!isNaN(value) && parseFloat(value) >= 0);
-        }
-      }
+      if (field === 'heatNo') setHeatNoValid(null);
+      if (field === 'grade') setGradeValid(null);
+      if (field.includes('chargingTime')) setChargingTimeValid(null);
+      if (field === 'ifBath') setIfBathValid(null);
+      if (field === 'liquidMetalPressPour') setLiquidMetalPressPourValid(null);
+      if (field === 'liquidMetalHolder') setLiquidMetalHolderValid(null);
+      if (field === 'sgMsSteel') setSgMsSteelValid(null);
+      if (field === 'greyMsSteel') setGreyMsSteelValid(null);
+      if (field === 'returnsSg') setReturnsSgValid(null);
+      if (field === 'pigIron') setPigIronValid(null);
+      if (field === 'borings') setBoringsValid(null);
+      if (field === 'finalBath') setFinalBathValid(null);
     }
 
-    // Validation logic for Table 2
+    // Validation logic for Table 2 - reset to neutral on any input
     if (tableNum === 2) {
       const validations = {
         charCoal: setCharCoalValid,
@@ -457,174 +378,33 @@ const MeltingLogSheet = () => {
         pureMg: setPureMgValid,
         ironPyrite: setIronPyriteValid
       };
-      
-      if (validations[field]) {
-        if (value.trim() === '') {
-          validations[field](null);
-        } else {
-          validations[field](!isNaN(value) && parseFloat(value) >= 0);
-        }
-      }
+      if (validations[field]) validations[field](null);
     }
 
-    // Validation logic for Table 3
+    // Validation logic for Table 3 - reset to neutral on any input
     if (tableNum === 3) {
-      if (field.includes('labCoinTime')) {
-        const updatedData = {...table3, [field]: value};
-        const hasTime = updatedData.labCoinTimeHour && updatedData.labCoinTimeMinute;
-        const allEmpty = !updatedData.labCoinTimeHour && !updatedData.labCoinTimeMinute;
-        
-        if (allEmpty) {
-          setLabCoinTimeValid(null);
-        } else if (hasTime) {
-          setLabCoinTimeValid(true);
-        } else {
-          setLabCoinTimeValid(false);
-        }
-      }
-      if (field === 'labCoinTempC') {
-        if (value.trim() === '') {
-          setLabCoinTempCValid(null);
-        } else {
-          const num = parseFloat(value);
-          setLabCoinTempCValid(!isNaN(value) && num >= 0 && num <= 2000);
-        }
-      }
-      if (field.includes('deslagingTimeFrom')) {
-        const updatedData = {...table3, [field]: value};
-        const hasTime = updatedData.deslagingTimeFromHour && updatedData.deslagingTimeFromMinute;
-        const allEmpty = !updatedData.deslagingTimeFromHour && !updatedData.deslagingTimeFromMinute;
-        
-        if (allEmpty) {
-          setDeslagingTimeFromValid(null);
-        } else if (hasTime) {
-          setDeslagingTimeFromValid(true);
-        } else {
-          setDeslagingTimeFromValid(false);
-        }
-      }
-      if (field.includes('deslagingTimeTo')) {
-        const updatedData = {...table3, [field]: value};
-        const hasTime = updatedData.deslagingTimeToHour && updatedData.deslagingTimeToMinute;
-        const allEmpty = !updatedData.deslagingTimeToHour && !updatedData.deslagingTimeToMinute;
-        
-        if (allEmpty) {
-          setDeslagingTimeToValid(null);
-        } else if (hasTime) {
-          setDeslagingTimeToValid(true);
-        } else {
-          setDeslagingTimeToValid(false);
-        }
-      }
-      if (field.includes('metalReadyTime')) {
-        const updatedData = {...table3, [field]: value};
-        const hasTime = updatedData.metalReadyTimeHour && updatedData.metalReadyTimeMinute;
-        const allEmpty = !updatedData.metalReadyTimeHour && !updatedData.metalReadyTimeMinute;
-        
-        if (allEmpty) {
-          setMetalReadyTimeValid(null);
-        } else if (hasTime) {
-          setMetalReadyTimeValid(true);
-        } else {
-          setMetalReadyTimeValid(false);
-        }
-      }
-      if (field.includes('waitingForTappingFrom')) {
-        const updatedData = {...table3, [field]: value};
-        const hasTime = updatedData.waitingForTappingFromHour && updatedData.waitingForTappingFromMinute;
-        const allEmpty = !updatedData.waitingForTappingFromHour && !updatedData.waitingForTappingFromMinute;
-        
-        if (allEmpty) {
-          setWaitingForTappingFromValid(null);
-        } else if (hasTime) {
-          setWaitingForTappingFromValid(true);
-        } else {
-          setWaitingForTappingFromValid(false);
-        }
-      }
-      if (field.includes('waitingForTappingTo')) {
-        const updatedData = {...table3, [field]: value};
-        const hasTime = updatedData.waitingForTappingToHour && updatedData.waitingForTappingToMinute;
-        const allEmpty = !updatedData.waitingForTappingToHour && !updatedData.waitingForTappingToMinute;
-        
-        if (allEmpty) {
-          setWaitingForTappingToValid(null);
-        } else if (hasTime) {
-          setWaitingForTappingToValid(true);
-        } else {
-          setWaitingForTappingToValid(false);
-        }
-      }
-      if (field === 'reason') {
-        if (value.trim() === '') {
-          setReasonValid(null);
-        } else {
-          setReasonValid(value.trim().length > 0);
-        }
-      }
+      if (field.includes('labCoinTime')) setLabCoinTimeValid(null);
+      if (field === 'labCoinTempC') setLabCoinTempCValid(null);
+      if (field.includes('deslagingTimeFrom')) setDeslagingTimeFromValid(null);
+      if (field.includes('deslagingTimeTo')) setDeslagingTimeToValid(null);
+      if (field.includes('metalReadyTime')) setMetalReadyTimeValid(null);
+      if (field.includes('waitingForTappingFrom')) setWaitingForTappingFromValid(null);
+      if (field.includes('waitingForTappingTo')) setWaitingForTappingToValid(null);
+      if (field === 'reason') setReasonValid(null);
     }
 
-    // Validation logic for Table 4
+    // Validation logic for Table 4 - reset to neutral on any input
     if (tableNum === 4) {
-      if (field.includes('time')) {
-        const updatedData = {...table4, [field]: value};
-        const hasTime = updatedData.timeHour && updatedData.timeMinute;
-        const allEmpty = !updatedData.timeHour && !updatedData.timeMinute;
-        
-        if (allEmpty) {
-          setTable4TimeValid(null);
-        } else if (hasTime) {
-          setTable4TimeValid(true);
-        } else {
-          setTable4TimeValid(false);
-        }
-      }
-      if (field === 'tempCSg') {
-        if (value.trim() === '') {
-          setTempCSgValid(null);
-        } else {
-          const num = parseFloat(value);
-          setTempCSgValid(!isNaN(value) && num >= 0 && num <= 2000);
-        }
-      }
-      if (field === 'directFurnace') {
-        if (value.trim() === '') {
-          setDirectFurnaceValid(null);
-        } else {
-          setDirectFurnaceValid(!isNaN(value) && parseFloat(value) >= 0);
-        }
-      }
-      if (field === 'holderToFurnace') {
-        if (value.trim() === '') {
-          setHolderToFurnaceValid(null);
-        } else {
-          setHolderToFurnaceValid(!isNaN(value) && parseFloat(value) >= 0);
-        }
-      }
-      if (field === 'furnaceToHolder') {
-        if (value.trim() === '') {
-          setFurnaceToHolderValid(null);
-        } else {
-          setFurnaceToHolderValid(!isNaN(value) && parseFloat(value) >= 0);
-        }
-      }
-      if (field === 'disaNo') {
-        if (value.trim() === '') {
-          setDisaNoValid(null);
-        } else {
-          setDisaNoValid(value.trim().length > 0);
-        }
-      }
-      if (field === 'item') {
-        if (value.trim() === '') {
-          setItemValid(null);
-        } else {
-          setItemValid(value.trim().length > 0);
-        }
-      }
+      if (field.includes('time')) setTable4TimeValid(null);
+      if (field === 'tempCSg') setTempCSgValid(null);
+      if (field === 'directFurnace') setDirectFurnaceValid(null);
+      if (field === 'holderToFurnace') setHolderToFurnaceValid(null);
+      if (field === 'furnaceToHolder') setFurnaceToHolderValid(null);
+      if (field === 'disaNo') setDisaNoValid(null);
+      if (field === 'item') setItemValid(null);
     }
 
-    // Validation logic for Table 5
+    // Validation logic for Table 5 - reset to neutral on any input
     if (tableNum === 5) {
       const validations = {
         furnace1Kw: setFurnace1KwValid,
@@ -640,15 +420,11 @@ const MeltingLogSheet = () => {
         furnace4Gld: setFurnace4GldValid,
         furnace4KwHr: setFurnace4KwHrValid
       };
-      
-      if (validations[field]) {
-        if (value.trim() === '') {
-          validations[field](null);
-        } else {
-          validations[field](!isNaN(value) && parseFloat(value) >= 0);
-        }
-      }
+      if (validations[field]) validations[field](null);
     }
+
+    // Also clear validation error message on any input
+    setValidationErrorMessage('');
 
     const setters = {
       1: setTable1,
@@ -682,199 +458,341 @@ const MeltingLogSheet = () => {
     
     // Validate only table fields (mark them as invalid if empty)
     let hasErrors = false;
+    // Track first error field for auto-focus (sync variable, not state)
+    let firstErrorRef = null;
 
     // Validate Table 1 fields
     if (!table1.heatNo || !table1.heatNo.trim()) {
       setHeatNoValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = heatNoRef;
+    } else {
+      setHeatNoValid(null);
     }
     if (!table1.grade || !table1.grade.trim()) {
       setGradeValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = gradeRef;
+    } else {
+      setGradeValid(null);
     }
     if (!table1.chargingTimeHour || !table1.chargingTimeMinute) {
       setChargingTimeValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = chargingTimeRef;
+    } else {
+      setChargingTimeValid(null);
     }
     if (!table1.ifBath || !table1.ifBath.trim()) {
       setIfBathValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = ifBathRef;
+    } else {
+      setIfBathValid(null);
     }
     if (!table1.liquidMetalPressPour || table1.liquidMetalPressPour.trim() === '') {
       setLiquidMetalPressPourValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = liquidMetalPressPourRef;
+    } else {
+      setLiquidMetalPressPourValid(null);
     }
     if (!table1.liquidMetalHolder || table1.liquidMetalHolder.trim() === '') {
       setLiquidMetalHolderValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = liquidMetalHolderRef;
+    } else {
+      setLiquidMetalHolderValid(null);
     }
     if (!table1.sgMsSteel || table1.sgMsSteel.trim() === '') {
       setSgMsSteelValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = sgMsSteelRef;
+    } else {
+      setSgMsSteelValid(null);
     }
     if (!table1.greyMsSteel || table1.greyMsSteel.trim() === '') {
       setGreyMsSteelValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = greyMsSteelRef;
+    } else {
+      setGreyMsSteelValid(null);
     }
     if (!table1.returnsSg || table1.returnsSg.trim() === '') {
       setReturnsSgValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = returnsSgRef;
+    } else {
+      setReturnsSgValid(null);
     }
     if (!table1.pigIron || table1.pigIron.trim() === '') {
       setPigIronValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = pigIronRef;
+    } else {
+      setPigIronValid(null);
     }
     if (!table1.borings || table1.borings.trim() === '') {
       setBoringsValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = boringsRef;
+    } else {
+      setBoringsValid(null);
     }
     if (!table1.finalBath || table1.finalBath.trim() === '') {
       setFinalBathValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = finalBathRef;
+    } else {
+      setFinalBathValid(null);
     }
 
     // Validate Table 2 fields
     if (!table2.charCoal || table2.charCoal.trim() === '') {
       setCharCoalValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = charCoalRef;
+    } else {
+      setCharCoalValid(null);
     }
     if (!table2.cpcFur || table2.cpcFur.trim() === '') {
       setCpcFurValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = cpcFurRef;
+    } else {
+      setCpcFurValid(null);
     }
     if (!table2.cpcLc || table2.cpcLc.trim() === '') {
       setCpcLcValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = cpcLcRef;
+    } else {
+      setCpcLcValid(null);
     }
     if (!table2.siliconCarbideFur || table2.siliconCarbideFur.trim() === '') {
       setSiliconCarbideFurValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = siliconCarbideFurRef;
+    } else {
+      setSiliconCarbideFurValid(null);
     }
     if (!table2.ferrosiliconFur || table2.ferrosiliconFur.trim() === '') {
       setFerrosiliconFurValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = ferrosiliconFurRef;
+    } else {
+      setFerrosiliconFurValid(null);
     }
     if (!table2.ferrosiliconLc || table2.ferrosiliconLc.trim() === '') {
       setFerrosiliconLcValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = ferrosiliconLcRef;
+    } else {
+      setFerrosiliconLcValid(null);
     }
     if (!table2.ferroManganeseFur || table2.ferroManganeseFur.trim() === '') {
       setFerroManganeseFurValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = ferroManganeseFurRef;
+    } else {
+      setFerroManganeseFurValid(null);
     }
     if (!table2.ferroManganeseLc || table2.ferroManganeseLc.trim() === '') {
       setFerroManganeseLcValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = ferroManganeseLcRef;
+    } else {
+      setFerroManganeseLcValid(null);
     }
     if (!table2.cu || table2.cu.trim() === '') {
       setCuValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = cuRef;
+    } else {
+      setCuValid(null);
     }
     if (!table2.cr || table2.cr.trim() === '') {
       setCrValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = crRef;
+    } else {
+      setCrValid(null);
     }
     if (!table2.pureMg || table2.pureMg.trim() === '') {
       setPureMgValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = pureMgRef;
+    } else {
+      setPureMgValid(null);
     }
     if (!table2.ironPyrite || table2.ironPyrite.trim() === '') {
       setIronPyriteValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = ironPyriteRef;
+    } else {
+      setIronPyriteValid(null);
     }
 
     // Validate Table 3 fields
     if (!table3.labCoinTimeHour || !table3.labCoinTimeMinute) {
       setLabCoinTimeValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = labCoinTimeRef;
+    } else {
+      setLabCoinTimeValid(null);
     }
     if (!table3.labCoinTempC || table3.labCoinTempC.trim() === '') {
       setLabCoinTempCValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = labCoinTempCRef;
+    } else {
+      setLabCoinTempCValid(null);
     }
     if (!table3.deslagingTimeFromHour || !table3.deslagingTimeFromMinute) {
       setDeslagingTimeFromValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = deslagingTimeFromRef;
+    } else {
+      setDeslagingTimeFromValid(null);
     }
     if (!table3.deslagingTimeToHour || !table3.deslagingTimeToMinute) {
       setDeslagingTimeToValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = deslagingTimeToRef;
+    } else {
+      setDeslagingTimeToValid(null);
     }
     if (!table3.metalReadyTimeHour || !table3.metalReadyTimeMinute) {
       setMetalReadyTimeValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = metalReadyTimeRef;
+    } else {
+      setMetalReadyTimeValid(null);
     }
     if (!table3.waitingForTappingFromHour || !table3.waitingForTappingFromMinute) {
       setWaitingForTappingFromValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = waitingForTappingFromRef;
+    } else {
+      setWaitingForTappingFromValid(null);
     }
     if (!table3.waitingForTappingToHour || !table3.waitingForTappingToMinute) {
       setWaitingForTappingToValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = waitingForTappingToRef;
+    } else {
+      setWaitingForTappingToValid(null);
     }
     if (!table3.reason || !table3.reason.trim()) {
       setReasonValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = reasonRef;
+    } else {
+      setReasonValid(null);
     }
 
     // Validate Table 4 fields
     if (!table4.timeHour || !table4.timeMinute) {
       setTable4TimeValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = table4TimeRef;
+    } else {
+      setTable4TimeValid(null);
     }
     if (!table4.tempCSg || table4.tempCSg.trim() === '') {
       setTempCSgValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = tempCSgRef;
+    } else {
+      setTempCSgValid(null);
     }
     if (!table4.directFurnace || table4.directFurnace.trim() === '') {
       setDirectFurnaceValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = directFurnaceRef;
+    } else {
+      setDirectFurnaceValid(null);
     }
     if (!table4.holderToFurnace || table4.holderToFurnace.trim() === '') {
       setHolderToFurnaceValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = holderToFurnaceRef;
+    } else {
+      setHolderToFurnaceValid(null);
     }
     if (!table4.furnaceToHolder || table4.furnaceToHolder.trim() === '') {
       setFurnaceToHolderValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = furnaceToHolderRef;
+    } else {
+      setFurnaceToHolderValid(null);
     }
     if (!table4.disaNo || !table4.disaNo.trim()) {
       setDisaNoValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = disaNoRef;
+    } else {
+      setDisaNoValid(null);
     }
     if (!table4.item || !table4.item.trim()) {
       setItemValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = itemRef;
+    } else {
+      setItemValid(null);
     }
 
     // Validate Table 5 fields
     if (!table5.furnace1Kw || table5.furnace1Kw.trim() === '') {
       setFurnace1KwValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = furnace1KwRef;
+    } else {
+      setFurnace1KwValid(null);
     }
     if (!table5.furnace1A || table5.furnace1A.trim() === '') {
       setFurnace1AValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = furnace1ARef;
+    } else {
+      setFurnace1AValid(null);
     }
     if (!table5.furnace1V || table5.furnace1V.trim() === '') {
       setFurnace1VValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = furnace1VRef;
+    } else {
+      setFurnace1VValid(null);
     }
     if (!table5.furnace4Hz || table5.furnace4Hz.trim() === '') {
       setFurnace4HzValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = furnace4HzRef;
+    } else {
+      setFurnace4HzValid(null);
     }
     if (!table5.furnace4Gld || table5.furnace4Gld.trim() === '') {
       setFurnace4GldValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = furnace4GldRef;
+    } else {
+      setFurnace4GldValid(null);
     }
     if (!table5.furnace4KwHr || table5.furnace4KwHr.trim() === '') {
       setFurnace4KwHrValid(false);
       hasErrors = true;
+      if (!firstErrorRef) firstErrorRef = furnace4KwHrRef;
+    } else {
+      setFurnace4KwHrValid(null);
     }
 
     if (hasErrors) {
       setValidationErrorMessage('Correct Data format or Enter Empty Field');
+      // Auto-focus on first error field
+      if (firstErrorRef && firstErrorRef.current) {
+        firstErrorRef.current.focus();
+        firstErrorRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
       return;
     }
 
@@ -938,6 +856,8 @@ const MeltingLogSheet = () => {
     if (!date || !shift || !furnaceNo || !panel) return;
     
     setFetchingPrimary(true);
+    const startTime = Date.now();
+    let combinationWasFound = false;
     try {
       // Format date for API (YYYY-MM-DD)
       const dateStr = date instanceof Date ? date.toISOString().split('T')[0] : date;
@@ -1002,6 +922,8 @@ const MeltingLogSheet = () => {
           totalUnits: response.data.totalUnits || '',
           cumulativeUnits: response.data.cumulativeUnits || ''
         });
+        // Mark that combination was found (message shown after fetching loader hides)
+        combinationWasFound = true;
       } else {
         // No data found for this combination, reset value fields
         setPrimaryId(null);
@@ -1038,7 +960,16 @@ const MeltingLogSheet = () => {
       setTotalUnitsValid(null);
       setCumulativeUnitsValid(null);
     } finally {
+      // Ensure minimum 1 second display for consistent UX
+      const elapsedTime = Date.now() - startTime;
+      const remainingTime = Math.max(0, 1000 - elapsedTime);
+      await new Promise(resolve => setTimeout(resolve, remainingTime));
       setFetchingPrimary(false);
+      // Show combination found message only after fetching loader is gone
+      if (combinationWasFound) {
+        setShowCombinationFound(true);
+        setTimeout(() => setShowCombinationFound(false), 1500);
+      }
       setDynamicCheckAlert(true);
     }
   };
@@ -1123,7 +1054,10 @@ const MeltingLogSheet = () => {
       return null; // Empty is neutral
     }
     const num = parseFloat(value);
-    return !isNaN(num) && isFinite(num) && num >= 0;
+    if (isNaN(num) || !isFinite(num) || num < 0) {
+      return false; // Invalid
+    }
+    return null; // Valid input stays neutral (no green)
   };
 
   const handlePrimaryChange = (field, value) => {
@@ -1146,26 +1080,21 @@ const MeltingLogSheet = () => {
       setPanelErrorHighlight(false);
     }
 
-    // Validate numeric fields (without auto-focus on change)
+    // Validate numeric fields - reset to neutral on change (red only shown on submit)
     if (field === 'cumulativeLiquidMetal') {
-      const isValid = validateNumericInput(value);
-      setCumulativeLiquidMetalValid(isValid);
+      setCumulativeLiquidMetalValid(null);
     }
     if (field === 'finalKWHr') {
-      const isValid = validateNumericInput(value);
-      setFinalKWHrValid(isValid);
+      setFinalKWHrValid(null);
     }
     if (field === 'initialKWHr') {
-      const isValid = validateNumericInput(value);
-      setInitialKWHrValid(isValid);
+      setInitialKWHrValid(null);
     }
     if (field === 'totalUnits') {
-      const isValid = validateNumericInput(value);
-      setTotalUnitsValid(isValid);
+      setTotalUnitsValid(null);
     }
     if (field === 'cumulativeUnits') {
-      const isValid = validateNumericInput(value);
-      setCumulativeUnitsValid(isValid);
+      setCumulativeUnitsValid(null);
     }
 
     // When date changes, reset everything
@@ -1494,16 +1423,10 @@ const MeltingLogSheet = () => {
   };
 
   // Helper function to get validation className
-  // Validation class with focus support
+  // null = neutral (no border color), false = invalid (red border)
   const getValidationClass = (fieldKey, validationState) => {
-    // Active input (focused) - green border
-    if (focusedField === fieldKey) return 'focused-input';
-    
     // Invalid data - red border
     if (validationState === false) return 'invalid-input';
-    
-    // Valid data - green border
-    if (validationState === true) return 'valid-input';
     
     // Default/neutral - no special styling
     return '';
@@ -1542,10 +1465,11 @@ const MeltingLogSheet = () => {
       </div>
 
       {/* Primary Section */}
-      <div>
+      <div ref={primarySectionRef}>
         <h3 className="section-header" style={{ display: 'flex', alignItems: 'center' }}>Primary Data {isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 500, color: '#5B9AA9', marginLeft: '0.75rem' }}>( Entries : {entryCount} )</span>}</h3>
         
-        <div className="melting-log-form-grid">
+        {/* First Row: Date, Shift, Furnace No., Panel */}
+        <div className="melting-primary-fields-row">
           <div className={`melting-log-form-group ${classFor(primaryData.date, primarySubmitted, true)} ${dateErrorHighlight ? 'error-highlight' : ''}`}>
             <label>Date <span style={{ color: '#ef4444' }}>*</span></label>
             <CustomDatePicker
@@ -1561,6 +1485,7 @@ const MeltingLogSheet = () => {
             onMouseDownCapture={(e) => {
               if (!primaryData.date && e.target.tagName !== 'SELECT') {
                 setDateErrorHighlight(true);
+                setTimeout(() => setDateErrorHighlight(false), 600);
               }
             }}
           >
@@ -1576,6 +1501,7 @@ const MeltingLogSheet = () => {
               onMouseDown={(e) => {
                 if (!primaryData.date) {
                   setDateErrorHighlight(true);
+                  setTimeout(() => setDateErrorHighlight(false), 600);
                 }
               }}
             />
@@ -1587,8 +1513,18 @@ const MeltingLogSheet = () => {
               if (e.target.tagName !== 'SELECT') {
                 if (!primaryData.date) {
                   setDateErrorHighlight(true);
+                  setFurnaceNoErrorHighlight(true);
+                  setTimeout(() => {
+                    setDateErrorHighlight(false);
+                    setFurnaceNoErrorHighlight(false);
+                  }, 600);
                 } else if (!primaryData.shift) {
                   setShiftErrorHighlight(true);
+                  setFurnaceNoErrorHighlight(true);
+                  setTimeout(() => {
+                    setShiftErrorHighlight(false);
+                    setFurnaceNoErrorHighlight(false);
+                  }, 600);
                 }
               }
             }}
@@ -1605,8 +1541,10 @@ const MeltingLogSheet = () => {
               onMouseDown={(e) => {
                 if (!primaryData.date) {
                   setDateErrorHighlight(true);
+                  setTimeout(() => setDateErrorHighlight(false), 600);
                 } else if (!primaryData.shift) {
                   setShiftErrorHighlight(true);
+                  setTimeout(() => setShiftErrorHighlight(false), 600);
                 }
               }}
             />
@@ -1618,10 +1556,25 @@ const MeltingLogSheet = () => {
               if (e.target.tagName !== 'SELECT') {
                 if (!primaryData.date) {
                   setDateErrorHighlight(true);
+                  setPanelErrorHighlight(true);
+                  setTimeout(() => {
+                    setDateErrorHighlight(false);
+                    setPanelErrorHighlight(false);
+                  }, 600);
                 } else if (!primaryData.shift) {
                   setShiftErrorHighlight(true);
+                  setPanelErrorHighlight(true);
+                  setTimeout(() => {
+                    setShiftErrorHighlight(false);
+                    setPanelErrorHighlight(false);
+                  }, 600);
                 } else if (!primaryData.furnaceNo) {
                   setFurnaceNoErrorHighlight(true);
+                  setPanelErrorHighlight(true);
+                  setTimeout(() => {
+                    setFurnaceNoErrorHighlight(false);
+                    setPanelErrorHighlight(false);
+                  }, 600);
                 }
               }
             }}
@@ -1638,15 +1591,42 @@ const MeltingLogSheet = () => {
               onMouseDown={(e) => {
                 if (!primaryData.date) {
                   setDateErrorHighlight(true);
+                  setTimeout(() => setDateErrorHighlight(false), 600);
                 } else if (!primaryData.shift) {
                   setShiftErrorHighlight(true);
+                  setTimeout(() => setShiftErrorHighlight(false), 600);
                 } else if (!primaryData.furnaceNo) {
                   setFurnaceNoErrorHighlight(true);
+                  setTimeout(() => setFurnaceNoErrorHighlight(false), 600);
                 }
               }}
             />
+            {(fetchingPrimary || showCombinationFound) && (
+              <div style={{ 
+                marginTop: '0.75rem',
+                display: 'flex',
+                alignItems: 'flex-start'
+              }}>
+                {fetchingPrimary && (
+                  <InlineLoader 
+                    message="Fetching Date, Shift, Furnace, Panel" 
+                    size="medium" 
+                    variant="primary" 
+                  />
+                )}
+                {showCombinationFound && (
+                  <InlineLoader 
+                    message="Combination found" 
+                    size="medium" 
+                    variant="success" 
+                  />
+                )}
+              </div>
+            )}
           </div>
+        </div>
 
+        <div className="melting-log-form-grid">
           <div 
             className={`melting-log-form-group ${classFor(primaryData.cumulativeLiquidMetal, primarySubmitted, true, isPrimaryFieldLocked('cumulativeLiquidMetal'))}`}
             onMouseDownCapture={(e) => {
@@ -1824,6 +1804,13 @@ const MeltingLogSheet = () => {
         </div>
 
         <div className="melting-log-submit-container" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          {showPrimaryWarning && (
+            <InlineLoader 
+              message="Save Primary Data first" 
+              size="medium" 
+              variant="warning" 
+            />
+          )}
           <button
             ref={primarySaveButtonRef}
             className="cupola-holder-submit-btn"
@@ -1838,10 +1825,19 @@ const MeltingLogSheet = () => {
       </div>
 
       {/* Table 1 */}
-      <div style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, pointerEvents: isPrimaryDataSaved ? 'auto' : 'none' }}>
+      <div 
+        style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, cursor: isPrimaryDataSaved ? 'default' : 'not-allowed', position: 'relative' }}
+        onClickCapture={!isPrimaryDataSaved ? (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setShowPrimaryWarning(true);
+          primarySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          setTimeout(() => setShowPrimaryWarning(false), 3000);
+        } : undefined}
+      >
         <h3 className="section-header">Table 1 {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked - Save Primary Data First)</span>}</h3>
 
-        <div className="melting-log-form-grid melting-log-table5-grid">
+        <div className="melting-log-form-grid melting-log-table5-grid" style={{ pointerEvents: isPrimaryDataSaved ? 'auto' : 'none' }}>
           <div className="melting-log-form-group">
             <label>Heat No</label>
             <input
@@ -2051,10 +2047,19 @@ const MeltingLogSheet = () => {
       </div>
 
       {/* Table 2 */}
-      <div style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, pointerEvents: isPrimaryDataSaved ? 'auto' : 'none' }}>
+      <div 
+        style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, cursor: isPrimaryDataSaved ? 'default' : 'not-allowed', position: 'relative' }}
+        onClickCapture={!isPrimaryDataSaved ? (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setShowPrimaryWarning(true);
+          primarySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          setTimeout(() => setShowPrimaryWarning(false), 3000);
+        } : undefined}
+      >
         <h3 className="section-header">Table 2 {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked - Save Primary Data First)</span>}</h3>
 
-        <div className="melting-log-form-grid melting-log-table5-grid">
+        <div className="melting-log-form-grid melting-log-table5-grid" style={{ pointerEvents: isPrimaryDataSaved ? 'auto' : 'none' }}>
           <div className="melting-log-form-group">
             <label>CharCoal (kgs)</label>
             <input
@@ -2266,10 +2271,19 @@ const MeltingLogSheet = () => {
       </div>
 
       {/* Table 3 */}
-      <div style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, pointerEvents: isPrimaryDataSaved ? 'auto' : 'none' }}>
+      <div 
+        style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, cursor: isPrimaryDataSaved ? 'default' : 'not-allowed', position: 'relative' }}
+        onClickCapture={!isPrimaryDataSaved ? (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setShowPrimaryWarning(true);
+          primarySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          setTimeout(() => setShowPrimaryWarning(false), 3000);
+        } : undefined}
+      >
         <h3 className="section-header">Table 3 {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked - Save Primary Data First)</span>}</h3>
 
-        <div className="melting-log-form-grid melting-log-table5-grid" style={{ rowGap: '1.5rem' }}>
+        <div className="melting-log-form-grid melting-log-table5-grid" style={{ rowGap: '1.5rem', pointerEvents: isPrimaryDataSaved ? 'auto' : 'none' }}>
           <div className="melting-log-form-group">
             <label>Lab Coin - Time</label>
             <CustomTimeInput
@@ -2376,10 +2390,19 @@ const MeltingLogSheet = () => {
       </div>
 
       {/* Table 4 - Metal Tapping in Kgs */}
-      <div style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, pointerEvents: isPrimaryDataSaved ? 'auto' : 'none' }}>
+      <div 
+        style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, cursor: isPrimaryDataSaved ? 'default' : 'not-allowed', position: 'relative' }}
+        onClickCapture={!isPrimaryDataSaved ? (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setShowPrimaryWarning(true);
+          primarySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          setTimeout(() => setShowPrimaryWarning(false), 3000);
+        } : undefined}
+      >
         <h3 className="section-header">Table 4 {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked - Save Primary Data First)</span>}</h3>
         
-        <div className="melting-log-form-grid">
+        <div className="melting-log-form-grid" style={{ pointerEvents: isPrimaryDataSaved ? 'auto' : 'none' }}>
         <div className="melting-log-form-group">
           <label>Time</label>
           <CustomTimeInput
@@ -2489,12 +2512,21 @@ const MeltingLogSheet = () => {
       </div>
 
       {/* Table 5 - Electrical Readings */}
-      <div style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, pointerEvents: isPrimaryDataSaved ? 'auto' : 'none' }}>
+      <div 
+        style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, cursor: isPrimaryDataSaved ? 'default' : 'not-allowed', position: 'relative' }}
+        onClickCapture={!isPrimaryDataSaved ? (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setShowPrimaryWarning(true);
+          primarySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          setTimeout(() => setShowPrimaryWarning(false), 3000);
+        } : undefined}
+      >
         <h3 className="section-header">Table 5 {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked - Save Primary Data First)</span>}</h3>
 
         {/* Furnace 1,2,3 combined section */}
         <h4 className="melting-log-sub-section-title">Furnace 1,2,3</h4>
-        <div className="melting-log-form-grid melting-log-table5-grid">
+        <div className="melting-log-form-grid melting-log-table5-grid" style={{ pointerEvents: isPrimaryDataSaved ? 'auto' : 'none' }}>
           <div className="melting-log-form-group">
             <label>Kw</label>
             <input
@@ -2549,7 +2581,7 @@ const MeltingLogSheet = () => {
 
         {/* Furnace 4 section */}
         <h4 className="melting-log-sub-section-title">Furnace 4</h4>
-        <div className="melting-log-form-grid melting-log-table5-grid">
+        <div className="melting-log-form-grid melting-log-table5-grid" style={{ pointerEvents: isPrimaryDataSaved ? 'auto' : 'none' }}>
           <div className="melting-log-form-group">
             <label>Hz</label>
             <input
@@ -2605,13 +2637,11 @@ const MeltingLogSheet = () => {
       {/* All Tables Submit Button */}
       <div className="melting-log-submit-container" style={{ marginTop: '2rem', display: 'flex', alignItems: 'center', gap: '1rem', justifyContent: 'flex-end' }}>
         {validationErrorMessage && (
-          <span style={{ 
-            color: '#ef4444', 
-            fontSize: '0.875rem',
-            fontWeight: 500
-          }}>
-            {validationErrorMessage}
-          </span>
+          <InlineLoader 
+            message={validationErrorMessage}
+            variant="danger"
+            size="medium"
+          />
         )}
         <button
           className="cupola-holder-submit-btn"

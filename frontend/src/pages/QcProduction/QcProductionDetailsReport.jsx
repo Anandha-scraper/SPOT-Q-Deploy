@@ -1,126 +1,112 @@
-import React, { useState, useEffect } from 'react';
-import { PencilLine, BookOpenCheck } from 'lucide-react';
-import { FilterButton, ClearButton } from '../../Components/Buttons';
+import React, { useState, useEffect, useMemo } from 'react';
+import { BookOpenCheck } from 'lucide-react';
+import { FilterButton, ClearButton, CustomPagination } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import Table from '../../Components/Table';
 import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/QcProduction/QcProductionDetailsReport.css';
 
 const QcProductionDetailsReport = () => {
-  const [currentDate, setCurrentDate] = useState('');
-  const [startDate, setStartDate] = useState(null);
-  const [endDate, setEndDate] = useState(null);
-  const [items, setItems] = useState([]);
-  const [filteredItems, setFilteredItems] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const formatDateLocal = (d) => {
+    if (!d) return '';
+    const dt = new Date(d);
+    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+  };
 
+  const getTodayLocal = () => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  };
+
+  const todayStr = getTodayLocal();
+
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState(todayStr);
+  const [allEntries, setAllEntries] = useState([]);
+  const [filteredEntries, setFilteredEntries] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const itemsPerPage = 15;
+
+  const isFilterEnabled = toDate && toDate.trim() !== '' && !(fromDate && fromDate.trim() !== '' && toDate <= fromDate);
+
+  // Fetch ALL entries once on mount (server + localStorage)
   useEffect(() => {
-    fetchItems();
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(API_ENDPOINTS.qcReports, { credentials: 'include' });
+        const data = await response.json();
+
+        let serverItems = [];
+        if (data.success) serverItems = data.data || [];
+
+        let localItems = [];
+        try {
+          const localRaw = localStorage.getItem('qcProductionLocalEntries');
+          localItems = localRaw ? JSON.parse(localRaw) : [];
+        } catch (e) {
+          console.error('Error reading local QC entries:', e);
+        }
+
+        const combined = [...serverItems, ...localItems];
+        setAllEntries(combined);
+
+        // Default: show only today's entries
+        const todayFiltered = combined.filter(r => {
+          if (!r.date) return false;
+          return formatDateLocal(r.date) === todayStr;
+        });
+        setFilteredEntries(todayFiltered);
+      } catch (error) {
+        console.error('Error fetching QC production details:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
   }, []);
 
-  // Helper function to validate range format (e.g., "3.50-3.75" or "3.50")
-  const isValidRange = (value) => {
-    if (!value || value.trim() === '') return false;
-    const trimmed = value.trim();
-    // Check if it's a range (e.g., "3.50-3.75") or single number
-    const rangePattern = /^\d+(\.\d+)?\s*-\s*\d+(\.\d+)?$/;
-    const numberPattern = /^\d+(\.\d+)?$/;
-    return rangePattern.test(trimmed) || numberPattern.test(trimmed);
-  };
-
-  const fetchItems = async () => {
-
-    try {
-      setLoading(true);
-      
-      // Get today's date in local timezone (YYYY-MM-DD format)
-      const today = new Date();
-      const year = today.getFullYear();
-      const month = String(today.getMonth() + 1).padStart(2, '0');
-      const day = String(today.getDate()).padStart(2, '0');
-      const todayStr = `${year}-${month}-${day}`;
-      setCurrentDate(todayStr);
-      
-      const response = await fetch(API_ENDPOINTS.qcReports, { credentials: 'include' });
-      const data = await response.json();
-
-      let serverItems = [];
-      if (data.success) {
-        serverItems = data.data || [];
-      }
-
-      // Merge with locally stored QC entries (frontend-only fallback)
-      let localItems = [];
-      try {
-        const localRaw = localStorage.getItem('qcProductionLocalEntries');
-        localItems = localRaw ? JSON.parse(localRaw) : [];
-      } catch (e) {
-        console.error('Error reading local QC entries:', e);
-      }
-
-      const combined = [...serverItems, ...localItems];
-      setItems(combined);
-      
-      // Filter to show today's entries by default
-      const todaysEntries = combined.filter(item => {
-        if (!item.date) return false;
-        const itemDate = new Date(item.date).toISOString().split('T')[0];
-        return itemDate === todayStr;
-      });
-      setFilteredItems(todaysEntries);
-
-    } catch (error) {
-      console.error('Error fetching QC production details:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleFilter = () => {
-    if (!startDate) {
-      setFilteredItems(items);
-      return;
-    }
+    if (!toDate) { setFilteredEntries([]); return; }
 
-    const filtered = items.filter(item => {
-      if (!item.date) return false;
-      const itemDate = new Date(item.date);
-      itemDate.setHours(0, 0, 0, 0);
-      const start = new Date(startDate);
-      start.setHours(0, 0, 0, 0);
+    const toDateStr = toDate;
+    const fromDateStr = fromDate || '';
 
-      // If end date is provided, filter by date range
-      if (endDate) {
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        return itemDate >= start && itemDate <= end;
-      } else {
-        // If only start date is provided, show only records from that exact date
-        return itemDate.getTime() === start.getTime();
+    const filtered = allEntries.filter(r => {
+      if (!r.date) return false;
+      const reportDate = formatDateLocal(r.date);
+      if (fromDateStr) {
+        return reportDate >= fromDateStr && reportDate <= toDateStr;
       }
+      return reportDate === toDateStr;
     });
 
-    setFilteredItems(filtered);
+    setFilteredEntries(filtered);
+    setCurrentPage(1);
   };
 
-  const handleClearFilter = () => {
-    setStartDate(null);
-    setEndDate(null);
-    
-    // Show today's entries again when clearing
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    const todayStr = `${year}-${month}-${day}`;
-    
-    const todaysEntries = items.filter(item => {
-      if (!item.date) return false;
-      const itemDate = new Date(item.date).toISOString().split('T')[0];
-      return itemDate === todayStr;
+  const handleClear = () => {
+    setFromDate('');
+    setToDate(todayStr);
+
+    const todayFiltered = allEntries.filter(r => {
+      if (!r.date) return false;
+      return formatDateLocal(r.date) === todayStr;
     });
-    setFilteredItems(todaysEntries);
+    setFilteredEntries(todayFiltered);
+    setCurrentPage(1);
   };
+
+  // Sort: date descending
+  const sortedEntries = useMemo(() => {
+    return [...filteredEntries].sort((a, b) => new Date(b.date) - new Date(a.date));
+  }, [filteredEntries]);
+
+  const totalPages = Math.ceil(sortedEntries.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedEntries = sortedEntries.slice(startIndex, startIndex + itemsPerPage);
 
   const formatDateDisplay = (dateStr) => {
     if (!dateStr) return '-';
@@ -168,33 +154,29 @@ const QcProductionDetailsReport = () => {
           </h2>
         </div>
         <div aria-label="Date" style={{ fontWeight: 600, color: '#25424c' }}>
-          {loading ? 'Loading...' : `DATE : ${formatDateDisplay(currentDate)}`}
+          {loading ? 'Loading...' : `DATE : ${formatDateDisplay(todayStr)}`}
         </div>
       </div>
 
       <div className="impact-filter-container">
         <div className="impact-filter-group">
-          <label>Start Date</label>
+          <label>From Date</label>
           <CustomDatePicker
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            placeholder="Select start date"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            placeholder="From date"
           />
         </div>
         <div className="impact-filter-group">
-          <label>End Date</label>
+          <label>To Date</label>
           <CustomDatePicker
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            placeholder="Select end date"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+            placeholder="To date"
           />
         </div>
-        <FilterButton onClick={handleFilter} disabled={!startDate}>
-          Filter
-        </FilterButton>
-        <ClearButton onClick={handleClearFilter} disabled={!startDate && !endDate}>
-          Clear
-        </ClearButton>
+        <FilterButton onClick={handleFilter} disabled={!isFilterEnabled} />
+        <ClearButton onClick={handleClear} />
       </div>
 
       {loading ? (
@@ -319,11 +301,19 @@ const QcProductionDetailsReport = () => {
               render: (item) => formatRangeDisplay(item.el)
             }
           ]}
-          data={filteredItems}
+          data={paginatedEntries}
           minWidth={2400}
           defaultAlign="left"
           groupByColumn="date"
           noDataMessage="No records found"
+        />
+      )}
+
+      {!loading && sortedEntries.length > itemsPerPage && (
+        <CustomPagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
         />
       )}
     </>

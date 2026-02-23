@@ -1,7 +1,7 @@
 const User = require('../models/user');
 const LoginActivity = require('../models/LoginActivity');
 const { generateToken } = require('../utils/jwt');
-const { keepLastNLoginActivitiesForUser } = require('../utils/cleanupLoginActivity');
+const { keepLastNLoginActivitiesForUser, cleanupLoginActivity } = require('../utils/cleanupLoginActivity');
 const { hashPassword, comparePassword } = require('../utils/password');
 // Centralized Department List
 const DEPARTMENTS = [
@@ -28,28 +28,22 @@ exports.login = async (req, res) => {
         if (!isMatch) {
             return res.status(401).json({ success: false, message: 'Invalid credentials.' });
         }
-
         // Generate fresh JWT token for this login
         const token = generateToken(user._id);
-
         // Convert JWT_EXPIRE to seconds 
         const expiresInSeconds = (() => {
          const expire = process.env.JWT_EXPIRE;
          if (!isNaN(expire)) return parseInt(expire); 
-    
         // strings like '1h', '8h', '1d'
          const match = expire.match(/^(\d+)([smhd])$/);
          if (!match) return 60;// Default to 60 seconds if format is invalid 
-    
          const value = parseInt(match[1]);
          const unit = match[2];
-    
          const multipliers = { s: 1, m: 60, h: 3600, d: 86400 };
         return value * multipliers[unit];
     })();
 
         const expiresAt = new Date(Date.now() + (expiresInSeconds * 1000)).toISOString();
-
         // Set JWT token in httpOnly cookie
         res.cookie('token', token, {
             httpOnly: true,
@@ -70,6 +64,9 @@ exports.login = async (req, res) => {
 
             // Keep only the last 5 login activities for this user
             await keepLastNLoginActivitiesForUser(user._id, 5);
+
+            // Run global cleanup (excess + orphaned records)
+            await cleanupLoginActivity(5);
         } catch (auditError) {
             console.error('Audit Log failed:', auditError.message);
         }

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { CalendarSearch } from 'lucide-react';
 import '../styles/ComponentStyles/CustomDatePicker.css';
 
 const CustomDatePicker = forwardRef(({ value, onChange, max, style, name, onKeyDown, disabled, className = '', onFocus, onBlur }, ref) => {
@@ -324,7 +325,9 @@ const CustomDatePicker = forwardRef(({ value, onChange, max, style, name, onKeyD
           style={{ ...style, ...(disabled ? { backgroundColor: '#f1f5f9', cursor: 'not-allowed', opacity: 0.8 } : {}) }}
           className="date-input"
         />
-        <span className="calendar-icon" onClick={() => !disabled && setIsOpen(!isOpen)} style={{ cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.6 : 1 }}>📅</span>
+        <span className="calendar-icon" onClick={() => !disabled && setIsOpen(!isOpen)} style={{ cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.6 : 1, display: 'flex', alignItems: 'center' }}>
+          <CalendarSearch size={18} color="#5B9AA9" strokeWidth={2} />
+        </span>
       </div>
       {isOpen && renderCalendar()}
     </div>
