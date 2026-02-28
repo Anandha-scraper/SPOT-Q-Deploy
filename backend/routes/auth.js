@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { login, verify, logout, createEmployee, getAllUsers, updateEmployee, deleteEmployee, changePassword, getDepartments, getLoginHistory } = require('../controllers/auth');
+const { login, verify, logout, createEmployee, getAllUsers, resetEmployeePassword, deleteEmployee, changePassword, getDepartments, getLoginHistory } = require('../controllers/auth');
 const { protect } = require('../middleware/auth');
 const { checkAdminAccess } = require('../middleware/access');
 
@@ -15,7 +15,7 @@ router.get('/admin/users', getAllUsers);
 router.post('/admin/users', createEmployee);
 router.get('/admin/departments', getDepartments);
 router.route('/admin/users/:id')
-    .put(updateEmployee)
+    .put(resetEmployeePassword)
     .delete(deleteEmployee);
 
 module.exports = router;

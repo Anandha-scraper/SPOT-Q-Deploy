@@ -3,15 +3,15 @@ const { ensureDateDocument, getCurrentDate } = require('../utils/dateUtils');
 
 // 1. SYSTEM INITIALIZATION & METADATA
 
-// Initialize current date entry on server startup
-exports.initializeTodayEntry = async () => {
-    try {
-        const todayString = getCurrentDate();
-        await ensureDateDocument(Impact, todayString);
-    } catch (error) {
-        console.error('Error initializing today\'s Impact document:', error.message);
-    }
-};
+// // Initialize current date entry on server startup
+// exports.initializeTodayEntry = async () => {
+//     try {
+//         const todayString = getCurrentDate();
+//         await ensureDateDocument(Impact, todayString);
+//     } catch (error) {
+//         console.error('Error initializing today\'s Impact document:', error.message);
+//     }
+// };
 
 // Get current date from server (ensures timezone consistency)
 exports.getCurrentDate = async (req, res) => {

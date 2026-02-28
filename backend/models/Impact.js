@@ -32,7 +32,7 @@ const ImpactEntrySchema = new mongoose.Schema({
     }
 }, {
     timestamps: true,
-    _id: true  // Each entry gets its own _id for editing/deleting
+    _id: true 
 });
 
 // Main schema - one document per date

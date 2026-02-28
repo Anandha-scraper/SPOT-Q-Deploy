@@ -584,11 +584,20 @@ const Sidebar = () => {
       <div className="sidebar-header">
         <img src="/images/Logo.svg" alt="Logo" className="logo" />
         {isExpanded && <span className="brand-name">Sakthi Auto</span>}
+        {isExpanded && (
+          <button
+            className={`pin-toggle-btn ${isPinned ? 'pinned' : ''}`}
+            onClick={handlePinToggle}
+            title={isPinned ? 'Unpin sidebar' : 'Pin sidebar'}
+          >
+            <RiExpandRightFill />
+          </button>
+        )}
       </div>
 
       <div className="sidebar-content">
         {/* Admin Menu Item - Only show for admin users */}
-        {isAdmin ? (
+        {isAdmin && (
           <div className="menu-section">
             <div
               className={`menu-item ${location.pathname === '/admin' ? 'active' : ''}`}
@@ -599,7 +608,8 @@ const Sidebar = () => {
               {isExpanded && <span className="menu-text">Admin</span>}
             </div>
           </div>
-        ) : filteredDepartments.length === 0 ? (
+        )}
+        {filteredDepartments.length === 0 && !isAdmin ? (
           <div style={{ padding: '20px', textAlign: 'center', color: '#9CA3AF', fontSize: '14px' }}>
             No accessible pages for your department
           </div>
@@ -651,6 +661,15 @@ const Sidebar = () => {
                   className={`menu-item ${dept.hasSubmenu ? 'expandable' : ''} ${isActive ? 'active' : ''} ${routeType ? `route-${routeType}` : ''}`}
                   onClick={(e) => {
                     if (dept.hasSubmenu) {
+                      // For admin + simple departments (no nested submenus), navigate directly to report
+                      const isSimpleDept = !dept.submenuItems?.some(item => item.hasSubmenu);
+                      if (isAdmin && isSimpleDept) {
+                        const reportRoute = getRouteForDepartment(dept.name, 'Report');
+                        if (reportRoute && reportRoute !== '#') {
+                          navigate(reportRoute);
+                        }
+                        return;
+                      }
                       // Toggle submenu when clicking on menu item with submenu
                       e.preventDefault();
                       e.stopPropagation();
@@ -667,20 +686,28 @@ const Sidebar = () => {
                     <>
                       <span className="menu-text">{dept.name}</span>
                       {dept.hasSubmenu && (
-                        <span 
-                          className="expand-icon"
-                          title={expandedSection === dept.id ? 'Collapse submenu' : 'Expand submenu'}
-                        >
-                          {expandedSection === dept.id ? '▲' : '▼'}
-                        </span>
+                        // Hide expand arrow for admin + simple departments (they navigate directly)
+                        !(isAdmin && !dept.submenuItems?.some(item => item.hasSubmenu)) && (
+                          <span 
+                            className="expand-icon"
+                            title={expandedSection === dept.id ? 'Collapse submenu' : 'Expand submenu'}
+                          >
+                            {expandedSection === dept.id ? '▲' : '▼'}
+                          </span>
+                        )
                       )}
                     </>
                   )}
                 </div>
                 
                 {isExpanded && dept.hasSubmenu && expandedSection === dept.id && (
+                  // Don't show submenu for admin + simple departments (they navigate directly)
+                  !(isAdmin && !dept.submenuItems?.some(item => item.hasSubmenu)) && (
                   <div className="submenu">
-                    {dept.submenuItems?.map((item, index) => {
+                    {(isAdmin
+                      ? dept.submenuItems?.filter(item => item.hasSubmenu || item.key !== 'Entry')
+                      : dept.submenuItems
+                    )?.map((item, index) => {
                       // Check if this submenu item has nested submenus (like Moulding -> Disamatic Product -> Entry/Report)
                       if (item.hasSubmenu && item.submenuItems) {
                         // Check if any nested submenu item is active
@@ -696,6 +723,27 @@ const Sidebar = () => {
                         // Check if this nested submenu item should be expanded
                         const isSubExpanded = expandedSubmenuItem === item.key;
                         
+                        // For admin: navigate directly to report, no nested Entry/Report dropdown
+                        if (isAdmin) {
+                          const reportRoute = getRouteForNestedSubmenu(dept.name, item.key, 'Report');
+                          const isSubActive = location.pathname === reportRoute;
+                          return (
+                            <div 
+                              key={index} 
+                              className={`submenu-item ${isSubActive ? 'active' : ''} ${isSubActive ? 'route-report' : ''}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (reportRoute && reportRoute !== '#') {
+                                  navigate(reportRoute);
+                                }
+                              }}
+                              data-route-type="report"
+                            >
+                              <span className="submenu-item-name">{item.name}</span>
+                            </div>
+                          );
+                        }
+
                         return (
                           <div key={index} className="submenu-item-wrapper">
                             <div 
@@ -768,6 +816,7 @@ const Sidebar = () => {
                       }
                     })}
                   </div>
+                  )
                 )}
               </div>
             );
@@ -777,15 +826,6 @@ const Sidebar = () => {
 
       <div className="sidebar-footer">
         <div className="footer-content">
-          {/* Pin Toggle Button */}
-          <button
-            className={`pin-toggle-btn ${isPinned ? 'pinned' : ''}`}
-            onClick={handlePinToggle}
-            title={isPinned ? 'Unpin sidebar' : 'Pin sidebar'}
-          >
-            <RiExpandRightFill />
-          </button>
-
           <div
             className={`menu-item ${location.pathname === '/user-profile' ? 'active' : ''}`}
             onClick={() => navigate('/user-profile')}

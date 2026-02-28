@@ -143,23 +143,24 @@ const UserProfile = () => {
 
     setPasswordLoading(true);
     try {
-      // Add API call here to change password
-      // await fetch('/api/v1/auth/change-password', {
-      //   method: 'POST',
-      //   credentials: 'include',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     currentPassword: passwordData.currentPassword,
-      //     newPassword: passwordData.newPassword
-      //   })
-      // });
-      
-      setTimeout(() => {
+      const res = await fetch(API_ENDPOINTS.changePassword, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          currentPassword: passwordData.currentPassword,
+          newPassword: passwordData.newPassword
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setPasswordError(data.message || 'Failed to change password');
         setPasswordLoading(false);
-        setIsPasswordModalOpen(false);
-        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-        alert('Password changed successfully');
-      }, 1000);
+        return;
+      }
+      setPasswordLoading(false);
+      setIsPasswordModalOpen(false);
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
     } catch (error) {
       setPasswordError('Failed to change password');
       setPasswordLoading(false);

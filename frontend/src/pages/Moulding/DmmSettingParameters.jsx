@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Save, RefreshCw, FileText, Loader2, RotateCcw, Info } from "lucide-react";
+import { Save, Loader2, Lock } from "lucide-react";
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { CustomTimeInput, Time, MachineDropdown } from '../../Components/Buttons';
 import Sakthi from '../../Components/Sakthi';
@@ -66,270 +66,340 @@ const formatTimeToString = (timeObj) => {
   return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')} ${period}`;
 };
 
+// -- Inline locked-overlay wrapper (unique to this page) --
+const DmmLockedField = ({ locked, onLockedClick, children }) => {
+  if (!locked) return children;
+  return (
+    <div className="dmm-locked-wrapper">
+      {children}
+      <div
+        className="dmm-locked-overlay"
+        onMouseDown={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (onLockedClick) onLockedClick();
+        }}
+      />
+    </div>
+  );
+};
+
 const DmmSettingParameters = () => {
   const navigate = useNavigate();
   const [primaryData, setPrimaryData] = useState({
-    date: getTodaysDate(), // Set today's date by default
+    date: getTodaysDate(),
     machine: '',
     shift: '',
     operatorName: '',
     operatedBy: ''
   });
-  const [isPrimaryLocked, setIsPrimaryLocked] = useState(false);
-  const [checkingData, setCheckingData] = useState(false);
-  const [shiftSubmitLoading, setShiftSubmitLoading] = useState(false);
-  const [primaryFieldLocked, setPrimaryFieldLocked] = useState({
-    operatorName: false,
-    operatedBy: false
-  }); // Lock operator fields if they have existing data
-  const [shift1Row, setShift1Row] = useState({ ...initialRow });
-  const [shift2Row, setShift2Row] = useState({ ...initialRow });
-  const [shift3Row, setShift3Row] = useState({ ...initialRow });
-  const [currentRow, setCurrentRow] = useState({ ...initialRow }); // Current form data
-  const [loadingStates, setLoadingStates] = useState({
-    primary: false,
-    shift: false
-  });
+  const [currentRow, setCurrentRow] = useState({ ...initialRow });
   const [allSubmitting, setAllSubmitting] = useState(false);
-  const [shiftCounts, setShiftCounts] = useState({
-    shift1: 0,
-    shift2: 0,
-    shift3: 0
-  });
-  
-  // Validation states for real-time feedback
-  const [validationErrors, setValidationErrors] = useState({
-    date: false,
-    machine: false,
-    shift: false,
-    operatorName: false,
-    operatedBy: false
-  });
 
-  // Sequential validation highlighting (red shake animation)
+  // Fetch-by-combination states
+  const [fetchingPrimary, setFetchingPrimary] = useState(false);
+  const [showCombinationFound, setShowCombinationFound] = useState(false);
+  const [showCombinationSaved, setShowCombinationSaved] = useState(false);
+  const [closingCombinationMsg, setClosingCombinationMsg] = useState(false);
+  const [isPrimaryDataSaved, setIsPrimaryDataSaved] = useState(false);
+  const [primaryLoading, setPrimaryLoading] = useState(false);
+  const [lockedFields, setLockedFields] = useState({ operatorName: false });
+  const [existingParametersCount, setExistingParametersCount] = useState(0);
+
+  // Progressive unlock derived booleans
+  const isShiftUnlocked = !!primaryData.date && !!primaryData.machine;
+  const isOperatorUnlocked = !!primaryData.date && !!primaryData.machine && !!primaryData.shift;
+  const isFormUnlocked = isPrimaryDataSaved || lockedFields.operatorName; // saved or fetched existing data
+
+  // Submit feedback message (replaces alert())
+  const [submitMessage, setSubmitMessage] = useState('');
+  const [submitMessageVariant, setSubmitMessageVariant] = useState('success');
+  const submitMessageTimer = useRef(null);
+
+
+  // ── PART 1: Error highlight states (one per required field) ──
   const [dateErrorHighlight, setDateErrorHighlight] = useState(false);
   const [machineErrorHighlight, setMachineErrorHighlight] = useState(false);
   const [shiftErrorHighlight, setShiftErrorHighlight] = useState(false);
-  const [operatorNameErrorHighlight, setOperatorNameErrorHighlight] = useState(false);
-  const [operatedByErrorHighlight, setOperatedByErrorHighlight] = useState(false);
-  const [primaryValidationErrors, setPrimaryValidationErrors] = useState({
-    date: false,
-    machine: false,
-    shift: false,
-    operatorName: false,
-    operatedBy: false
-  });
-  const [primaryErrorMessage, setPrimaryErrorMessage] = useState('');
-  const [dynamicCheckAlert, setDynamicCheckAlert] = useState(false);
-  const [showCombinationFound, setShowCombinationFound] = useState(false);
-  const [showCombinationAdded, setShowCombinationAdded] = useState(false);
-  const [savePrimaryLoading, setSavePrimaryLoading] = useState(false);
-  
-  // Primary warning states (auto-navigate when clicking form without saving primary)
-  const [showPrimaryWarning, setShowPrimaryWarning] = useState(false);
-  
-  // Track focused field for visual feedback
-  const [focusedField, setFocusedField] = useState(null);
-  /*
-   * SHIFT VALIDATION STATES (Process.jsx pattern)
-   * null = neutral/default (no border color)
-   * false = invalid (red border) - shown after submit when field is empty/invalid
-   * On typing → reset to null (neutral)
-   * On submit → set to false (red)
-   */
+
+  // Alert message for missing prerequisite
+  const [primaryFieldMessage, setPrimaryFieldMessage] = useState('');
+  const fieldMessageTimer = useRef(null);
+
+  // Track active dismiss timers so repeated clicks restart the 3s countdown
+  const highlightTimers = useRef(new Map());
+
+  // ── PART 3a: triggerHighlight — activates red shake on field(s) ──
+  const triggerHighlight = (...setters) => {
+    setters.forEach(setter => {
+      setter(false);
+      requestAnimationFrame(() => setter(true));
+      if (highlightTimers.current.has(setter)) {
+        clearTimeout(highlightTimers.current.get(setter));
+      }
+      highlightTimers.current.set(setter, setTimeout(() => {
+        setter(false);
+        highlightTimers.current.delete(setter);
+      }, 3000));
+    });
+  };
+
+  // ── PART 3c: getMissingFieldMessage — returns user-friendly message for the missing field ──
+  const getMissingFieldMessage = () => {
+    if (!primaryData.date) return 'Select Date first';
+    if (!primaryData.machine) return 'Select Machine first';
+    if (!primaryData.shift) return 'Select Shift first';
+    return '';
+  };
+
+  // ── PART 3d: showFieldMessage — displays the warning message for 3s ──
+  const showFieldMessage = () => {
+    const msg = getMissingFieldMessage();
+    if (!msg) return;
+    setPrimaryFieldMessage(msg);
+    if (fieldMessageTimer.current) clearTimeout(fieldMessageTimer.current);
+    fieldMessageTimer.current = setTimeout(() => {
+      setPrimaryFieldMessage('');
+      fieldMessageTimer.current = null;
+    }, 3000);
+  };
+
+
+  // -- PART 3e: handleLockedClick -- called when user clicks a locked element --
+  const handleLockedClick = useCallback((requiredField) => {
+    if (requiredField === 'machine') {
+      triggerHighlight(setMachineErrorHighlight);
+      setPrimaryFieldMessage('Select Machine first');
+      if (fieldMessageTimer.current) clearTimeout(fieldMessageTimer.current);
+      fieldMessageTimer.current = setTimeout(() => { setPrimaryFieldMessage(''); fieldMessageTimer.current = null; }, 3000);
+      const el = document.getElementById('machine-field');
+      if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); setTimeout(() => el.focus(), 300); }
+    } else if (requiredField === 'shift') {
+      triggerHighlight(setShiftErrorHighlight);
+      setPrimaryFieldMessage('Select Shift first');
+      if (fieldMessageTimer.current) clearTimeout(fieldMessageTimer.current);
+      fieldMessageTimer.current = setTimeout(() => { setPrimaryFieldMessage(''); fieldMessageTimer.current = null; }, 3000);
+      const el = document.getElementById('shift-field');
+      if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); setTimeout(() => el.focus(), 300); }
+    } else if (requiredField === 'primary') {
+      setPrimaryFieldMessage('Save Primary data first');
+      if (fieldMessageTimer.current) clearTimeout(fieldMessageTimer.current);
+      fieldMessageTimer.current = setTimeout(() => { setPrimaryFieldMessage(''); fieldMessageTimer.current = null; }, 3000);
+      const wrapper = document.querySelector('.dmm-primary-status-wrapper');
+      if (wrapper) wrapper.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, []);
+
+  // -- PART 3g: getLockedRequiredField -- returns what user needs to do next --
+  const getLockedRequiredField = () => {
+    if (!primaryData.machine) return 'machine';
+    if (!primaryData.shift) return 'shift';
+    if (!isFormUnlocked) return 'primary';
+    return null;
+  };
+
+
+  // ── Helper: show submit feedback message using InlineLoader ──
+  const showSubmitMessage = (message, variant = 'success', duration = 3000) => {
+    setSubmitMessage(message);
+    setSubmitMessageVariant(variant);
+    if (submitMessageTimer.current) clearTimeout(submitMessageTimer.current);
+    submitMessageTimer.current = setTimeout(() => {
+      setSubmitMessage('');
+      submitMessageTimer.current = null;
+    }, duration);
+  };
+
+  // FETCH BY COMBINATION — auto-fetch when date + machine + shift are filled
+ 
+  useEffect(() => {
+    if (primaryData.date && primaryData.machine && primaryData.shift) {
+      fetchPrimaryData(primaryData.date, primaryData.machine, primaryData.shift);
+    } else {
+      // Reset when any key field is cleared
+      setFetchingPrimary(false);
+      setShowCombinationFound(false);
+      setShowCombinationSaved(false);
+      setClosingCombinationMsg(false);
+      setIsPrimaryDataSaved(false);
+      setLockedFields({ operatorName: false });
+      setExistingParametersCount(0);
+    }
+  }, [primaryData.date, primaryData.machine, primaryData.shift]);
+
+  // Fetch existing entry for the date+machine+shift combination
+  const fetchPrimaryData = async (date, machine, shift) => {
+    try {
+      setFetchingPrimary(true);
+      setShowCombinationFound(false);
+      setShowCombinationSaved(false);
+      setClosingCombinationMsg(false);
+      setSubmitMessage('');
+
+      const startTime = Date.now();
+
+      const response = await fetch(
+        `${API_ENDPOINTS.mouldingDmm}/search/primary?date=${date}&machine=${encodeURIComponent(machine)}&shift=${shift}`,
+        {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+          }
+        }
+      );
+
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          console.error('Authentication required');
+          setFetchingPrimary(false);
+          return;
+        }
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+
+      if (result.success && result.data && result.data.length > 0) {
+        const doc = result.data[0];
+        const entry = doc.entries && doc.entries[0];
+
+        if (entry) {
+          const fetchedOperatorName = entry.operatorName || '';
+          const fetchedCheckedBy = entry.checkedBy || '';
+          const parametersCount = (entry.parameters && entry.parameters.length) || 0;
+
+          setPrimaryData(prev => ({
+            ...prev,
+            operatorName: fetchedOperatorName,
+            operatedBy: fetchedCheckedBy
+          }));
+
+          setLockedFields({
+            operatorName: !!fetchedOperatorName
+          });
+
+          setExistingParametersCount(parametersCount);
+
+          // Ensure minimum 1s loader time
+          const elapsedTime = Date.now() - startTime;
+          const remainingTime = Math.max(0, 1000 - elapsedTime);
+          await new Promise(resolve => setTimeout(resolve, remainingTime));
+
+          setFetchingPrimary(false);
+
+          // Show "Combination found" when entry exists for this date+machine+shift
+          setShowCombinationFound(true);
+          setClosingCombinationMsg(false);
+          setTimeout(() => setClosingCombinationMsg(true), 1600);
+          setTimeout(() => { setShowCombinationFound(false); setClosingCombinationMsg(false); }, 2000);
+        } else {
+          // Entry not found — reset
+          resetCombinationState(startTime);
+        }
+      } else {
+        // No data at all — reset
+        resetCombinationState(startTime);
+      }
+    } catch (error) {
+      console.error('Error fetching combination:', error);
+      setFetchingPrimary(false);
+    }
+  };
+
+  // Helper to reset combination state when no data found
+  const resetCombinationState = async (startTime) => {
+    setPrimaryData(prev => ({
+      ...prev,
+      operatorName: '',
+      operatedBy: ''
+    }));
+    setLockedFields({ operatorName: false });
+    setExistingParametersCount(0);
+    setIsPrimaryDataSaved(false);
+
+    const elapsedTime = Date.now() - startTime;
+    const remainingTime = Math.max(0, 1000 - elapsedTime);
+    await new Promise(resolve => setTimeout(resolve, remainingTime));
+
+    setFetchingPrimary(false);
+  };
+
+  // Save Primary: saves operation info (operatorName + operatedBy) for the combination
+  const handlePrimarySubmit = async () => {
+    if (!primaryData.date || !primaryData.machine || !primaryData.shift) return;
+
+    setPrimaryLoading(true);
+    try {
+      const shiftKey = `shift${primaryData.shift}`;
+      const opPayload = {
+        date: primaryData.date,
+        machine: primaryData.machine,
+        section: 'operation',
+        shifts: {
+          [shiftKey]: {
+            operatorName: primaryData.operatorName || '',
+            checkedBy: primaryData.operatedBy || ''
+          }
+        }
+      };
+      const opResp = await fetch(API_ENDPOINTS.mouldingDmm, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        },
+        body: JSON.stringify(opPayload)
+      });
+      const opRes = await opResp.json();
+
+      if (opRes.success) {
+        setIsPrimaryDataSaved(true);
+        setLockedFields({ operatorName: !!primaryData.operatorName });
+        setShowCombinationSaved(true);
+        setClosingCombinationMsg(false);
+        setTimeout(() => setClosingCombinationMsg(true), 1600);
+        setTimeout(() => { setShowCombinationSaved(false); setClosingCombinationMsg(false); }, 2000);
+      } else {
+        showSubmitMessage('Failed to save primary: ' + (opRes.message || 'Unknown error'), 'danger', 5000);
+      }
+    } catch (err) {
+      console.error('Save Primary error:', err);
+      showSubmitMessage('Failed to save primary: ' + (err.message || 'Unknown error'), 'danger', 5000);
+    } finally {
+      setPrimaryLoading(false);
+    }
+  };
   const [shiftValidationErrors, setShiftValidationErrors] = useState({});
-  const [saveAttempted, setSaveAttempted] = useState(false);
-  const [shiftErrorMessage, setShiftErrorMessage] = useState('');
   
   // Refs for submit button and first input
   const shiftSubmitRef = useRef(null);
   const shiftFirstInputRef = useRef(null);
   const ppThicknessRef = useRef(null);
 
-  // Handle click on disabled shift form — scroll to primary & show warning
-  const handleDisabledFieldClick = (e) => {
-    if (!isPrimaryLocked) {
-      e.preventDefault();
-      e.stopPropagation();
-      
-      setShowPrimaryWarning(true);
-      
-      // Auto scroll to top so user sees the primary section & warning
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      
-      setTimeout(() => {
-        setShowPrimaryWarning(false);
-      }, 3000);
-    }
-  };
-
-  // Listen for clicks on the disabled shift form area
-  useEffect(() => {
-    const handleDisabledClick = (e) => {
-      const target = e.target;
-      
-      // Check if clicked element is a disabled input/select inside shift section
-      if ((target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA') && target.disabled) {
-        const shiftSection = target.closest('.dmm-shift-form-grid');
-        if (shiftSection) {
-          handleDisabledFieldClick(e);
-          return;
-        }
-      }
-      
-      // Check if clicked on the shift form grid itself or its overlay
-      if (target.classList && (target.classList.contains('dmm-shift-form-grid') || target.classList.contains('dmm-shift-overlay'))) {
-        if (!isPrimaryLocked) {
-          handleDisabledFieldClick(e);
-          return;
-        }
-      }
-      
-      // Check if clicked on a form-group div inside shift section
-      let formGroup = target.closest('.dmm-form-group');
-      if (formGroup) {
-        const shiftSection = formGroup.closest('.dmm-shift-form-grid');
-        if (shiftSection) {
-          const input = formGroup.querySelector('input, select, textarea');
-          if (input && input.disabled) {
-            handleDisabledFieldClick(e);
-            return;
-          }
-        }
-      }
-    };
-
-    document.addEventListener('mousedown', handleDisabledClick, true);
-    return () => {
-      document.removeEventListener('mousedown', handleDisabledClick, true);
-    };
-  }, [isPrimaryLocked]);
-  
-  // Clear primary validation errors after 3 seconds
-  useEffect(() => {
-    if (primaryErrorMessage) {
-      const timer = setTimeout(() => {
-        setPrimaryErrorMessage('');
-        setPrimaryValidationErrors({
-          date: false,
-          machine: false,
-          shift: false,
-          operatorName: false,
-          operatedBy: false
-        });
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [primaryErrorMessage]);
-  
-  // Clear dynamic check alert after 3 seconds
-  useEffect(() => {
-    if (dynamicCheckAlert) {
-      const timer = setTimeout(() => {
-        setDynamicCheckAlert(false);
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [dynamicCheckAlert]);
-  
-  // Clear shift error message after 5 seconds
-  useEffect(() => {
-    if (shiftErrorMessage) {
-      const timer = setTimeout(() => {
-        setShiftErrorMessage('');
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [shiftErrorMessage]);
-  
-  // Helper function to get border color for PRIMARY section only
-  const getBorderColor = (value, isNumeric = false, fieldName = '') => {
-    // Primary validation errors (for primary section only)
-    if (primaryValidationErrors[fieldName]) {
-      return '#ef4444'; // Red for primary errors
-    }
-    
-    // Currently focused → green (active highlight)
-    if (fieldName && focusedField === fieldName) {
-      return '#22c55e'; // Green for focused field
-    }
-    
-    // Default state → grey (unfocused and valid)
-    return '#cbd5e1';
-  };
-
-  /*
-   * Returns the appropriate CSS class for a SHIFT input field based on validation state:
-   * - Red border (invalid-input) when validationState === false (after submit, field is empty/invalid)
-   * - Neutral (no class) when validationState is null or undefined
-   * 
-   * Flow:
-   * 1. After submit, if invalid -> red border (invalid-input)
-   * 2. When user starts typing/entering data -> resets to null via handleInputChange
-   */
   const getInputClassName = (fieldName) => {
     if (shiftValidationErrors[fieldName] === false) return 'invalid-input';
     return '';
   };
-  
-  // Validate field in real-time
-  const validateField = (field, value) => {
-    let isValid = false;
-    
-    switch(field) {
-      case 'date':
-        isValid = value && String(value).trim() !== '';
-        break;
-      case 'machine':
-        isValid = value && String(value).trim() !== '';
-        break;
-      case 'shift':
-        isValid = value && String(value).trim() !== '';
-        break;
-      case 'operatorName':
-        isValid = value && String(value).trim() !== '';
-        break;
-      case 'operatedBy':
-        isValid = value && String(value).trim() !== '';
-        break;
-      default:
-        isValid = true;
-    }
-    
-    setValidationErrors(prev => ({ ...prev, [field]: !isValid }));
-    return isValid;
-  };
-
-  // Handle Enter key navigation for form fields
-  const handleEnterKeyNavigation = (e, nextFieldId) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      const nextField = document.getElementById(nextFieldId);
-      if (nextField) {
-        nextField.focus();
-      }
-    }
-  };
 
   const handlePrimaryChange = (field, value) => {
-    // Clear error highlight when field gets a value
+    // Clear error highlight + message when field gets a value
     if (field === 'date' && value && value.trim() !== '') {
       setDateErrorHighlight(false);
+      setPrimaryFieldMessage('');
     }
     if (field === 'machine' && value && value.trim() !== '') {
       setMachineErrorHighlight(false);
+      setPrimaryFieldMessage('');
     }
     if (field === 'shift' && value && value.trim() !== '') {
       setShiftErrorHighlight(false);
-    }
-    if (field === 'operatorName' && value && value.trim() !== '') {
-      setOperatorNameErrorHighlight(false);
-    }
-    if (field === 'operatedBy' && value && value.trim() !== '') {
-      setOperatedByErrorHighlight(false);
+      setPrimaryFieldMessage('');
     }
 
-    // If date, machine, or shift is cleared, also clear operator fields and unlock
+    // If date, machine, or shift is cleared, also clear operator fields + reset combination state
     if (['date', 'machine', 'shift'].includes(field) && (!value || value.trim() === '')) {
       setPrimaryData((prev) => ({
         ...prev,
@@ -337,242 +407,36 @@ const DmmSettingParameters = () => {
         operatorName: '',
         operatedBy: ''
       }));
-      setPrimaryFieldLocked({ operatorName: false, operatedBy: false });
-      setIsPrimaryLocked(false);
+      setLockedFields({ operatorName: false });
+      setShowCombinationFound(false);
+      setShowCombinationSaved(false);
+      setClosingCombinationMsg(false);
+      setExistingParametersCount(0);
+      setSubmitMessage('');
+    } else if (['date', 'machine', 'shift'].includes(field)) {
+      // Key field changed to a new value — reset combination states (useEffect will re-fetch)
+      setPrimaryData((prev) => ({
+        ...prev,
+        [field]: value,
+        operatorName: '',
+        operatedBy: ''
+      }));
+      setLockedFields({ operatorName: false });
+      setShowCombinationFound(false);
+      setShowCombinationSaved(false);
+      setClosingCombinationMsg(false);
+      setExistingParametersCount(0);
+      setSubmitMessage('');
     } else {
       setPrimaryData((prev) => ({
         ...prev,
         [field]: value
       }));
     }
-    
-    // Validate on change for real-time feedback
-    if (['date', 'machine', 'shift', 'operatorName', 'operatedBy'].includes(field)) {
-      validateField(field, value);
-    }
-  };
-
-  // Check if primary data exists when date/machine/shift changes
-  useEffect(() => {
-    const checkExistingPrimaryData = async () => {
-      if (!primaryData.date || !primaryData.machine || !primaryData.shift) {
-        // Clear locks if incomplete
-        setPrimaryFieldLocked({ operatorName: false, operatedBy: false });
-        setIsPrimaryLocked(false);
-        setSavePrimaryLoading(false);
-        setShowCombinationFound(false);
-        return;
-      }
-
-      try {
-        setSavePrimaryLoading(true);
-        setShowCombinationFound(false);
-        
-        const startTime = Date.now();
-        
-        const resp = await fetch(`${API_ENDPOINTS.mouldingDmm}/search/primary?date=${encodeURIComponent(primaryData.date)}&machine=${encodeURIComponent(primaryData.machine)}&shift=${encodeURIComponent(primaryData.shift)}`, {
-          method: 'GET',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
-          }
-        });
-        const response = await resp.json();
-        
-        // Ensure minimum 1 second loading time
-        const elapsedTime = Date.now() - startTime;
-        const remainingTime = Math.max(0, 1000 - elapsedTime);
-        await new Promise(resolve => setTimeout(resolve, remainingTime));
-        
-        setSavePrimaryLoading(false);
-        
-        if (response.success && response.data && response.data.length > 0) {
-          const record = response.data[0];
-          const entry = record.entries?.[0]; // First entry for this machine+shift
-          
-          // Check if operator fields have existing data
-          const hasOperatorName = entry?.operatorName && String(entry.operatorName).trim() !== '';
-          const hasOperatedBy = entry?.checkedBy && String(entry.checkedBy).trim() !== '';
-          
-          // Lock only the fields that have existing data
-          setPrimaryFieldLocked({
-            operatorName: hasOperatorName,
-            operatedBy: hasOperatedBy
-          });
-          
-          // Populate operator fields if they exist
-          setPrimaryData(prev => ({
-            ...prev,
-            operatorName: hasOperatorName ? String(entry.operatorName).trim() : '',
-            operatedBy: hasOperatedBy ? String(entry.checkedBy).trim() : ''
-          }));
-          
-          // Primary is locked (shift form enabled) once combination exists - operator fields can be updated later
-          setIsPrimaryLocked(true);
-          
-          // Show "Combination found" message
-          setShowCombinationFound(true);
-          setTimeout(() => {
-            setShowCombinationFound(false);
-          }, 1500);
-        } else {
-          // No existing data - unlock all and clear operator fields
-          setPrimaryFieldLocked({ operatorName: false, operatedBy: false });
-          setIsPrimaryLocked(false);
-          setPrimaryData(prev => ({
-            ...prev,
-            operatorName: '',
-            operatedBy: ''
-          }));
-        }
-        
-        // Show success alert after data check
-        setDynamicCheckAlert(true);
-      } catch (error) {
-        console.error('Error checking primary data:', error);
-        setSavePrimaryLoading(false);
-        setPrimaryFieldLocked({ operatorName: false, operatedBy: false });
-        setIsPrimaryLocked(false);
-        setPrimaryData(prev => ({
-          ...prev,
-          operatorName: '',
-          operatedBy: ''
-        }));
-      }
-    };
-
-    checkExistingPrimaryData();
-  }, [primaryData.date, primaryData.machine, primaryData.shift]);
-
-  // Handle primary data submission
-  const handlePrimarySubmit = async (e) => {
-    if (e) e.preventDefault();
-    
-    // Validate required fields: date, machine, shift (operator fields are optional, can update later)
-    const dateValid = validateField('date', primaryData.date);
-    const machineValid = validateField('machine', primaryData.machine);
-    const shiftValid = validateField('shift', primaryData.shift);
-    
-    if (!dateValid || !machineValid || !shiftValid) {
-      // Set validation errors for visual feedback
-      setPrimaryValidationErrors({
-        date: !dateValid,
-        machine: !machineValid,
-        shift: !shiftValid,
-        operatorName: false,
-        operatedBy: false
-      });
-      setPrimaryErrorMessage('Enter Date, Machine & Shift');
-      
-      // Focus first invalid field
-      if (!dateValid) {
-        document.getElementById('date-field')?.focus();
-      } else if (!machineValid) {
-        document.getElementById('machine-field')?.focus();
-      } else if (!shiftValid) {
-        document.getElementById('shift-field')?.focus();
-      }
-      return;
-    }
-
-    // Always send machine & operator info; backend requires machine/date each time
-    // Section must be 'operation' for operatorName/checkedBy persistence
-
-    // If already processing, don't submit again
-    if (savePrimaryLoading || showCombinationFound || showCombinationAdded) {
-      return;
-    }
-
-    try {
-      setLoadingStates(prev => ({ ...prev, primary: true }));
-      setSavePrimaryLoading(true);
-      
-      const startTime = Date.now();
-      
-      // Build payload
-      const payload = {
-        date: primaryData.date,
-        machine: primaryData.machine.trim(),
-        section: 'operation',
-        shifts: {}
-      };
-      // Send operator data for selected shift (optional - can be updated later)
-      const shiftKey = `shift${primaryData.shift}`;
-      const shiftPayload = {};
-      if (primaryData.operatorName && primaryData.operatorName.trim()) {
-        shiftPayload.operatorName = primaryData.operatorName.trim();
-      }
-      if (primaryData.operatedBy && primaryData.operatedBy.trim()) {
-        shiftPayload.checkedBy = primaryData.operatedBy.trim();
-      }
-      
-      if (Object.keys(shiftPayload).length > 0) {
-        payload.shifts[shiftKey] = shiftPayload;
-      }
-
-      const resp = await fetch(API_ENDPOINTS.mouldingDmm, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
-        },
-        body: JSON.stringify(payload)
-      });
-      const data = await resp.json();
-      
-      // Ensure minimum 1 second for consistent UX
-      const elapsedTime = Date.now() - startTime;
-      const remainingTime = Math.max(0, 1000 - elapsedTime);
-      await new Promise(resolve => setTimeout(resolve, remainingTime));
-      
-      setSavePrimaryLoading(false);
-      
-      if (data.success) {
-        // Lock operator fields that have values, keep empty ones editable for later update
-        setPrimaryFieldLocked({
-          operatorName: !!(primaryData.operatorName && primaryData.operatorName.trim()),
-          operatedBy: !!(primaryData.operatedBy && primaryData.operatedBy.trim())
-        });
-        setIsPrimaryLocked(true);
-        
-        // Scroll to top on save
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        
-        // Show "Combination Added" message
-        setShowCombinationAdded(true);
-        setTimeout(() => {
-          setShowCombinationAdded(false);
-        }, 1500);
-        
-        // Refresh shift counts
-        fetchShiftCounts();
-        
-        // Focus on first shift parameter input if operator fields are filled
-        if (primaryData.operatorName && primaryData.operatorName.trim() && primaryData.operatedBy && primaryData.operatedBy.trim()) {
-          setTimeout(() => {
-            if (shiftFirstInputRef.current) {
-              shiftFirstInputRef.current.focus();
-            }
-          }, 100);
-        }
-      } else {
-        alert('Failed to save: ' + (data.message || 'Unknown error'));
-      }
-    } catch (error) {
-      console.error('Error saving primary data:', error);
-      setSavePrimaryLoading(false);
-      const errorMessage = error.response?.data?.message || error.message || 'Unknown error occurred';
-      alert('Failed to save primary data: ' + errorMessage);
-    } finally {
-      setLoadingStates(prev => ({ ...prev, primary: false }));
-    }
   };
 
   // Real-time validation for shift parameter fields
   const validateShiftField = (fieldName, value) => {
-    // Required fields list
     const requiredFields = [
       'customer', 'itemDescription', 'time', 'ppThickness', 'ppHeight',
       'spThickness', 'spHeight', 'coreMaskThickness', 'coreMaskHeightOutside',
@@ -582,17 +446,11 @@ const DmmSettingParameters = () => {
       'closeUpForceMouldCloseUpPressure', 'remarks'
     ];
     
-    if (!requiredFields.includes(fieldName)) {
-      return true;
-    }
+    if (!requiredFields.includes(fieldName)) return true;
     
-    // Check for empty value
     const isEmpty = value === undefined || value === null || String(value).trim() === '';
-    if (isEmpty) {
-      return false;
-    }
+    if (isEmpty) return false;
     
-    // Numeric fields - check datatype and format
     const numericFields = [
       'ppThickness', 'ppHeight', 'spThickness', 'spHeight',
       'coreMaskThickness', 'coreMaskHeightOutside', 'coreMaskHeightInside',
@@ -603,10 +461,7 @@ const DmmSettingParameters = () => {
     
     if (numericFields.includes(fieldName)) {
       const num = parseFloat(value);
-      // Invalid if not a number or not finite
-      if (isNaN(num) || !isFinite(num)) {
-        return false;
-      }
+      if (isNaN(num) || !isFinite(num)) return false;
     }
     
     return true;
@@ -615,19 +470,16 @@ const DmmSettingParameters = () => {
   const handleInputChange = (field, value) => {
     setCurrentRow((prev) => ({ ...prev, [field]: value }));
     
-    // Process.jsx pattern: on typing, always reset to null (neutral)
-    // Validation only happens on submit
+    // On typing, always reset to null (neutral)
     setShiftValidationErrors(prev => {
       const newErrors = { ...prev };
-      delete newErrors[field]; // Remove = null/neutral
+      delete newErrors[field];
       return newErrors;
     });
-    setShiftErrorMessage('');
   };
 
   // Helper function to check if Shift parameters have at least one field with data
   const hasShiftParameterData = () => {
-    // Check if any of the main fields (not remarks) have data
     return (currentRow.customer && currentRow.customer.trim() !== '') ||
            (currentRow.itemDescription && currentRow.itemDescription.trim() !== '') ||
            (currentRow.time && currentRow.time.trim() !== '') ||
@@ -637,151 +489,19 @@ const DmmSettingParameters = () => {
            (currentRow.spHeight && currentRow.spHeight.toString().trim() !== '');
   };
 
-  // Fetch shift counts from database
-  const fetchShiftCounts = async () => {
-    if (!primaryData.date || !primaryData.machine) {
-      setShiftCounts({ shift1: 0, shift2: 0, shift3: 0 });
-      return;
-    }
-
-    try {
-      const resp = await fetch(`${API_ENDPOINTS.mouldingDmm}/search/primary?date=${encodeURIComponent(primaryData.date)}&machine=${encodeURIComponent(primaryData.machine)}`, {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
-        }
-      });
-      const response = await resp.json();
-      
-      if (response.success && response.data && response.data.length > 0) {
-        const record = response.data[0];
-        const counts = { shift1: 0, shift2: 0, shift3: 0 };
-        
-        // Count parameters for each shift entry
-        if (record.entries && Array.isArray(record.entries)) {
-          record.entries.forEach(entry => {
-            const shiftKey = `shift${entry.shift}`;
-            if (counts.hasOwnProperty(shiftKey) && entry.parameters && Array.isArray(entry.parameters)) {
-              counts[shiftKey] = entry.parameters.length;
-            }
-          });
-        }
-        
-        setShiftCounts(counts);
-      } else {
-        setShiftCounts({ shift1: 0, shift2: 0, shift3: 0 });
-      }
-    } catch (error) {
-      console.error('Error fetching shift counts:', error);
-      setShiftCounts({ shift1: 0, shift2: 0, shift3: 0 });
-    }
-  };
-
-  // Update shift counts when date/machine changes
-  useEffect(() => {
-    if (primaryData.date && primaryData.machine) {
-      fetchShiftCounts();
-    } else {
-      setShiftCounts({ shift1: 0, shift2: 0, shift3: 0 });
-    }
-  }, [primaryData.date, primaryData.machine]);
-
-  const handleShiftSubmit = async (e) => {
-    if (e && e.preventDefault) e.preventDefault();
-    
-    // Set save attempted flag for validation display
-    setSaveAttempted(true);
-    
-    // Ensure a shift is selected in primary
-    if (!primaryData.shift) {
-      return;
-    }
-    
-    // Primary data must be saved first
-    if (!isPrimaryLocked) {
-      return;
-    }
-    
-    if (!primaryData.date || !primaryData.machine) {
-      return;
-    }
-    
-    // Validate shift row before saving
-    if (!validateShiftRowBeforeSave()) {
-      return;
-    }
-
-    try {
-      setLoadingStates(prev => ({ ...prev, shift: true }));
-      
-      // Send row data directly - backend will map field names correctly
-      const rowForSave = { ...currentRow };
-
-      const payload = {
-        date: primaryData.date,
-        machine: primaryData.machine,
-        section: `shift${primaryData.shift}`,
-        parameters: {
-          [`shift${primaryData.shift}`]: rowForSave
-        }
-      };
-
-      const resp = await fetch(API_ENDPOINTS.mouldingDmm, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
-        },
-        body: JSON.stringify(payload)
-      });
-      const data = await resp.json();
-      
-      if (data.success) {
-        // Clear validation states
-        setSaveAttempted(false);
-        setShiftValidationErrors({});
-        
-        // Clear current row for next entry
-        setCurrentRow({ ...initialRow });
-        
-        // Fetch updated counts from database
-        await fetchShiftCounts();
-        
-        // Focus customer input (first input)
-        setTimeout(() => {
-          if (shiftFirstInputRef.current) {
-            shiftFirstInputRef.current.focus();
-          }
-        }, 100);
-        
-      }
-    } catch (error) {
-      console.error(`Error saving shift ${primaryData.shift} data:`, error);
-      alert('Failed to save: ' + (error.response?.data?.message || error.message));
-    } finally {
-      setLoadingStates(prev => ({ ...prev, shift: false }));
-    }
-  };
-
   // Handle Enter key navigation for shift parameter inputs
   const handleShiftKeyDown = (e, fieldName = '') => {
     if (e.key === 'Enter') {
       e.preventDefault();
 
-      // Get all inputs in the current shift section
       const shiftSection = e.target.closest('.dmm-section');
       if (!shiftSection) return;
       
       const allInputs = Array.from(shiftSection.querySelectorAll('input:not([type="button"]):not([disabled]), select:not([disabled])'));
-      // Filter out inputs inside .custom-time-input-container (HH, MM, AM/PM handled internally)
       const inputs = allInputs.filter(el => !el.closest('.custom-time-input-container'));
       const currentIndex = inputs.indexOf(e.target);
       
       if (currentIndex < inputs.length - 1) {
-        // Check if next sibling form-group has a CustomTimeInput
         const currentFormGroup = e.target.closest('.dmm-form-group');
         const nextFormGroup = currentFormGroup?.nextElementSibling;
         if (nextFormGroup) {
@@ -797,7 +517,6 @@ const DmmSettingParameters = () => {
         }
         inputs[currentIndex + 1].focus();
       } else {
-        // Last input - focus Submit Entry button
         if (shiftSubmitRef.current) {
           shiftSubmitRef.current.focus();
         }
@@ -805,13 +524,12 @@ const DmmSettingParameters = () => {
     }
   };
 
-  // Validate entire shift parameter row before saving (Process.jsx pattern)
+  // Validate entire shift parameter row before saving
   const validateShiftRowBeforeSave = () => {
     const errors = {};
     let hasErrors = false;
     let firstErrorField = null;
     
-    // List of required fields
     const requiredFields = [
       'customer', 'itemDescription', 'time', 'ppThickness', 'ppHeight', 
       'spThickness', 'spHeight', 'coreMaskThickness', 'coreMaskHeightOutside',
@@ -821,27 +539,20 @@ const DmmSettingParameters = () => {
       'closeUpForceMouldCloseUpPressure', 'remarks'
     ];
     
-    // Validate each field: false = invalid (red), null = valid (neutral)
     requiredFields.forEach(field => {
       if (!validateShiftField(field, currentRow[field])) {
-        errors[field] = false; // false = invalid (shows red border)
+        errors[field] = false;
         hasErrors = true;
-        if (!firstErrorField) firstErrorField = field; // Track first error for auto-focus
+        if (!firstErrorField) firstErrorField = field;
       }
-      // Valid fields are not added to errors (null/absent = neutral)
     });
     
     setShiftValidationErrors(errors);
     
-    // Set error message and auto-focus first error field
     if (hasErrors) {
-      setShiftErrorMessage('Correct Data format or Enter Empty Field');
-      // Auto-focus first error field
-      if (firstErrorField) {
+        if (firstErrorField) {
         const shiftSection = document.querySelector('.dmm-shift-form-grid');
         if (shiftSection) {
-          const firstInput = shiftSection.querySelector('.invalid-input, input, select');
-          // Use setTimeout to allow state update to apply className first
           setTimeout(() => {
             const errorInput = shiftSection.querySelector('.invalid-input');
             if (errorInput) errorInput.focus();
@@ -849,8 +560,7 @@ const DmmSettingParameters = () => {
         }
       }
     } else {
-      setShiftErrorMessage('');
-    }
+      }
     
     return !hasErrors;
   };
@@ -859,47 +569,29 @@ const DmmSettingParameters = () => {
   const handleSubmitButtonKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      handleShiftSubmit(e);
+      handleSubmitAll();
     }
   };
 
-  // Separate reset functions for each section
-  const resetPrimaryData = () => {
-    if (!window.confirm('Are you sure you want to unlock and reset Primary data?')) return;
-    const today = getTodaysDate();
-    setPrimaryData({ date: today, machine: '', shift: '', operatorName: '', operatedBy: '' });
-    setIsPrimaryLocked(false);
-    setPrimaryFieldLocked({ operatorName: false, operatedBy: false });
-    setCheckingData(false);
-  };
-
-  const resetShiftRow = () => {
-    if (!primaryData.shift) {
-      return;
-    }
-    if (!window.confirm(`Are you sure you want to reset Shift ${primaryData.shift} Parameters?`)) return;
-    setCurrentRow({ ...initialRow });
-  };
-
-  const handleViewReport = () => {
-    navigate('/moulding/dmm-setting-parameters/report');
-  };
-
-  // Combined Save All for DMM page (backend-compat: operation then shift append)
+  // Submit All: saves operation info + shift parameters in one go
   const handleSubmitAll = async () => {
+    // Validate primary fields with shake animation
     if (!primaryData.date || !primaryData.machine || !primaryData.shift) {
+      const missingSetters = [];
+      if (!primaryData.date) missingSetters.push(setDateErrorHighlight);
+      if (!primaryData.machine) missingSetters.push(setMachineErrorHighlight);
+      if (!primaryData.shift) missingSetters.push(setShiftErrorHighlight);
+      triggerHighlight(...missingSetters);
+      showFieldMessage();
       return;
     }
 
-    // Ensure all shift fields are filled and valid before saving
-    if (!validateShiftRowBeforeSave()) {
-      return;
-    }
+    // Validate shift parameters
+    if (!validateShiftRowBeforeSave()) return;
 
     const startTime = Date.now();
-    const MIN_LOADER_DURATION = 1500; // 1.5 seconds minimum (matches Sakthi component timing)
+    const MIN_LOADER_DURATION = 1500;
     setAllSubmitting(true);
-    setShiftSubmitLoading(true);
     try {
       const shiftKey = `shift${primaryData.shift}`;
 
@@ -928,7 +620,7 @@ const DmmSettingParameters = () => {
       
       if (!opRes.success) throw new Error(opRes.message || 'Failed to save operation');
 
-      // 2) Save parameters row (send all fields directly)
+      // 2) Save parameters row
       if (hasShiftParameterData()) {
         const rowForSave = { ...currentRow };
 
@@ -954,14 +646,20 @@ const DmmSettingParameters = () => {
         if (!paramsRes.success) throw new Error(paramsRes.message || 'Failed to save parameters');
       }
       
-      // Ensure minimum loader display time has passed before proceeding
+      // Ensure minimum loader display time
       const elapsedTime = Date.now() - startTime;
       const remainingTime = Math.max(0, MIN_LOADER_DURATION - elapsedTime);
-      
       await new Promise(resolve => setTimeout(resolve, remainingTime));
       
       setCurrentRow({ ...initialRow });
-      await fetchShiftCounts();
+      setShiftValidationErrors({});
+
+      // Show success message via InlineLoader
+      showSubmitMessage('Entry saved successfully', 'success', 3000);
+
+      // Re-fetch combination to update locked fields & parameters count
+      await fetchPrimaryData(primaryData.date, primaryData.machine, primaryData.shift);
+
       setTimeout(() => {
         if (shiftFirstInputRef.current) {
           shiftFirstInputRef.current.focus();
@@ -969,339 +667,336 @@ const DmmSettingParameters = () => {
       }, 100);
     } catch (err) {
       console.error('Save All error:', err);
-      alert('Failed to Save All: ' + (err.response?.data?.message || err.message || 'Unknown error'));
+      showSubmitMessage(
+        'Failed to Save: ' + (err.response?.data?.message || err.message || 'Unknown error'),
+        'danger',
+        5000
+      );
     } finally {
       setAllSubmitting(false);
-      setShiftSubmitLoading(false);
     }
   };
 
   const renderRow = () => {
+    const formLocked = !isFormUnlocked;
+    const onLock = () => { const req = getLockedRequiredField(); if (req) handleLockedClick(req); };
+
     return (
-    <div style={{
-      opacity: !isPrimaryLocked ? 0.6 : 1,
-      position: 'relative',
-      cursor: !isPrimaryLocked ? 'pointer' : 'auto'
-    }}>
-    {/* Overlay to catch clicks when primary not saved */}
-    {!isPrimaryLocked && (
-      <div 
-        className="dmm-shift-overlay"
-        onClick={handleDisabledFieldClick}
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 10,
-          cursor: 'pointer',
-          backgroundColor: 'transparent'
-        }}
-      />
-    )}
     <div className="dmm-form-grid dmm-shift-form-grid">
-      <div className="dmm-form-group full-width">
-        <label>Customer</label>
-        <input
-          type="text"
-          ref={shiftFirstInputRef}
-          value={currentRow.customer}
-          onChange={(e) => handleInputChange("customer", e.target.value)}
-          onKeyDown={handleShiftKeyDown}
-          onFocus={() => setFocusedField('customer')}
-          onBlur={() => setFocusedField(null)}
-          placeholder="e.g., ABC Industries"
-          className={getInputClassName('customer')}
-        />
-      </div>
-      <div className="dmm-form-group">
-        <label>Item Description</label>
-        <input
-          type="text"
-          value={currentRow.itemDescription}
-          onChange={(e) => handleInputChange("itemDescription", e.target.value)}
-          onKeyDown={handleShiftKeyDown}
-          onFocus={() => setFocusedField('itemDescription')}
-          onBlur={() => setFocusedField(null)}
-          placeholder="e.g., Engine Block Casting"
-          className={getInputClassName('itemDescription')}
-        />
-      </div>
-      <div className="dmm-form-group">
-        <label>Time</label>
-        <CustomTimeInput
-          value={createTimeFromString(currentRow.time)}
-          onChange={(timeObj) => handleInputChange("time", formatTimeToString(timeObj))}
-          disabled={!isPrimaryLocked}
-          onFocus={() => setFocusedField('time')}
-          onBlur={() => setFocusedField(null)}
-          hasError={shiftValidationErrors['time'] === false}
-          onEnterPress={() => {
-            if (ppThicknessRef.current) {
-              ppThicknessRef.current.focus();
-            }
-          }}
-          style={{
-            width: '100%',
-            minHeight: '32px',
-            padding: '0.3rem 0.875rem',
-            boxSizing: 'border-box'
-          }}
-        />
-      </div>
-      <div className="dmm-form-group">
-        <label>PP Thickness (mm)</label>
-        <input
-          type="number"
-          ref={ppThicknessRef}
-          value={currentRow.ppThickness}
-          onChange={(e) => handleInputChange("ppThickness", e.target.value)}
-          onKeyDown={handleShiftKeyDown}
-          onFocus={() => setFocusedField('ppThickness')}
-          onBlur={() => setFocusedField(null)}
-          placeholder="e.g., 25.5"
-          step="any"
-          className={getInputClassName('ppThickness')}
-        />
-      </div>
-      <div className="dmm-form-group">
-        <label>PP Height (mm)</label>
-        <input
-          type="number"
-          value={currentRow.ppHeight}
-          onChange={(e) => handleInputChange("ppHeight", e.target.value)}
-          onKeyDown={handleShiftKeyDown}
-          onFocus={() => setFocusedField('ppHeight')}
-          onBlur={() => setFocusedField(null)}
-          placeholder="e.g., 150.0"
-          step="any"
-          className={getInputClassName('ppHeight')}
-        />
-      </div>
-      <div className="dmm-form-group">
-        <label>SP Thickness (mm)</label>
-        <input
-          type="number"
-          value={currentRow.spThickness}
-          onChange={(e) => handleInputChange("spThickness", e.target.value)}
-          onKeyDown={handleShiftKeyDown}
-          onFocus={() => setFocusedField('spThickness')}
-          onBlur={() => setFocusedField(null)}
-          placeholder="e.g., 30.2"
-          step="any"
-          className={getInputClassName('spThickness')}
-        />
-      </div>
-      <div className="dmm-form-group">
-        <label>SP Height (mm)</label>
-        <input
-          type="number"
-          value={currentRow.spHeight}
-          onChange={(e) => handleInputChange("spHeight", e.target.value)}
-          onKeyDown={handleShiftKeyDown}
-          onFocus={() => setFocusedField('spHeight')}
-          onBlur={() => setFocusedField(null)}
-          placeholder="e.g., 180.5"
-          step="any"
-          className={getInputClassName('spHeight')}
-        />
-      </div>
-      <div className="dmm-form-group">
-        <label>Core Mask Thickness (mm)</label>
-        <input
-          type="number"
-          value={currentRow.coreMaskThickness}
-          onChange={(e) => handleInputChange("coreMaskThickness", e.target.value)}
-          onKeyDown={handleShiftKeyDown}
-          onFocus={() => setFocusedField('coreMaskThickness')}
-          onBlur={() => setFocusedField(null)}
-          placeholder="e.g., 12.0"
-          step="any"
-          className={getInputClassName('coreMaskThickness')}
-        />
-      </div>
-      <div className="dmm-form-group">
-        <label>Core Mask Height Outside (mm)</label>
-        <input
-          type="number"
-          value={currentRow.coreMaskHeightOutside}
-          onChange={(e) => handleInputChange("coreMaskHeightOutside", e.target.value)}
-          onKeyDown={handleShiftKeyDown}
-          onFocus={() => setFocusedField('coreMaskHeightOutside')}
-          onBlur={() => setFocusedField(null)}
-          placeholder="e.g., 95.5"
-          step="any"
-          className={getInputClassName('coreMaskHeightOutside')}
-        />
-      </div>
-      <div className="dmm-form-group">
-        <label>Core Mask Height Inside (mm)</label>
-        <input
-          type="number"
-          value={currentRow.coreMaskHeightInside}
-          onChange={(e) => handleInputChange("coreMaskHeightInside", e.target.value)}
-          onKeyDown={handleShiftKeyDown}
-          onFocus={() => setFocusedField('coreMaskHeightInside')}
-          onBlur={() => setFocusedField(null)}
-          placeholder="e.g., 85.0"
-          step="any"
-          className={getInputClassName('coreMaskHeightInside')}
-        />
-      </div>
-      <div className="dmm-form-group">
-        <label>Sand Shot Pressure (Bar)</label>
-        <input
-          type="number"
-          value={currentRow.sandShotPressureBar}
-          onChange={(e) => handleInputChange("sandShotPressureBar", e.target.value)}
-          onKeyDown={handleShiftKeyDown}
-          onFocus={() => setFocusedField('sandShotPressureBar')}
-          onBlur={() => setFocusedField(null)}
-          placeholder="e.g., 6.5"
-          step="any"
-          className={getInputClassName('sandShotPressureBar')}
-        />
-      </div>
-      <div className="dmm-form-group">
-        <label>Correction Shot Time (s)</label>
-        <input
-          type="number"
-          value={currentRow.correctionShotTime}
-          onChange={(e) => handleInputChange("correctionShotTime", e.target.value)}
-          onKeyDown={handleShiftKeyDown}
-          onFocus={() => setFocusedField('correctionShotTime')}
-          onBlur={() => setFocusedField(null)}
-          placeholder="e.g., 2.5"
-          step="any"
-          className={getInputClassName('correctionShotTime')}
-        />
-      </div>
-      <div className="dmm-form-group">
-        <label>Squeeze Pressure (Kg/cm²)</label>
-        <input
-          type="number"
-          value={currentRow.squeezePressure}
-          onChange={(e) => handleInputChange("squeezePressure", e.target.value)}
-          onKeyDown={handleShiftKeyDown}
-          onFocus={() => setFocusedField('squeezePressure')}
-          onBlur={() => setFocusedField(null)}
-          placeholder="e.g., 45.0"
-          step="any"
-          className={getInputClassName('squeezePressure')}
-        />
-      </div>
-      <div className="dmm-form-group">
-        <label>PP Stripping Acceleration</label>
-        <input
-          type="number"
-          value={currentRow.ppStrippingAcceleration}
-          onChange={(e) => handleInputChange("ppStrippingAcceleration", e.target.value)}
-          onKeyDown={handleShiftKeyDown}
-          onFocus={() => setFocusedField('ppStrippingAcceleration')}
-          onBlur={() => setFocusedField(null)}
-          placeholder="e.g., 3.2"
-          step="any"
-          className={getInputClassName('ppStrippingAcceleration')}
-        />
-      </div>
-      <div className="dmm-form-group">
-        <label>PP Stripping Distance</label>
-        <input
-          type="number"
-          value={currentRow.ppStrippingDistance}
-          onChange={(e) => handleInputChange("ppStrippingDistance", e.target.value)}
-          onKeyDown={handleShiftKeyDown}
-          onFocus={() => setFocusedField('ppStrippingDistance')}
-          onBlur={() => setFocusedField(null)}
-          placeholder="e.g., 120.0"
-          step="any"
-          className={getInputClassName('ppStrippingDistance')}
-        />
-      </div>
-      <div className="dmm-form-group">
-        <label>SP Stripping Acceleration</label>
-        <input
-          type="number"
-          value={currentRow.spStrippingAcceleration}
-          onChange={(e) => handleInputChange("spStrippingAcceleration", e.target.value)}
-          onKeyDown={handleShiftKeyDown}
-          onFocus={() => setFocusedField('spStrippingAcceleration')}
-          onBlur={() => setFocusedField(null)}
-          placeholder="e.g., 2.8"
-          step="any"
-          className={getInputClassName('spStrippingAcceleration')}
-        />
-      </div>
-      <div className="dmm-form-group">
-        <label>SP Stripping Distance</label>
-        <input
-          type="number"
-          value={currentRow.spStrippingDistance}
-          onChange={(e) => handleInputChange("spStrippingDistance", e.target.value)}
-          onKeyDown={handleShiftKeyDown}
-          onFocus={() => setFocusedField('spStrippingDistance')}
-          onBlur={() => setFocusedField(null)}
-          placeholder="e.g., 140.0"
-          step="any"
-          className={getInputClassName('spStrippingDistance')}
-        />
-      </div>
-      <div className="dmm-form-group">
-        <label>Mould Thickness ±10mm</label>
-        <input
-          type="number"
-          value={currentRow.mouldThicknessPlus10}
-          onChange={(e) => handleInputChange("mouldThicknessPlus10", e.target.value)}
-          onKeyDown={handleShiftKeyDown}
-          onFocus={() => setFocusedField('mouldThicknessPlus10')}
-          onBlur={() => setFocusedField(null)}
-          placeholder="e.g., 250.0"
-          step="any"
-          className={getInputClassName('mouldThicknessPlus10')}
-        />
-      </div>
-      <div className="dmm-form-group">
-        <label>
-          <span>Close-Up Force / Pressure</span>
-          <span className="dmm-info" title="Close Up Force / Mould Close Up Pressure" style={{ marginLeft: '0.5rem' }}>
-            <Info size={14} />
-          </span>
-        </label>
-        <input
-          type="text"
-          value={currentRow.closeUpForceMouldCloseUpPressure}
-          onChange={(e) => handleInputChange("closeUpForceMouldCloseUpPressure", e.target.value)}
-          onKeyDown={handleShiftKeyDown}
-          onFocus={() => setFocusedField('closeUpForceMouldCloseUpPressure')}
-          onBlur={() => setFocusedField(null)}
-          placeholder="e.g., 800 kN / 55 bar"
-          className={getInputClassName('closeUpForceMouldCloseUpPressure')}
-        />
-      </div>
-      <div className="dmm-form-group">
-        <label>Remarks</label>
-        <input
-          type="text"
-          value={currentRow.remarks}
-          onChange={(e) => handleInputChange("remarks", e.target.value)}
-          onKeyDown={handleShiftKeyDown}
-          onFocus={() => setFocusedField('remarks')}
-          onBlur={() => setFocusedField(null)}
-          placeholder="e.g., All parameters OK"
-          maxLength={60}
-          className={getInputClassName('remarks')}
-          style={{ resize: 'none' }}
-        />
-      </div>
-    </div>
+      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
+        <div className="dmm-form-group full-width">
+          <label>Customer</label>
+          <input
+            type="text"
+            ref={shiftFirstInputRef}
+            value={currentRow.customer}
+            onChange={(e) => handleInputChange("customer", e.target.value)}
+            onKeyDown={handleShiftKeyDown}
+            placeholder="e.g., ABC Industries"
+            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
+            className={getInputClassName('customer')}
+          />
+        </div>
+      </DmmLockedField>
+      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
+        <div className="dmm-form-group">
+          <label>Item Description</label>
+          <input
+            type="text"
+            value={currentRow.itemDescription}
+            onChange={(e) => handleInputChange("itemDescription", e.target.value)}
+            onKeyDown={handleShiftKeyDown}
+            placeholder="e.g., Engine Block Casting"
+            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
+            className={getInputClassName('itemDescription')}
+          />
+        </div>
+      </DmmLockedField>
+      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
+        <div className="dmm-form-group">
+          <label>Time</label>
+          <CustomTimeInput
+            value={createTimeFromString(currentRow.time)}
+            onChange={(timeObj) => handleInputChange("time", formatTimeToString(timeObj))}
+            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
+            hasError={shiftValidationErrors['time'] === false}
+            onEnterPress={() => {
+              if (ppThicknessRef.current) {
+                ppThicknessRef.current.focus();
+              }
+            }}
+            style={{
+              width: '100%',
+              boxSizing: 'border-box'
+            }}
+          />
+        </div>
+      </DmmLockedField>
+      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
+        <div className="dmm-form-group">
+          <label>PP Thickness (mm)</label>
+          <input
+            type="number"
+            ref={ppThicknessRef}
+            value={currentRow.ppThickness}
+            onChange={(e) => handleInputChange("ppThickness", e.target.value)}
+            onKeyDown={handleShiftKeyDown}
+            placeholder="e.g., 25.5"
+            step="any"
+            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
+            className={getInputClassName('ppThickness')}
+          />
+        </div>
+      </DmmLockedField>
+      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
+        <div className="dmm-form-group">
+          <label>PP Height (mm)</label>
+          <input
+            type="number"
+            value={currentRow.ppHeight}
+            onChange={(e) => handleInputChange("ppHeight", e.target.value)}
+            onKeyDown={handleShiftKeyDown}
+            placeholder="e.g., 150.0"
+            step="any"
+            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
+            className={getInputClassName('ppHeight')}
+          />
+        </div>
+      </DmmLockedField>
+      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
+        <div className="dmm-form-group">
+          <label>SP Thickness (mm)</label>
+          <input
+            type="number"
+            value={currentRow.spThickness}
+            onChange={(e) => handleInputChange("spThickness", e.target.value)}
+            onKeyDown={handleShiftKeyDown}
+            placeholder="e.g., 30.2"
+            step="any"
+            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
+            className={getInputClassName('spThickness')}
+          />
+        </div>
+      </DmmLockedField>
+      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
+        <div className="dmm-form-group">
+          <label>SP Height (mm)</label>
+          <input
+            type="number"
+            value={currentRow.spHeight}
+            onChange={(e) => handleInputChange("spHeight", e.target.value)}
+            onKeyDown={handleShiftKeyDown}
+            placeholder="e.g., 180.5"
+            step="any"
+            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
+            className={getInputClassName('spHeight')}
+          />
+        </div>
+      </DmmLockedField>
+      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
+        <div className="dmm-form-group">
+          <label>Core Mask Thickness (mm)</label>
+          <input
+            type="number"
+            value={currentRow.coreMaskThickness}
+            onChange={(e) => handleInputChange("coreMaskThickness", e.target.value)}
+            onKeyDown={handleShiftKeyDown}
+            placeholder="e.g., 12.0"
+            step="any"
+            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
+            className={getInputClassName('coreMaskThickness')}
+          />
+        </div>
+      </DmmLockedField>
+      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
+        <div className="dmm-form-group">
+          <label>Core Mask Height Outside (mm)</label>
+          <input
+            type="number"
+            value={currentRow.coreMaskHeightOutside}
+            onChange={(e) => handleInputChange("coreMaskHeightOutside", e.target.value)}
+            onKeyDown={handleShiftKeyDown}
+            placeholder="e.g., 95.5"
+            step="any"
+            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
+            className={getInputClassName('coreMaskHeightOutside')}
+          />
+        </div>
+      </DmmLockedField>
+      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
+        <div className="dmm-form-group">
+          <label>Core Mask Height Inside (mm)</label>
+          <input
+            type="number"
+            value={currentRow.coreMaskHeightInside}
+            onChange={(e) => handleInputChange("coreMaskHeightInside", e.target.value)}
+            onKeyDown={handleShiftKeyDown}
+            placeholder="e.g., 85.0"
+            step="any"
+            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
+            className={getInputClassName('coreMaskHeightInside')}
+          />
+        </div>
+      </DmmLockedField>
+      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
+        <div className="dmm-form-group">
+          <label>Sand Shot Pressure (Bar)</label>
+          <input
+            type="number"
+            value={currentRow.sandShotPressureBar}
+            onChange={(e) => handleInputChange("sandShotPressureBar", e.target.value)}
+            onKeyDown={handleShiftKeyDown}
+            placeholder="e.g., 6.5"
+            step="any"
+            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
+            className={getInputClassName('sandShotPressureBar')}
+          />
+        </div>
+      </DmmLockedField>
+      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
+        <div className="dmm-form-group">
+          <label>Correction Shot Time (s)</label>
+          <input
+            type="number"
+            value={currentRow.correctionShotTime}
+            onChange={(e) => handleInputChange("correctionShotTime", e.target.value)}
+            onKeyDown={handleShiftKeyDown}
+            placeholder="e.g., 2.5"
+            step="any"
+            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
+            className={getInputClassName('correctionShotTime')}
+          />
+        </div>
+      </DmmLockedField>
+      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
+        <div className="dmm-form-group">
+          <label>Squeeze Pressure (Kg/cm²)</label>
+          <input
+            type="number"
+            value={currentRow.squeezePressure}
+            onChange={(e) => handleInputChange("squeezePressure", e.target.value)}
+            onKeyDown={handleShiftKeyDown}
+            placeholder="e.g., 45.0"
+            step="any"
+            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
+            className={getInputClassName('squeezePressure')}
+          />
+        </div>
+      </DmmLockedField>
+      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
+        <div className="dmm-form-group">
+          <label>PP Stripping Acceleration</label>
+          <input
+            type="number"
+            value={currentRow.ppStrippingAcceleration}
+            onChange={(e) => handleInputChange("ppStrippingAcceleration", e.target.value)}
+            onKeyDown={handleShiftKeyDown}
+            placeholder="e.g., 3.2"
+            step="any"
+            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
+            className={getInputClassName('ppStrippingAcceleration')}
+          />
+        </div>
+      </DmmLockedField>
+      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
+        <div className="dmm-form-group">
+          <label>PP Stripping Distance</label>
+          <input
+            type="number"
+            value={currentRow.ppStrippingDistance}
+            onChange={(e) => handleInputChange("ppStrippingDistance", e.target.value)}
+            onKeyDown={handleShiftKeyDown}
+            placeholder="e.g., 120.0"
+            step="any"
+            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
+            className={getInputClassName('ppStrippingDistance')}
+          />
+        </div>
+      </DmmLockedField>
+      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
+        <div className="dmm-form-group">
+          <label>SP Stripping Acceleration</label>
+          <input
+            type="number"
+            value={currentRow.spStrippingAcceleration}
+            onChange={(e) => handleInputChange("spStrippingAcceleration", e.target.value)}
+            onKeyDown={handleShiftKeyDown}
+            placeholder="e.g., 2.8"
+            step="any"
+            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
+            className={getInputClassName('spStrippingAcceleration')}
+          />
+        </div>
+      </DmmLockedField>
+      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
+        <div className="dmm-form-group">
+          <label>SP Stripping Distance</label>
+          <input
+            type="number"
+            value={currentRow.spStrippingDistance}
+            onChange={(e) => handleInputChange("spStrippingDistance", e.target.value)}
+            onKeyDown={handleShiftKeyDown}
+            placeholder="e.g., 140.0"
+            step="any"
+            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
+            className={getInputClassName('spStrippingDistance')}
+          />
+        </div>
+      </DmmLockedField>
+      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
+        <div className="dmm-form-group">
+          <label>Mould Thickness ±10mm</label>
+          <input
+            type="number"
+            value={currentRow.mouldThicknessPlus10}
+            onChange={(e) => handleInputChange("mouldThicknessPlus10", e.target.value)}
+            onKeyDown={handleShiftKeyDown}
+            placeholder="e.g., 250.0"
+            step="any"
+            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
+            className={getInputClassName('mouldThicknessPlus10')}
+          />
+        </div>
+      </DmmLockedField>
+      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
+        <div className="dmm-form-group">
+          <label>
+            <span>Close-Up Force / Pressure</span>
+          </label>
+          <input
+            type="text"
+            value={currentRow.closeUpForceMouldCloseUpPressure}
+            onChange={(e) => handleInputChange("closeUpForceMouldCloseUpPressure", e.target.value)}
+            onKeyDown={handleShiftKeyDown}
+            placeholder="e.g., 800 kN / 55 bar"
+            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
+            className={getInputClassName('closeUpForceMouldCloseUpPressure')}
+          />
+        </div>
+      </DmmLockedField>
+      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
+        <div className="dmm-form-group">
+          <label>Remarks</label>
+          <input
+            type="text"
+            value={currentRow.remarks}
+            onChange={(e) => handleInputChange("remarks", e.target.value)}
+            onKeyDown={handleShiftKeyDown}
+            placeholder="e.g., All parameters OK"
+            maxLength={60}
+            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
+            className={getInputClassName('remarks')}
+            style={{ resize: 'none' }}
+          />
+        </div>
+      </DmmLockedField>
     </div>
     );
   };
 
   return (
     <div className="page-wrapper">
-      {shiftSubmitLoading && (
+      {allSubmitting && (
         <div className="dmm-loader-overlay">
           <Sakthi onComplete={() => {}} />
         </div>
@@ -1342,33 +1037,19 @@ const DmmSettingParameters = () => {
                     e.preventDefault();
                     if (primaryData.date && primaryData.date.trim() !== '') {
                       document.getElementById('machine-field')?.focus();
-                    } else {
-                      validateField('date', primaryData.date);
                     }
                   }
                 }}
                 max={new Date().toISOString().split('T')[0]}
-                style={{
-                  width: '100%',
-                  padding: '0.625rem 0.875rem',
-                  border: `2px solid ${getBorderColor(primaryData.date, false, 'date')}`,
-                  borderRadius: '8px',
-                  fontSize: '0.875rem',
-                  backgroundColor: '#ffffff',
-                  transition: 'border-color 0.2s ease'
-                }}
                 required
               />
             </div>
             <div 
               className={`dmm-form-group ${machineErrorHighlight ? 'dmm-error-highlight' : ''}`}
               onMouseDownCapture={(e) => {
-                if (e.target.tagName !== 'SELECT') {
-                  if (!primaryData.date) {
-                    setDateErrorHighlight(true);
-                    setMachineErrorHighlight(true);
-                    setTimeout(() => setMachineErrorHighlight(false), 600);
-                  }
+                if (!primaryData.date) {
+                  triggerHighlight(setDateErrorHighlight);
+                  showFieldMessage();
                 }
               }}
             >
@@ -1383,352 +1064,214 @@ const DmmSettingParameters = () => {
                     e.preventDefault();
                     if (primaryData.machine && primaryData.machine.trim() !== '') {
                       document.getElementById('shift-field')?.focus();
-                    } else {
-                      validateField('machine', primaryData.machine);
                     }
-                  }
-                }}
-                onMouseDown={(e) => {
-                  if (!primaryData.date) {
-                    setDateErrorHighlight(true);
-                    setMachineErrorHighlight(true);
-                    setTimeout(() => setMachineErrorHighlight(false), 600);
                   }
                 }}
                 className=""
-                style={{
-                  width: '100%',
-                  padding: '0.625rem 0.875rem',
-                  border: `2px solid ${getBorderColor(primaryData.machine, false, 'machine')}`,
-                  borderRadius: '8px',
-                  fontSize: '0.875rem',
-                  backgroundColor: '#ffffff',
-                  cursor: 'pointer',
-                  transition: 'border-color 0.2s ease'
-                }}
               />
             </div>
-            <div 
-              className={`dmm-form-group ${shiftErrorHighlight ? 'dmm-error-highlight' : ''}`}
-              onMouseDownCapture={(e) => {
-                if (e.target.tagName !== 'SELECT') {
-                  if (!primaryData.date) {
-                    setDateErrorHighlight(true);
-                    setShiftErrorHighlight(true);
-                    setTimeout(() => setShiftErrorHighlight(false), 600);
-                  } else if (!primaryData.machine) {
-                    setMachineErrorHighlight(true);
-                    setShiftErrorHighlight(true);
-                    setTimeout(() => setShiftErrorHighlight(false), 600);
-                  }
-                }
-              }}
+            <DmmLockedField
+              locked={!isShiftUnlocked}
+             
+              onLockedClick={() => handleLockedClick('machine')}
             >
-              <label>Shift <span style={{ color: '#ef4444' }}>*</span></label>
-              <select
-                id="shift-field"
-                value={primaryData.shift}
-                onChange={(e) => {
-                  handlePrimaryChange("shift", e.target.value);
-                }}
-                disabled={!primaryData.date || !primaryData.machine}
-                onBlur={() => validateField('shift', primaryData.shift)}
-                onMouseDown={(e) => {
-                  if (!primaryData.date) {
-                    setDateErrorHighlight(true);
-                    setShiftErrorHighlight(true);
-                    setTimeout(() => setShiftErrorHighlight(false), 600);
-                  } else if (!primaryData.machine) {
-                    setMachineErrorHighlight(true);
-                    setShiftErrorHighlight(true);
-                    setTimeout(() => setShiftErrorHighlight(false), 600);
-                  }
-                }}
-                onKeyDown={async (e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    if (primaryData.shift && primaryData.shift.trim() !== '') {
-                      document.getElementById('operatorName-field')?.focus();
-                    } else {
-                      validateField('shift', primaryData.shift);
-                      e.target.style.borderColor = '#ef4444';
-                      setTimeout(() => { e.target.style.borderColor = ''; }, 1000);
-                    }
-                  }
-                }}
-                style={{
-                  width: '100%',
-                  padding: '0.625rem 0.875rem',
-                  border: `2px solid ${getBorderColor(primaryData.shift, false, 'shift')}`,
-                  borderRadius: '8px',
-                  fontSize: '0.875rem',
-                  backgroundColor: '#ffffff',
-                  cursor: 'pointer',
-                  transition: 'border-color 0.2s ease'
-                }}
-                required
+              <div 
+                className={`dmm-form-group ${shiftErrorHighlight ? 'dmm-error-highlight' : ''}`}
               >
-                <option value="">Select Shift</option>
-                <option value="1">Shift 1</option>
-                <option value="2">Shift 2</option>
-                <option value="3">Shift 3</option>
-              </select>
-              {(savePrimaryLoading || showCombinationFound || showCombinationAdded) && (
-                <div style={{ 
-                  marginTop: '0.4rem',
-                  display: 'flex',
-                  alignItems: 'center'
-                }}>
-                  {savePrimaryLoading && (
-                    <InlineLoader 
-                      message="Fetching..." 
-                      size="medium" 
-                      variant="primary" 
-                    />
-                  )}
-                  {showCombinationFound && (
-                    <InlineLoader 
-                      message="Combination found" 
-                      size="medium" 
-                      variant="success" 
-                    />
-                  )}
-                  {showCombinationAdded && (
-                    <InlineLoader 
-                      message="Combination Added" 
-                      size="medium" 
-                      variant="success" 
-                    />
-                  )}
-                </div>
-              )}
-            </div>
+                <label>Shift <span style={{ color: '#ef4444' }}>*</span></label>
+                <select
+                  id="shift-field"
+                  value={primaryData.shift}
+                  onChange={(e) => {
+                    handlePrimaryChange("shift", e.target.value);
+                  }}
+                  disabled={!primaryData.date || !primaryData.machine}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (primaryData.shift && primaryData.shift.trim() !== '') {
+                        document.getElementById('operatorName-field')?.focus();
+                      }
+                    }
+                  }}
+                  required
+                >
+                  <option value="">Select Shift</option>
+                  <option value="1">Shift 1</option>
+                  <option value="2">Shift 2</option>
+                  <option value="3">Shift 3</option>
+                </select>
+              </div>
+            </DmmLockedField>
           </div>
           
           {/* Operator Fields Row */}
           <div className="primary-fields-row" style={{ marginTop: '1rem' }}>
-            <div 
-              className={`dmm-form-group ${operatorNameErrorHighlight ? 'dmm-error-highlight' : ''}`}
-              onMouseDownCapture={(e) => {
-                if (e.target.tagName !== 'INPUT') {
-                  if (!primaryData.date) {
-                    setDateErrorHighlight(true);
-                    setOperatorNameErrorHighlight(true);
-                    setTimeout(() => setOperatorNameErrorHighlight(false), 600);
-                  } else if (!primaryData.machine) {
-                    setMachineErrorHighlight(true);
-                    setOperatorNameErrorHighlight(true);
-                    setTimeout(() => setOperatorNameErrorHighlight(false), 600);
-                  } else if (!primaryData.shift) {
-                    setShiftErrorHighlight(true);
-                    setOperatorNameErrorHighlight(true);
-                    setTimeout(() => setOperatorNameErrorHighlight(false), 600);
-                  }
-                }
-              }}
+            <DmmLockedField
+              locked={!isOperatorUnlocked}
+             
+              onLockedClick={() => handleLockedClick(!primaryData.machine ? 'machine' : 'shift')}
             >
-              <label>Operator Name</label>
-              <input
-                id="operatorName-field"
-                type="text"
-                value={primaryData.operatorName}
-                onChange={(e) => handlePrimaryChange("operatorName", e.target.value)}
-                onBlur={() => validateField('operatorName', primaryData.operatorName)}
-                onKeyDown={async (e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    if (primaryData.operatorName && primaryData.operatorName.trim() !== '') {
-                      document.getElementById('operatedBy-field')?.focus();
-                    } else {
-                      validateField('operatorName', primaryData.operatorName);
-                      e.target.style.borderColor = '#ef4444';
-                      setTimeout(() => { e.target.style.borderColor = ''; }, 1000);
+              <div className="dmm-form-group">
+                <label>Operator Name</label>
+                <input
+                  id="operatorName-field"
+                  type="text"
+                  value={primaryData.operatorName}
+                  onChange={(e) => handlePrimaryChange("operatorName", e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (primaryData.operatorName && primaryData.operatorName.trim() !== '') {
+                        document.getElementById('operatedBy-field')?.focus();
+                      }
                     }
-                  }
-                }}
-                onMouseDown={(e) => {
-                  if (!primaryData.date) {
-                    setDateErrorHighlight(true);
-                    setOperatorNameErrorHighlight(true);
-                    setTimeout(() => setOperatorNameErrorHighlight(false), 600);
-                  } else if (!primaryData.machine) {
-                    setMachineErrorHighlight(true);
-                    setOperatorNameErrorHighlight(true);
-                    setTimeout(() => setOperatorNameErrorHighlight(false), 600);
-                  } else if (!primaryData.shift) {
-                    setShiftErrorHighlight(true);
-                    setOperatorNameErrorHighlight(true);
-                    setTimeout(() => setOperatorNameErrorHighlight(false), 600);
-                  }
-                }}
-                disabled={primaryFieldLocked.operatorName || !primaryData.date || !primaryData.machine || !primaryData.shift}
-                readOnly={primaryFieldLocked.operatorName}
-                placeholder="Enter operator name"
-                style={{
-                  width: '100%',
-                  padding: '0.625rem 0.875rem',
-                  border: `2px solid ${getBorderColor(primaryData.operatorName, false, 'operatorName')}`,
-                  borderRadius: '8px',
-                  fontSize: '0.875rem',
-                  backgroundColor: primaryFieldLocked.operatorName ? '#f1f5f9' : '#ffffff',
-                  cursor: primaryFieldLocked.operatorName ? 'not-allowed' : 'text',
-                  transition: 'border-color 0.2s ease'
-                }}
-                required
-              />
-            </div>
-            <div 
-              className={`dmm-form-group ${operatedByErrorHighlight ? 'dmm-error-highlight' : ''}`}
-              onMouseDownCapture={(e) => {
-                if (e.target.tagName !== 'INPUT') {
-                  if (!primaryData.date) {
-                    setDateErrorHighlight(true);
-                    setOperatedByErrorHighlight(true);
-                    setTimeout(() => setOperatedByErrorHighlight(false), 600);
-                  } else if (!primaryData.machine) {
-                    setMachineErrorHighlight(true);
-                    setOperatedByErrorHighlight(true);
-                    setTimeout(() => setOperatedByErrorHighlight(false), 600);
-                  } else if (!primaryData.shift) {
-                    setShiftErrorHighlight(true);
-                    setOperatedByErrorHighlight(true);
-                    setTimeout(() => setOperatedByErrorHighlight(false), 600);
-                  }
-                }
-              }}
+                  }}
+                  disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || lockedFields.operatorName || fetchingPrimary}
+                  placeholder="Enter operator name"
+                  style={lockedFields.operatorName ? { backgroundColor: '#f1f5f9', cursor: 'not-allowed' } : {}}
+                />
+              </div>
+            </DmmLockedField>
+            <DmmLockedField
+              locked={!isOperatorUnlocked}
+             
+              onLockedClick={() => handleLockedClick(!primaryData.machine ? 'machine' : 'shift')}
             >
-              <label>Operated By</label>
-              <input
-                id="operatedBy-field"
-                type="text"
-                value={primaryData.operatedBy}
-                onChange={(e) => handlePrimaryChange("operatedBy", e.target.value)}
-                onBlur={() => validateField('operatedBy', primaryData.operatedBy)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    // Move to save button or trigger save
-                    const saveButton = document.getElementById('primary-save-btn');
-                    if (saveButton) {
-                      saveButton.focus();
+              <div className="dmm-form-group">
+                <label>Operated By</label>
+                <input
+                  id="operatedBy-field"
+                  type="text"
+                  value={primaryData.operatedBy}
+                  onChange={(e) => handlePrimaryChange("operatedBy", e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (shiftFirstInputRef.current) {
+                        shiftFirstInputRef.current.focus();
+                      }
                     }
-                  }
-                }}
-                onMouseDown={(e) => {
-                  if (!primaryData.date) {
-                    setDateErrorHighlight(true);
-                    setOperatedByErrorHighlight(true);
-                    setTimeout(() => setOperatedByErrorHighlight(false), 600);
-                  } else if (!primaryData.machine) {
-                    setMachineErrorHighlight(true);
-                    setOperatedByErrorHighlight(true);
-                    setTimeout(() => setOperatedByErrorHighlight(false), 600);
-                  } else if (!primaryData.shift) {
-                    setShiftErrorHighlight(true);
-                    setOperatedByErrorHighlight(true);
-                    setTimeout(() => setOperatedByErrorHighlight(false), 600);
-                  }
-                }}
-                disabled={primaryFieldLocked.operatedBy || !primaryData.date || !primaryData.machine || !primaryData.shift}
-                readOnly={primaryFieldLocked.operatedBy}
-                placeholder="Enter name"
-                style={{
-                  width: '100%',
-                  padding: '0.625rem 0.875rem',
-                  border: `2px solid ${getBorderColor(primaryData.operatedBy, false, 'operatedBy')}`,
-                  borderRadius: '8px',
-                  fontSize: '0.875rem',
-                  backgroundColor: primaryFieldLocked.operatedBy ? '#f1f5f9' : '#ffffff',
-                  cursor: primaryFieldLocked.operatedBy ? 'not-allowed' : 'text',
-                  transition: 'border-color 0.2s ease'
-                }}
-                required
-              />
-            </div>
+                  }}
+                  disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
+                  placeholder="Enter name"
+                />
+              </div>
+            </DmmLockedField>
           </div>
-          
-          {/* Primary Submit Button */}
-          <div style={{ marginTop: '1rem', gap: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+
+          {/* Primary status area: fetching ? combination found/saved ? Save Primary button */}
+          {primaryData.date && primaryData.machine && primaryData.shift && (
+            <div className={`dmm-primary-status-wrapper${fetchingPrimary || showCombinationFound || showCombinationSaved ? ' show' : ''}`}>
+              {fetchingPrimary ? (
+                <InlineLoader message="Fetching combination..." variant="primary" size="medium" />
+              ) : showCombinationFound ? (
+                <div className={`dmm-combination-msg-transition${closingCombinationMsg ? ' dmm-combination-msg-closing' : ''}`}>
+                  <InlineLoader message="Combination found" variant="success" size="medium" />
+                </div>
+              ) : showCombinationSaved ? (
+                <div className={`dmm-combination-msg-transition${closingCombinationMsg ? ' dmm-combination-msg-closing' : ''}`}>
+                  <InlineLoader message="Combination saved" variant="success" size="medium" />
+                </div>
+              ) : null}
+            </div>
+          )}
+
+          {/* Save Primary button — appears when user types in operator name or operated by */}
+          {primaryData.date && primaryData.machine && primaryData.shift && !isPrimaryDataSaved && !fetchingPrimary && !showCombinationFound && !showCombinationSaved && (
+            <div className={`dmm-save-primary-btn-wrapper${(primaryData.operatorName || primaryData.operatedBy) ? ' show' : ''}`}>
               <button
-                id="primary-save-btn"
+                className="dmm-submit-btn"
                 type="button"
                 onClick={handlePrimarySubmit}
-                disabled={loadingStates.primary || savePrimaryLoading || showCombinationFound || showCombinationAdded}
-                className="dmm-submit-btn"
-                style={{
-                  backgroundColor: (loadingStates.primary || savePrimaryLoading || showCombinationFound || showCombinationAdded) ? '#94a3b8' : '#3b82f6',
-                  cursor: (loadingStates.primary || savePrimaryLoading || showCombinationFound || showCombinationAdded) ? 'not-allowed' : 'pointer',
-                  opacity: (loadingStates.primary || savePrimaryLoading || showCombinationFound || showCombinationAdded) ? 0.6 : 1
-                }}
+                disabled={primaryLoading}
+                style={{ opacity: primaryLoading ? 0.6 : 1, cursor: primaryLoading ? 'not-allowed' : 'pointer' }}
               >
-                {loadingStates.primary ? <Loader2 size={18} className="spinner" /> : <Save size={18} />}
-                {loadingStates.primary ? 'Saving...' : (isPrimaryLocked ? 'Update Primary Data' : 'Save Primary Data')}
+                {primaryLoading ? (
+                  <><Loader2 size={16} className="spinner" /> Saving...</>
+                ) : (
+                  <><Save size={18} /> Save Primary</>
+                )}
               </button>
-              {primaryErrorMessage && (
-                <InlineLoader 
-                  message={primaryErrorMessage} 
-                  size="medium" 
-                  variant="danger" 
-                />
-              )}
-              {showPrimaryWarning && (
-                <InlineLoader 
-                  message="Save Primary Data first" 
-                  size="medium" 
-                  variant="danger" 
-                />
-              )}
             </div>
-          </div>
+          )}
+
+          {/* Warning / submit feedback messages */}
+          {primaryFieldMessage && !fetchingPrimary && !showCombinationFound && (
+            <div style={{ marginTop: '0.75rem' }}>
+              <InlineLoader 
+                message={primaryFieldMessage} 
+                size="medium" 
+                variant="warning" 
+              />
+            </div>
+          )}
+          {submitMessage && !fetchingPrimary && !showCombinationFound && !primaryFieldMessage && (
+            <div style={{ marginTop: '0.75rem' }}>
+              <InlineLoader 
+                message={submitMessage} 
+                size="medium" 
+                variant={submitMessageVariant} 
+              />
+            </div>
+          )}
         </div>
-
         {/* Divider line to separate primary data from other inputs */}
-        <div style={{ width: '100%', marginTop: '1rem', marginBottom: '1rem', paddingTop: '1rem', borderTop: '2px solid #e2e8f0' }}></div>
-
+        <div style={{ width: '100%', marginTop: '0.25rem', marginBottom: '2px', paddingTop: '0.5rem', borderTop: '2px solid #e2e8f0' }}></div>
         {/* Shift Parameters Section */}
         <div className="dmm-section">
             <h3 className="dmm-section-title">
-              DMM Shift Parameters Information
+              DMM Shift Parameters Information 
               {primaryData.machine && primaryData.shift && (
                 <span style={{ fontWeight: 400, color: '#64748b' }}>
-                  {` - Machine: ${primaryData.machine}, Shift: ${primaryData.shift}`}
-                  <span style={{ fontWeight: 600, color: '#3b82f6' }}> Count: {shiftCounts[`shift${primaryData.shift}`] || 0}</span>
+                  {`- Machine: ${primaryData.machine}, Shift: ${primaryData.shift}`}
                 </span>
               )}
             </h3>
             {renderRow()}
             <div className="dmm-section-submit" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              {/* No reset button for shift parameters section */}
             </div>
           </div>
         </form>
 
-        {/* Save All button only enabled after primary is locked */}
-        <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '1rem' }}>
-          {shiftErrorMessage && (
-            <InlineLoader 
-              message={shiftErrorMessage}
-              variant="danger"
-              size="medium"
-            />
-          )}
-          <button
-            type="button"
-            ref={shiftSubmitRef}
-            onClick={handleSubmitAll}
-            disabled={allSubmitting || !isPrimaryLocked}
-            className="dmm-submit-btn"
-            title={!isPrimaryLocked ? 'Please save Primary Data first' : 'Save shift parameters'}
-            style={{
-              opacity: (!isPrimaryLocked || allSubmitting) ? 0.6 : 1,
-              cursor: (!isPrimaryLocked || allSubmitting) ? 'not-allowed' : 'pointer'
-            }}
-          >
-            {allSubmitting ? <Loader2 size={18} className="spinner" /> : <Save size={18} />}
-            {allSubmitting ? 'Saving...' : 'Submit Entry'}
-        </button>
-      </div>
+        {/* Submit Entry button � visible only after combination check completes */}
+        <div className={`dmm-submit-btn-wrapper${!fetchingPrimary && !showCombinationFound && !showCombinationSaved ? ' show' : ''}`}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '1rem' }}>
+            {!isFormUnlocked ? (
+              <div className="dmm-submit-locked-wrapper">
+                <button
+                  type="button"
+                  className="dmm-submit-btn dmm-submit-btn-locked"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    const req = getLockedRequiredField();
+                    if (req) handleLockedClick(req);
+                  }}
+                >
+                  <Lock size={18} />
+                  Submit Entry
+                </button>
+                <div className="dmm-submit-locked-overlay" />
+              </div>
+            ) : (
+              <button
+                type="button"
+                ref={shiftSubmitRef}
+                onClick={handleSubmitAll}
+                onKeyDown={handleSubmitButtonKeyDown}
+                disabled={allSubmitting || fetchingPrimary}
+                className="dmm-submit-btn"
+                style={{
+                  opacity: (allSubmitting || fetchingPrimary) ? 0.6 : 1,
+                  cursor: (allSubmitting || fetchingPrimary) ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {allSubmitting ? <Loader2 size={18} className="spinner" /> : <Save size={18} />}
+                {allSubmitting ? 'Saving...' : 'Submit Entry'}
+              </button>
+            )}
+          </div>
+        </div>
     </div>
   );
 };

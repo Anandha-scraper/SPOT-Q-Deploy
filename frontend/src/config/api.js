@@ -19,6 +19,7 @@ export const API_ENDPOINTS = {
   logout: `${API_BASE_URL}/api/v1/auth/logout`,
   verify: `${API_BASE_URL}/api/v1/auth/verify`,
   loginHistory: `${API_BASE_URL}/api/v1/auth/login-history`,
+  changePassword: `${API_BASE_URL}/api/v1/auth/changepassword`,
   // Admin
   adminDepartments: `${API_BASE_URL}/api/v1/auth/admin/departments`,
   adminUsers: `${API_BASE_URL}/api/v1/auth/admin/users`,

@@ -10,7 +10,7 @@ import '../../styles/PageStyles/Melting/MeltingLogSheet.css';
 const MeltingLogSheet = () => {
   // Primary: Date, Shift, Furnace No., Panel, Cumulative Liquid metal, Final KWHr, Initial KWHr, Total Units, Cumulative Units
   const [primaryData, setPrimaryData] = useState({
-    date: "",
+    date: new Date().toISOString().split('T')[0],
     shift: '',
     furnaceNo: '',
     panel: '',
@@ -29,14 +29,167 @@ const MeltingLogSheet = () => {
   const [entryCount, setEntryCount] = useState(0);
   const [dynamicCheckAlert, setDynamicCheckAlert] = useState(false);
   const [showCombinationFound, setShowCombinationFound] = useState(false);
+  const [showCombinationSaved, setShowCombinationSaved] = useState(false);
+  const [closingCombinationMsg, setClosingCombinationMsg] = useState(false);
   const [showSakthi, setShowSakthi] = useState(false);
   const [showPrimaryWarning, setShowPrimaryWarning] = useState(false);
   
-  // Sequential validation highlighting
+  /* ============================================================================
+   * RED VIBRATION (SHAKE) VALIDATION FLOW — REFERENCE GUIDE
+   * ============================================================================
+   * PURPOSE: When the user clicks a field or submit button without filling 
+   *          required prerequisite fields (Date → Shift → Furnace → Panel),
+   *          the missing field gets a red border + shake animation for 3 seconds.
+   *
+   * HOW IT WORKS (4 parts):
+   *
+   * ── PART 1: STATE ──
+   *   One boolean state per required field (e.g., dateErrorHighlight).
+   *   When true, the CSS class 'error-highlight' is added to that field's wrapper div.
+   *
+   * ── PART 2: CSS (MeltingLogSheet.css) ──
+   *   .error-highlight input,
+   *   .error-highlight select,
+   *   .error-highlight .date-input,
+   *   .error-highlight .custom-date-picker input {
+   *     border-color: #ef4444 !important;            ← red border
+   *     background-color: #fef2f2 !important;        ← light red background
+   *     box-shadow: 0 0 0 3px rgba(239,68,68,0.1);  ← red glow
+   *     animation: shake 0.3s ease-in-out;           ← vibration
+   *   }
+   *   @keyframes shake {
+   *     0%, 100% { transform: translateX(0); }
+   *     25%      { transform: translateX(-5px); }
+   *     75%      { transform: translateX(5px); }
+   *   }
+   *
+   * ── PART 3: TRIGGER FUNCTION ──
+   *   triggerHighlight(setter) → toggles state off→on (via requestAnimationFrame)
+   *   to re-trigger the CSS animation even on repeated clicks, then auto-dismisses
+   *   after 3 seconds.
+   *
+   * ── PART 4: WHERE IT IS CALLED (3 places) ──
+   *   a) onMouseDownCapture on each field div → highlights its prerequisite
+   *      e.g., clicking Shift when Date is empty → shakes Date field
+   *   b) handleValueFieldClick → for value fields (Cumulative, KWHr etc.)
+   *      highlights the first missing prerequisite
+   *   c) handlePrimarySubmit → validates all required fields on submit
+   *
+   * ── TO REUSE ON ANOTHER PAGE ──
+   *   1. Copy PART 1 states + PART 3 functions below
+   *   2. Copy the CSS classes (.error-highlight + @keyframes shake)
+   *   3. Add 'error-highlight' class to field wrapper divs conditionally
+   *   4. Call triggerHighlight(setter) + showFieldMessage() on click/submit
+   *
+   * ============================================================================
+   * SUBMIT BUTTON — SHOW / HIDE LOGIC WITH ALERT MESSAGES
+   * ============================================================================
+   *
+   * BUTTON 1: "Save Primary" (first-time save)
+   * ─────────────────────────────────────────────
+   * VISIBLE WHEN (ALL must be true):
+   *   1. All 4 key fields filled (date, shift, furnaceNo, panel)
+   *   2. AND one of these is true:
+   *      - fetchingPrimary = true  → shows "Fetching Primary..." loader
+   *      - showCombinationFound    → shows "Combination found" message
+   *      - showCombinationSaved    → shows "Combination saved" message
+   *      - !isPrimaryDataSaved     → shows actual "Save Primary" button
+   * HIDDEN WHEN:
+   *   - Any key field is empty
+   *   - OR data already saved AND no loader/message active
+   *
+   * BUTTON 2: "Update Primary Data" (re-save after editing)
+   * ─────────────────────────────────────────────
+   * VISIBLE WHEN (ALL must be true):
+   *   1. isPrimaryDataSaved = true   → data was saved once
+   *   2. isPrimaryDirty() = true     → user changed a value from saved state
+   *   3. !hasInvalidNumericInput()   → no red-bordered invalid numbers
+   * HIDDEN WHEN:
+   *   - Not yet saved (Button 1 handles that)
+   *   - OR no changes made (values match saved snapshot)
+   *   - OR any numeric input is invalid
+   *
+   * CSS:
+   *   .melting-primary-btn-wrapper.show → max-height:100px, opacity:1 (slide-in)
+   *   .melting-primary-btn-wrapper.hide → max-height:0, opacity:0 (slide-out)
+   *   .melting-combination-msg-transition → fade/scale animation for messages
+   *   .melting-combination-msg-closing   → exit animation (opacity:0, translateY)
+   *
+   * ALERT 1: "Save Primary Data first"
+   *   Shown when user clicks Table 1–5 without saving primary data.
+   *   Triggered by onClickCapture on each table wrapper div.
+   *   State: showPrimaryWarning → auto-dismisses after 3s.
+   *
+   * ALERT 2: Missing prerequisite message (e.g., "Select Date first")
+   *   Shown when user clicks a dependent field without filling prerequisite.
+   *   Triggered by showFieldMessage() → sets primaryFieldMessage state.
+   *   Auto-dismisses after 3s via fieldMessageTimer.
+   * ============================================================================
+   */
+
+  // ── PART 1: Error highlight states (one per required field) ──
   const [dateErrorHighlight, setDateErrorHighlight] = useState(false);
   const [shiftErrorHighlight, setShiftErrorHighlight] = useState(false);
   const [furnaceNoErrorHighlight, setFurnaceNoErrorHighlight] = useState(false);
   const [panelErrorHighlight, setPanelErrorHighlight] = useState(false);
+
+  // Alert message shown below primary section when a prerequisite is missing
+  const [primaryFieldMessage, setPrimaryFieldMessage] = useState('');
+  const fieldMessageTimer = useRef(null);
+
+  // Map of active auto-dismiss timers — allows repeated clicks to restart the 3s countdown
+  const highlightTimers = useRef(new Map());
+
+  // ── PART 3a: triggerHighlight — activates red shake on field(s) ──
+  // Accepts one or more setter functions. For each:
+  //   1. Toggles state false→true via requestAnimationFrame (re-triggers CSS animation)
+  //   2. Starts a 3-second timer to auto-dismiss (clears red border)
+  //   3. If called again before 3s, restarts the timer
+  const triggerHighlight = (...setters) => {
+    setters.forEach(setter => {
+      setter(false);
+      requestAnimationFrame(() => setter(true));
+
+      if (highlightTimers.current.has(setter)) {
+        clearTimeout(highlightTimers.current.get(setter));
+      }
+      highlightTimers.current.set(setter, setTimeout(() => {
+        setter(false);
+        highlightTimers.current.delete(setter);
+      }, 3000));
+    });
+  };
+
+  // ── PART 3b: getMissingPrereqHighlight — returns the setter for the FIRST unfilled field ──
+  // Checks in sequential order: Date → Shift → Furnace → Panel
+  const getMissingPrereqHighlight = () => {
+    if (!primaryData.date) return setDateErrorHighlight;
+    if (!primaryData.shift) return setShiftErrorHighlight;
+    if (!primaryData.furnaceNo) return setFurnaceNoErrorHighlight;
+    if (!primaryData.panel) return setPanelErrorHighlight;
+    return null;
+  };
+
+  // ── PART 3c: getMissingFieldMessage — returns user-friendly message for the missing field ──
+  const getMissingFieldMessage = () => {
+    if (!primaryData.date) return 'Select Date first';
+    if (!primaryData.shift) return 'Select Shift first';
+    if (!primaryData.furnaceNo) return 'Select Furnace No. first';
+    if (!primaryData.panel) return 'Select Panel first';
+    return '';
+  };
+
+  // ── PART 3d: showFieldMessage — displays the warning message for 3s ──
+  const showFieldMessage = () => {
+    const msg = getMissingFieldMessage();
+    if (!msg) return;
+    setPrimaryFieldMessage(msg);
+    if (fieldMessageTimer.current) clearTimeout(fieldMessageTimer.current);
+    fieldMessageTimer.current = setTimeout(() => {
+      setPrimaryFieldMessage('');
+      fieldMessageTimer.current = null;
+    }, 3000);
+  };
 
   // Numeric input validation states
   const [cumulativeLiquidMetalValid, setCumulativeLiquidMetalValid] = useState(null);
@@ -145,15 +298,6 @@ const MeltingLogSheet = () => {
       return () => clearTimeout(timer);
     }
   }, [dynamicCheckAlert]);
-
-  // Validation flag and helper for primary section
-  const [primarySubmitted, setPrimarySubmitted] = useState(false);
-  const classFor = (value, submitted, required = false, locked = false) => {
-    if (locked) return '';
-    const has = value !== undefined && value !== null && String(value).trim() !== '';
-    if (submitted && required && !has) return 'melting-error-outline';
-    return '';
-  };
 
   // Helper for numeric validation classes
   const getNumericValidationClass = (validState, locked = false) => {
@@ -964,11 +1108,16 @@ const MeltingLogSheet = () => {
       const elapsedTime = Date.now() - startTime;
       const remainingTime = Math.max(0, 1000 - elapsedTime);
       await new Promise(resolve => setTimeout(resolve, remainingTime));
-      setFetchingPrimary(false);
-      // Show combination found message only after fetching loader is gone
+      // Show combination found message AND locked values at the same time
+      // by setting both before clearing the fetching state
       if (combinationWasFound) {
         setShowCombinationFound(true);
-        setTimeout(() => setShowCombinationFound(false), 1500);
+        setClosingCombinationMsg(false);
+      }
+      setFetchingPrimary(false);
+      if (combinationWasFound) {
+        setTimeout(() => setClosingCombinationMsg(true), 2600);
+        setTimeout(() => { setShowCombinationFound(false); setClosingCombinationMsg(false); }, 3000);
       }
       setDynamicCheckAlert(true);
     }
@@ -1066,18 +1215,22 @@ const MeltingLogSheet = () => {
       return;
     }
 
-    // Remove error highlight when filling the field
+    // ── AUTO-DISMISS: Remove red highlight as soon as the user fills the field ──
     if (field === 'date' && value) {
       setDateErrorHighlight(false);
+      setPrimaryFieldMessage('');
     }
     if (field === 'shift' && value) {
       setShiftErrorHighlight(false);
+      setPrimaryFieldMessage('');
     }
     if (field === 'furnaceNo' && value) {
       setFurnaceNoErrorHighlight(false);
+      setPrimaryFieldMessage('');
     }
     if (field === 'panel' && value) {
       setPanelErrorHighlight(false);
+      setPrimaryFieldMessage('');
     }
 
     // Validate numeric fields - reset to neutral on change (red only shown on submit)
@@ -1113,7 +1266,6 @@ const MeltingLogSheet = () => {
       setPrimaryId(null);
       setPrimaryLocks({});
       setIsPrimaryDataSaved(false);
-      setPrimarySubmitted(false);
       setEntryCount(0);
       setPrimaryDataOriginal(null);
       // Reset error highlights
@@ -1121,6 +1273,7 @@ const MeltingLogSheet = () => {
       setShiftErrorHighlight(false);
       setFurnaceNoErrorHighlight(false);
       setPanelErrorHighlight(false);
+      setPrimaryFieldMessage('');
       // Reset all validation states
       setCumulativeLiquidMetalValid(null);
       setFinalKWHrValid(null);
@@ -1192,36 +1345,16 @@ const MeltingLogSheet = () => {
     }));
   };
 
-  // Handler for when value fields are focused - check if prerequisites are filled
-  const handleValueFieldFocus = (e) => {
-    // Check sequential requirements
-    if (!primaryData.date) {
-      console.log('Setting date error highlight');
-      setDateErrorHighlight(true);
+  // ── PART 4b: handleValueFieldClick ──
+  // Called via onMouseDownCapture on value fields (Cumulative, KWHr, etc.)
+  // Finds the first missing prerequisite → shakes it + shows warning message
+  const handleValueFieldClick = (e) => {
+    const prereq = getMissingPrereqHighlight();
+    if (prereq) {
+      triggerHighlight(prereq);
+      showFieldMessage();
       e?.preventDefault();
       e?.stopPropagation();
-      return;
-    }
-    if (!primaryData.shift) {
-      console.log('Setting shift error highlight');
-      setShiftErrorHighlight(true);
-      e?.preventDefault();
-      e?.stopPropagation();
-      return;
-    }
-    if (!primaryData.furnaceNo) {
-      console.log('Setting furnace error highlight');
-      setFurnaceNoErrorHighlight(true);
-      e?.preventDefault();
-      e?.stopPropagation();
-      return;
-    }
-    if (!primaryData.panel) {
-      console.log('Setting panel error highlight');
-      setPanelErrorHighlight(true);
-      e?.preventDefault();
-      e?.stopPropagation();
-      return;
     }
   };
 
@@ -1238,14 +1371,15 @@ const MeltingLogSheet = () => {
     );
   };
 
+  // ── PART 4c: handlePrimarySubmit — validates all required fields on submit ──
   const handlePrimarySubmit = async () => {
-    setPrimarySubmitted(true);
     // Validate required key fields
     if (!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) {
       alert('Please fill in Date, Shift, Furnace No., and Panel');
       return;
     }
 
+    setPrimaryLoading(true);
     // Save primary data to database (without locking)
     try {
       const res = await fetch(`${API_ENDPOINTS.meltingLogs}/primary`, {
@@ -1286,6 +1420,12 @@ const MeltingLogSheet = () => {
           totalUnits: primaryData.totalUnits,
           cumulativeUnits: primaryData.cumulativeUnits
         });
+
+        // Show "Combination saved" with exit animation
+        setShowCombinationSaved(true);
+        setClosingCombinationMsg(false);
+        setTimeout(() => setClosingCombinationMsg(true), 2600);
+        setTimeout(() => { setShowCombinationSaved(false); setClosingCombinationMsg(false); }, 3000);
       } else {
         alert('Error: ' + response.message);
       }
@@ -1293,6 +1433,7 @@ const MeltingLogSheet = () => {
       console.error('Error saving primary data:', error);
       alert('Failed to save primary data. Please try again.');
     } finally {
+      setPrimaryLoading(false);
     }
   };
 
@@ -1470,7 +1611,8 @@ const MeltingLogSheet = () => {
         
         {/* First Row: Date, Shift, Furnace No., Panel */}
         <div className="melting-primary-fields-row">
-          <div className={`melting-log-form-group ${classFor(primaryData.date, primarySubmitted, true)} ${dateErrorHighlight ? 'error-highlight' : ''}`}>
+          {/* ── PART 4a: 'error-highlight' class triggers red border + shake animation ── */}
+          <div className={`melting-log-form-group ${dateErrorHighlight ? 'error-highlight' : ''}`}>
             <label>Date <span style={{ color: '#ef4444' }}>*</span></label>
             <CustomDatePicker
               ref={dateRef}
@@ -1481,11 +1623,12 @@ const MeltingLogSheet = () => {
             />
           </div>
           <div 
-            className={`melting-log-form-group ${classFor(primaryData.shift, primarySubmitted, true)} ${shiftErrorHighlight ? 'error-highlight' : ''}`}
+            className={`melting-log-form-group ${shiftErrorHighlight ? 'error-highlight' : ''}`}
+            // ── PART 4a: If prerequisite (Date) is missing, shake it instead ──
             onMouseDownCapture={(e) => {
-              if (!primaryData.date && e.target.tagName !== 'SELECT') {
-                setDateErrorHighlight(true);
-                setTimeout(() => setDateErrorHighlight(false), 600);
+              if (!primaryData.date) {
+                triggerHighlight(setDateErrorHighlight);
+                showFieldMessage();
               }
             }}
           >
@@ -1498,34 +1641,19 @@ const MeltingLogSheet = () => {
               onChange={(e) => handlePrimaryChange('shift', e.target.value)}
               disabled={!primaryData.date || fetchingPrimary}
               onKeyDown={(e) => handleKeyDown(e, furnaceRef, 'shift')}
-              onMouseDown={(e) => {
-                if (!primaryData.date) {
-                  setDateErrorHighlight(true);
-                  setTimeout(() => setDateErrorHighlight(false), 600);
-                }
-              }}
             />
           </div>
 
           <div 
-            className={`melting-log-form-group ${classFor(primaryData.furnaceNo, primarySubmitted, true)} ${furnaceNoErrorHighlight ? 'error-highlight' : ''}`}
+            className={`melting-log-form-group ${furnaceNoErrorHighlight ? 'error-highlight' : ''}`}
+            // ── PART 4a: Checks prerequisites in order: Date → Shift ──
             onMouseDownCapture={(e) => {
-              if (e.target.tagName !== 'SELECT') {
-                if (!primaryData.date) {
-                  setDateErrorHighlight(true);
-                  setFurnaceNoErrorHighlight(true);
-                  setTimeout(() => {
-                    setDateErrorHighlight(false);
-                    setFurnaceNoErrorHighlight(false);
-                  }, 600);
-                } else if (!primaryData.shift) {
-                  setShiftErrorHighlight(true);
-                  setFurnaceNoErrorHighlight(true);
-                  setTimeout(() => {
-                    setShiftErrorHighlight(false);
-                    setFurnaceNoErrorHighlight(false);
-                  }, 600);
-                }
+              if (!primaryData.date) {
+                triggerHighlight(setDateErrorHighlight);
+                showFieldMessage();
+              } else if (!primaryData.shift) {
+                triggerHighlight(setShiftErrorHighlight);
+                showFieldMessage();
               }
             }}
           >
@@ -1538,44 +1666,22 @@ const MeltingLogSheet = () => {
               onChange={(e) => handlePrimaryChange('furnaceNo', e.target.value)}
               disabled={!primaryData.date || !primaryData.shift}
               onKeyDown={(e) => handleKeyDown(e, panelRef, 'furnaceNo')}
-              onMouseDown={(e) => {
-                if (!primaryData.date) {
-                  setDateErrorHighlight(true);
-                  setTimeout(() => setDateErrorHighlight(false), 600);
-                } else if (!primaryData.shift) {
-                  setShiftErrorHighlight(true);
-                  setTimeout(() => setShiftErrorHighlight(false), 600);
-                }
-              }}
             />
           </div>
 
           <div 
-            className={`melting-log-form-group ${classFor(primaryData.panel, primarySubmitted, true)} ${panelErrorHighlight ? 'error-highlight' : ''}`}
+            className={`melting-log-form-group ${panelErrorHighlight ? 'error-highlight' : ''}`}
+            // ── PART 4a: Checks prerequisites in order: Date → Shift → Furnace ──
             onMouseDownCapture={(e) => {
-              if (e.target.tagName !== 'SELECT') {
-                if (!primaryData.date) {
-                  setDateErrorHighlight(true);
-                  setPanelErrorHighlight(true);
-                  setTimeout(() => {
-                    setDateErrorHighlight(false);
-                    setPanelErrorHighlight(false);
-                  }, 600);
-                } else if (!primaryData.shift) {
-                  setShiftErrorHighlight(true);
-                  setPanelErrorHighlight(true);
-                  setTimeout(() => {
-                    setShiftErrorHighlight(false);
-                    setPanelErrorHighlight(false);
-                  }, 600);
-                } else if (!primaryData.furnaceNo) {
-                  setFurnaceNoErrorHighlight(true);
-                  setPanelErrorHighlight(true);
-                  setTimeout(() => {
-                    setFurnaceNoErrorHighlight(false);
-                    setPanelErrorHighlight(false);
-                  }, 600);
-                }
+              if (!primaryData.date) {
+                triggerHighlight(setDateErrorHighlight);
+                showFieldMessage();
+              } else if (!primaryData.shift) {
+                triggerHighlight(setShiftErrorHighlight);
+                showFieldMessage();
+              } else if (!primaryData.furnaceNo) {
+                triggerHighlight(setFurnaceNoErrorHighlight);
+                showFieldMessage();
               }
             }}
           >
@@ -1588,50 +1694,16 @@ const MeltingLogSheet = () => {
               onChange={(e) => handlePrimaryChange('panel', e.target.value)}
               disabled={!primaryData.date || !primaryData.shift || !primaryData.furnaceNo}
               onKeyDown={(e) => handleKeyDown(e, getNextAfterPanel(), 'panel')}
-              onMouseDown={(e) => {
-                if (!primaryData.date) {
-                  setDateErrorHighlight(true);
-                  setTimeout(() => setDateErrorHighlight(false), 600);
-                } else if (!primaryData.shift) {
-                  setShiftErrorHighlight(true);
-                  setTimeout(() => setShiftErrorHighlight(false), 600);
-                } else if (!primaryData.furnaceNo) {
-                  setFurnaceNoErrorHighlight(true);
-                  setTimeout(() => setFurnaceNoErrorHighlight(false), 600);
-                }
-              }}
             />
-            {(fetchingPrimary || showCombinationFound) && (
-              <div style={{ 
-                marginTop: '0.75rem',
-                display: 'flex',
-                alignItems: 'flex-start'
-              }}>
-                {fetchingPrimary && (
-                  <InlineLoader 
-                    message="Fetching Date, Shift, Furnace, Panel" 
-                    size="medium" 
-                    variant="primary" 
-                  />
-                )}
-                {showCombinationFound && (
-                  <InlineLoader 
-                    message="Combination found" 
-                    size="medium" 
-                    variant="success" 
-                  />
-                )}
-              </div>
-            )}
           </div>
         </div>
 
         <div className="melting-log-form-grid">
           <div 
-            className={`melting-log-form-group ${classFor(primaryData.cumulativeLiquidMetal, primarySubmitted, true, isPrimaryFieldLocked('cumulativeLiquidMetal'))}`}
+            className="melting-log-form-group"
             onMouseDownCapture={(e) => {
               if (!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) {
-                handleValueFieldFocus(e);
+                handleValueFieldClick(e);
               }
             }}
             style={{
@@ -1663,10 +1735,10 @@ const MeltingLogSheet = () => {
           </div>
 
           <div 
-            className={`melting-log-form-group ${classFor(primaryData.finalKWHr, primarySubmitted, true, isPrimaryFieldLocked('finalKWHr'))}`}
+            className="melting-log-form-group"
             onMouseDownCapture={(e) => {
               if (!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) {
-                handleValueFieldFocus(e);
+                handleValueFieldClick(e);
               }
             }}
             style={{
@@ -1698,10 +1770,10 @@ const MeltingLogSheet = () => {
           </div>
 
           <div 
-            className={`melting-log-form-group ${classFor(primaryData.initialKWHr, primarySubmitted, true, isPrimaryFieldLocked('initialKWHr'))}`}
+            className="melting-log-form-group"
             onMouseDownCapture={(e) => {
               if (!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) {
-                handleValueFieldFocus(e);
+                handleValueFieldClick(e);
               }
             }}
             style={{
@@ -1733,10 +1805,10 @@ const MeltingLogSheet = () => {
           </div>
 
           <div 
-            className={`melting-log-form-group ${classFor(primaryData.totalUnits, primarySubmitted, true, isPrimaryFieldLocked('totalUnits'))}`}
+            className="melting-log-form-group"
             onMouseDownCapture={(e) => {
               if (!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) {
-                handleValueFieldFocus(e);
+                handleValueFieldClick(e);
               }
             }}
             style={{
@@ -1768,10 +1840,10 @@ const MeltingLogSheet = () => {
           </div>
 
           <div 
-            className={`melting-log-form-group ${classFor(primaryData.cumulativeUnits, primarySubmitted, true, isPrimaryFieldLocked('cumulativeUnits'))}`}
+            className="melting-log-form-group"
             onMouseDownCapture={(e) => {
               if (!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) {
-                handleValueFieldFocus(e);
+                handleValueFieldClick(e);
               }
             }}
             style={{
@@ -1803,24 +1875,127 @@ const MeltingLogSheet = () => {
           </div>
         </div>
 
-        <div className="melting-log-submit-container" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          {showPrimaryWarning && (
+        {/* ============================================================================
+         * SUBMIT BUTTON — SHOW / HIDE LOGIC WITH ALERT MESSAGES
+         * ============================================================================
+         * 
+         * BUTTON 1: "Save Primary" (first-time save)
+         * ─────────────────────────────────────────────
+         * VISIBLE WHEN (ALL must be true):
+         *   1. All 4 key fields are filled (date, shift, furnaceNo, panel)
+         *   2. AND one of these is true:
+         *      - fetchingPrimary = true  → shows "Fetching Primary..." loader instead of button
+         *      - showCombinationFound    → shows "Combination found" message instead of button
+         *      - showCombinationSaved    → shows "Combination saved" message instead of button
+         *      - !isPrimaryDataSaved     → shows the actual "Save Primary" button
+         * 
+         * HIDDEN WHEN:
+         *   - Any key field is empty (date/shift/furnaceNo/panel)
+         *   - OR primary data is already saved AND none of the loader/message states are active
+         *
+         * CSS: .melting-primary-btn-wrapper.show → max-height: 100px, opacity: 1 (smooth slide-in)
+         *      .melting-primary-btn-wrapper.hide → max-height: 0, opacity: 0 (smooth slide-out)
+         *
+         * ALERT FLOW INSIDE BUTTON 1:
+         *   fetchingPrimary → InlineLoader "Fetching Primary..." (while API runs)
+         *   showCombinationFound → InlineLoader "Combination found" (3s, then fades with closing class)
+         *   showCombinationSaved → InlineLoader "Combination saved" (3s, then fades)
+         *   else → actual <button> "Save Primary" / "Saving..." with spinner
+         * ============================================================================ */}
+        {primaryData.date && primaryData.shift && primaryData.furnaceNo && primaryData.panel && (fetchingPrimary || showCombinationFound || showCombinationSaved || !isPrimaryDataSaved) && (
+          <div className="melting-primary-btn-wrapper show">
+            <div className="melting-log-submit-container" style={{ display: 'flex', alignItems: 'center', gap: '1rem', borderTop: 'none', paddingTop: '0.5rem' }}>
+              {fetchingPrimary ? (
+                <InlineLoader message="Fetching Primary..." variant="primary" size="medium" />
+              ) : showCombinationFound ? (
+                <div className={`melting-combination-msg-transition${closingCombinationMsg ? ' melting-combination-msg-closing' : ''}`}>
+                  <InlineLoader message="Combination found" variant="success" size="medium" />
+                </div>
+              ) : showCombinationSaved ? (
+                <div className={`melting-combination-msg-transition${closingCombinationMsg ? ' melting-combination-msg-closing' : ''}`}>
+                  <InlineLoader message="Combination saved" variant="success" size="medium" />
+                </div>
+              ) : (
+                <button
+                  ref={primarySaveButtonRef}
+                  className="cupola-holder-submit-btn"
+                  type="button"
+                  onClick={handlePrimarySubmit}
+                  disabled={primaryLoading}
+                >
+                  {primaryLoading ? (
+                    <><Loader2 size={16} className="animate-spin" /> Saving...</>
+                  ) : (
+                    <><Save size={18} /> Save Primary</>
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================================
+         * BUTTON 2: "Update Primary Data" (re-save after editing)
+         * ─────────────────────────────────────────────
+         * VISIBLE WHEN (ALL must be true):
+         *   1. isPrimaryDataSaved = true  → data was already saved once
+         *   2. isPrimaryDirty() = true    → user changed a value field from its saved state
+         *   3. !hasInvalidNumericInput()  → no red-bordered invalid numbers
+         *
+         * HIDDEN WHEN:
+         *   - Data hasn't been saved yet (Button 1 handles that)
+         *   - OR no changes made (values match the saved snapshot)
+         *   - OR any numeric input is invalid (red border present)
+         * ============================================================================ */}
+        {isPrimaryDataSaved && isPrimaryDirty() && !hasInvalidNumericInput() && (
+          <div className="melting-primary-btn-wrapper show">
+            <div className="melting-log-submit-container" style={{ display: 'flex', alignItems: 'center', gap: '1rem', borderTop: 'none', paddingTop: '0.5rem' }}>
+              <button
+                ref={primarySaveButtonRef}
+                className="cupola-holder-submit-btn"
+                type="button"
+                onClick={handlePrimarySubmit}
+                disabled={primaryLoading || fetchingPrimary}
+              >
+                {primaryLoading ? (
+                  <><Loader2 size={16} className="animate-spin" /> Saving...</>
+                ) : (
+                  <><Save size={18} /> Update Primary Data</>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+        {/* ── ALERT 1: "Save Primary Data first" ──
+         * SHOWN WHEN: User clicks on Table 1-5 sections WITHOUT saving primary data first.
+         * Triggered by onClickCapture on each table's wrapper div (see Table 1 below).
+         * Auto-dismisses after 3s via setTimeout(() => setShowPrimaryWarning(false), 3000)
+         */}
+        {showPrimaryWarning && (
+          <div style={{ marginTop: '0.5rem' }}>
             <InlineLoader 
               message="Save Primary Data first" 
               size="medium" 
               variant="warning" 
             />
-          )}
-          <button
-            ref={primarySaveButtonRef}
-            className="cupola-holder-submit-btn"
-            onClick={handlePrimarySubmit}
-            disabled={fetchingPrimary || !primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel || !isPrimaryDirty() || hasInvalidNumericInput()}
-          >
-            <Save size={18} />
-            {isPrimaryDataSaved ? 'Update Primary Data' : 'Save Primary'}
-          </button>
-        </div>
+          </div>
+        )}
+        {/* ── ALERT 2: Missing prerequisite field message ──
+         * SHOWN WHEN: User clicks a dependent field or value field without filling
+         *             a prerequisite (e.g., clicks Shift without selecting Date).
+         * Triggered by showFieldMessage() which sets primaryFieldMessage state.
+         * Auto-dismisses after 3s via fieldMessageTimer.
+         * Message examples: "Select Date first", "Select Shift first", etc.
+         */}
+        {primaryFieldMessage && (
+          <div style={{ marginTop: '0.5rem' }}>
+            <InlineLoader 
+              message={primaryFieldMessage} 
+              size="medium" 
+              variant="warning" 
+            />
+          </div>
+        )}
         <div style={{ gridColumn: '1 / -1', height: '1px', backgroundColor: '#e2e8f0', margin: '1.5rem 0' }}></div>
       </div>
 

@@ -180,26 +180,22 @@ exports.getAllUsers = async (req, res) => {
     }
 };
 
-exports.updateEmployee = async (req, res) => {
+exports.resetEmployeePassword = async (req, res) => {
     try {
-        const { name, department, password, isActive } = req.body;
-        const user = await User.findById(req.params.id);
-
-        if (!user) return res.status(404).json({ success: false, message: 'User not found' });
-        
-        if (user._id.toString() === req.user._id.toString() && isActive === false) {
-            return res.status(400).json({ success: false, message: 'Cannot deactivate yourself.' });
+        const { password } = req.body;
+        if (!password || password.length < 6) {
+            return res.status(400).json({ success: false, message: 'Password must be at least 6 characters.' });
         }
 
-        if (name) user.name = name;
-        if (department && DEPARTMENTS.includes(department)) user.department = department;
-        if (typeof isActive === 'boolean') user.isActive = isActive;
-        if (password) user.password = password;
+        const user = await User.findById(req.params.id);
+        if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
+        user.password = await hashPassword(password);
         await user.save();
-        res.status(200).json({ success: true, data: user });
+
+        res.status(200).json({ success: true, message: 'Password reset successfully.' });
     } catch (error) {
-        res.status(500).json({ success: false, message: 'Update failed.' });
+        res.status(500).json({ success: false, message: 'Password reset failed.' });
     }
 };
 
@@ -210,15 +206,6 @@ exports.deleteEmployee = async (req, res) => {
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
-        
-        if (user.role === 'admin') {
-            return res.status(403).json({ success: false, message: 'Cannot delete admin users' });
-        }
-        
-        if (user._id.toString() === req.user._id.toString()) {
-            return res.status(400).json({ success: false, message: 'Cannot delete yourself' });
-        }
-        
         await User.findByIdAndDelete(req.params.id);
         res.status(200).json({ success: true, message: 'Employee deleted successfully' });
     } catch (error) {
