@@ -658,3 +658,83 @@ form {
     font-size: 14px;
   }
 }
+
+/* Server Status Indicator */
+.server-status-indicator {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  font-size: 13px;
+  font-weight: 500;
+  z-index: 1000;
+  animation: slideInFromRight 0.3s ease-out;
+  max-width: 250px;
+  white-space: nowrap;
+}
+
+@keyframes slideInFromRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.server-status-indicator .status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.server-status-indicator.connecting .status-dot {
+  background: #f59e0b;
+  animation: pulse 1s infinite;
+}
+
+.server-status-indicator.connecting .status-text {
+  color: #d97706;
+}
+
+.server-status-indicator.connected .status-dot {
+  background: #10b981;
+  animation: none;
+}
+
+.server-status-indicator.connected .status-text {
+  color: #059669;
+}
+
+/* Mobile responsive for server status */
+@media (max-width: 768px) {
+  .server-status-indicator {
+    top: 10px;
+    right: 10px;
+    padding: 8px 12px;
+    font-size: 11px;
+  }
+  
+  .server-status-indicator .status-dot {
+    width: 8px;
+    height: 8px;
+  }
+}

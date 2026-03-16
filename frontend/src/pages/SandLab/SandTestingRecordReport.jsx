@@ -232,6 +232,9 @@ const SandTestingRecordReport = () => {
 
   // Main function to fetch and display data
   const fetchData = async () => {
+    const MINIMUM_LOADING_TIME = 1500; // 1.5 seconds minimum for full animation
+    const startTime = Date.now();
+    
     try {
       setLoading(true);
       
@@ -302,7 +305,13 @@ const SandTestingRecordReport = () => {
       console.error('Error fetching data:', error);
       alert('Failed to fetch data. Please try again.');
     } finally {
-      setLoading(false);
+      // Ensure minimum loading time has passed before hiding loader
+      const elapsedTime = Date.now() - startTime;
+      const remainingTime = Math.max(0, MINIMUM_LOADING_TIME - elapsedTime);
+      
+      setTimeout(() => {
+        setLoading(false);
+      }, remainingTime);
     }
   };
 
@@ -530,8 +539,24 @@ const SandTestingRecordReport = () => {
       </div>
       
       {loading && (
-        <div style={{ textAlign: 'center', padding: '20px', color: '#5B9AA9' }}>
-          Loading data...
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'white',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 10000
+        }}>
+          <Sakthi 
+            loopAnimation={true} 
+            showMessage={true} 
+            message="Loading data..." 
+            onComplete={() => {}}
+          />
         </div>
       )}
 

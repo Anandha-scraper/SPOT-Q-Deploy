@@ -65,6 +65,8 @@ exports.savePrimary = async (req, res) => {
     try {
         const { date, disa } = req.body;
 
+        console.log('savePrimary called with:', { date, disa });
+
         if (!date || !disa) {
             return res.status(400).json({ success: false, message: 'Date and DISA are required.' });
         }
@@ -74,6 +76,8 @@ exports.savePrimary = async (req, res) => {
         const startOfDay = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
         const endOfDay = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
 
+        console.log('Date range:', { startOfDay, endOfDay });
+
         // Find document using date range to handle any timezone variations
         let document = await MicroTensile.findOne({ 
             date: { 
@@ -82,21 +86,27 @@ exports.savePrimary = async (req, res) => {
             } 
         });
 
+        console.log('Existing document:', document ? 'found' : 'not found');
+
         if (!document) {
             // Create new document with this disa in savedDisas
+            console.log('Creating new document...');
             document = await MicroTensile.create({
                 date: startOfDay,
                 savedDisas: [disa],
                 entries: []
             });
+            console.log('Document created successfully');
         } else {
             // Add disa to savedDisas if not already present
             if (!document.savedDisas) {
                 document.savedDisas = [];
             }
             if (!document.savedDisas.includes(disa)) {
+                console.log('Adding disa to existing document...');
                 document.savedDisas.push(disa);
                 await document.save();
+                console.log('Document updated successfully');
             }
         }
 
@@ -109,8 +119,11 @@ exports.savePrimary = async (req, res) => {
             message: 'Primary data saved successfully.' 
         });
     } catch (error) {
-        console.error('Error saving primary:', error);
-        res.status(500).json({ success: false, message: 'Error saving primary data.' });
+        console.error('Error saving primary (DETAILED):', error);
+        console.error('Error stack:', error.stack);
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
+        res.status(500).json({ success: false, message: `Error saving primary data: ${error.message}` });
     }
 };
 
@@ -146,16 +159,32 @@ exports.getEntriesByDate = async (req, res) => {
 
 exports.createEntry = async (req, res) => {
     try {
+        console.log('createEntry called with body:', JSON.stringify(req.body, null, 2));
+        
         const { date, ...entryData } = req.body;
-        // Centralized validation for metallurgical precision
-        const required = ['item', 'dateCode', 'heatCode', 'barDia', 'maxLoad', 'tensileStrength'];
+        
+        // Centralized validation for metallurgical precision (including disa)
+        const required = ['disa', 'item', 'dateCode', 'heatCode', 'barDia', 'gaugeLength', 'maxLoad', 'yieldLoad', 'tensileStrength', 'yieldStrength', 'elongation'];
         for (let field of required) {
-            if (!entryData[field]) return res.status(400).json({ success: false, message: `Field ${field} is missing.` });
+            if (!entryData[field] && entryData[field] !== 0) {  // Allow 0 as valid value
+                console.log(`Missing field: ${field}`);
+                return res.status(400).json({ success: false, message: `Field ${field} is missing.` });
+            }
         }
 
+        // Validate item object structure
+        if (typeof entryData.item !== 'object' || !entryData.item.it1) {
+            console.log('Invalid item structure:', entryData.item);
+            return res.status(400).json({ success: false, message: 'Item must have it1 property.' });
+        }
+
+        console.log('All required fields present, ensuring date document...');
         const document = await ensureDateDocument(MicroTensile, date);
+        console.log('Date document retrieved/created, adding entry...');
+        
         document.entries.push(entryData);
         await document.save();
+        console.log('Entry saved successfully');
 
         res.status(201).json({ 
             success: true, 
@@ -163,6 +192,13 @@ exports.createEntry = async (req, res) => {
             message: 'MicroTensile entry recorded successfully.' 
         });
     } catch (error) {
+        console.error('Error creating entry (DETAILED):', error);
+        console.error('Error stack:', error.stack);
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
+        if (error.errors) {
+            console.error('Validation errors:', error.errors);
+        }
         res.status(400).json({ success: false, message: error.message });
     }
 };
@@ -207,15 +243,27 @@ exports.filterEntries = async (req, res) => {
 
         // Flattening for Excel/PDF Export compatibility
         const allEntries = documents.flatMap(doc => 
-            doc.entries.map(entry => ({ 
-                ...entry.toObject(), 
-                date: doc.date,
-                formattedDate: doc.date.toISOString().split('T')[0] 
-            }))
+            doc.entries.map(entry => {
+                const entryObj = entry.toObject();
+                console.log('Entry object keys:', Object.keys(entryObj));
+                console.log('Entry disa value:', entryObj.disa);
+                return {
+                    ...entryObj, 
+                    date: doc.date,
+                    dateOfInspection: doc.date,
+                    formattedDate: doc.date.toISOString().split('T')[0] 
+                };
+            })
         );
+
+        console.log('Total entries returned:', allEntries.length);
+        if (allEntries.length > 0) {
+            console.log('Sample entry:', JSON.stringify(allEntries[0], null, 2));
+        }
 
         res.status(200).json({ success: true, count: allEntries.length, data: allEntries });
     } catch (error) {
+        console.error('Filter operation failed:', error);
         res.status(500).json({ success: false, message: 'Filter operation failed.' });
     }
 };

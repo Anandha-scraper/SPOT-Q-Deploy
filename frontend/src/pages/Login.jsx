@@ -18,6 +18,50 @@ const Login = () => {
   
   // Loading state for navigation
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Server connection status
+  const [serverStatus, setServerStatus] = useState("connecting");
+
+  // Check server health on component mount - simple polling until connected
+  useEffect(() => {
+    let isMounted = true;
+    let pollInterval;
+    
+    const checkServerHealth = async () => {
+      if (!isMounted) return;
+      
+      try {
+        const response = await fetch(`${API_URL}/api/health`, {
+          method: 'GET',
+          cache: 'no-cache',
+        });
+        
+        if (response.ok && isMounted) {
+          setServerStatus("connected");
+          // Clear polling
+          if (pollInterval) clearInterval(pollInterval);
+          // Hide after 3 seconds
+          setTimeout(() => {
+            if (isMounted) setServerStatus(null);
+          }, 3000);
+        }
+      } catch (err) {
+        // Keep polling - server not ready yet
+        console.log('Server still starting...');
+      }
+    };
+    
+    // Initial check
+    checkServerHealth();
+    
+    // Poll every 3 seconds until connected
+    pollInterval = setInterval(checkServerHealth, 3000);
+    
+    return () => {
+      isMounted = false;
+      if (pollInterval) clearInterval(pollInterval);
+    };
+  }, []);
 
   // Server connection status
   const [serverStatus, setServerStatus] = useState('connecting'); // 'connecting' | 'connected' | 'failed'

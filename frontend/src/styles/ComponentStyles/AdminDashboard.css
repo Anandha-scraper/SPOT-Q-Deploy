@@ -61,6 +61,17 @@
   margin: 20px auto;
 }
 
+/* --- Loading State --- */
+.loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: #5B9AA9;
+}
+
 /* --- Tables --- */
 .emp-table-container {
   overflow-x: auto;

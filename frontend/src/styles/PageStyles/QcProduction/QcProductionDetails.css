@@ -164,10 +164,22 @@
   min-height: 80px;
 }
 
+/* Range Input Styles - for From/To inputs */
+.qcproduction-range-input {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.qcproduction-range-input input {
+  flex: 1;
+  width: calc(50% - 0.25rem);
+}
+
 .qcproduction-submit-container {
   margin-top: 2rem;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   padding-top: 1.5rem;
   border-top: 1px solid #e2e8f0;
@@ -392,6 +404,15 @@
 
   .qcproduction-form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .qcproduction-range-input {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .qcproduction-range-input input {
+    width: 100%;
   }
 
   .qcproduction-submit-container {

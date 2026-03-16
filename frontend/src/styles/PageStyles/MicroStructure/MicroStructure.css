@@ -148,10 +148,14 @@
 /* ==================== Submit Row ==================== */
 .microstructure-submit-row {
   display: flex;
-  justify-content: flex-end;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-end;
   gap: 1rem;
   margin-top: 1rem;
+}
+
+.microstructure-submit-row .fetching-primary-alert {
+  align-self: center;
 }
 
 /* ==================== Validation Styles ==================== */

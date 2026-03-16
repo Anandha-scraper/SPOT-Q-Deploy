@@ -167,6 +167,7 @@ const MicroStructure = () => {
   // Primary data states
   const [isPrimarySaved, setIsPrimarySaved] = useState(false);
   const [savePrimaryLoading, setSavePrimaryLoading] = useState(false);
+  const [checkingPrimary, setCheckingPrimary] = useState(false);
   const [entryCount, setEntryCount] = useState(0);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitErrorMessage, setSubmitErrorMessage] = useState('');
@@ -245,7 +246,7 @@ const MicroStructure = () => {
         setShowCombinationAdded(false);
         return;
       }
-
+      setCheckingPrimary(true);
       try {
         setSavePrimaryLoading(true);
         setShowCombinationFound(false);
@@ -284,7 +285,6 @@ const MicroStructure = () => {
         setSavePrimaryLoading(false);
       }
     };
-
     checkDateDisaExists();
   }, [date, disa]);
   

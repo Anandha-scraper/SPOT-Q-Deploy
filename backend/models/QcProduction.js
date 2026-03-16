@@ -19,52 +19,76 @@ const QcProductionSchema = new mongoose.Schema({
         min: 1 
         },
 
-    cPercent: { 
-        type: String, 
-        required: true,
-        trim: true
+    cPercentFrom: { 
+        type: Number, 
+        required: true
+    },
+    cPercentTo: { 
+        type: Number, 
+        default: 0
     },
 
-    siPercent: { 
-        type: String, 
-        required: true,
-        trim: true
+    siPercentFrom: { 
+        type: Number, 
+        required: true
+    },
+    siPercentTo: { 
+        type: Number, 
+        default: 0
     },
 
-    mnPercent: { 
-        type: String,
-        required: true,
-        trim: true
+    mnPercentFrom: { 
+        type: Number,
+        required: true
+    },
+    mnPercentTo: { 
+        type: Number,
+        default: 0
     },
 
-    pPercent: { 
-        type: String,
-        required: true,
-        trim: true
+    pPercentFrom: { 
+        type: Number,
+        required: true
+    },
+    pPercentTo: { 
+        type: Number,
+        default: 0
     },
 
-    sPercent: {
-         type: String, 
-         required: true,
-         trim: true
+    sPercentFrom: {
+         type: Number, 
+         required: true
+    },
+    sPercentTo: {
+         type: Number, 
+         default: 0
     },
 
-    mgPercent: { 
-        type: String,
-        required: true,
-        trim: true
+    mgPercentFrom: { 
+        type: Number,
+        required: true
+    },
+    mgPercentTo: { 
+        type: Number,
+        default: 0
     },
 
-    cuPercent: {
-        type: String,
-        required: true,
-        trim: true
+    cuPercentFrom: {
+        type: Number,
+        required: true
+    },
+    cuPercentTo: {
+        type: Number,
+        default: 0
     },
 
-    crPercent: { 
-        type: String,
-        required: true,
-        trim: true
+    crPercentFrom: { 
+        type: Number,
+        required: true
+    },
+    crPercentTo: { 
+        type: Number,
+        default: 0
     },
 
     nodularity: {
@@ -73,10 +97,13 @@ const QcProductionSchema = new mongoose.Schema({
         trim: true
     },
 
-    graphiteType: {
-        type: String,
-        required: true,
-        trim: true
+    graphiteTypeFrom: {
+        type: Number,
+        required: true
+    },
+    graphiteTypeTo: {
+        type: Number,
+        default: 0
     },
 
     pearliteFerrite: { 
@@ -85,10 +112,13 @@ const QcProductionSchema = new mongoose.Schema({
         trim: true
     },
 
-    hardnessBHN: { 
-        type: String,
-        required: true,
-        trim: true
+    hardnessBHNFrom: { 
+        type: Number,
+        required: true
+    },
+    hardnessBHNTo: { 
+        type: Number,
+        default: 0
     },
 
     ts: { 

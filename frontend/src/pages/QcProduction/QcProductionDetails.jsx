@@ -253,14 +253,10 @@ const QcProductionDetails = () => {
     return '';
   };
 
-  // Helper function to validate range format (e.g., "3.50-3.75" or "3.50")
-  const isValidRange = (value) => {
+  // Helper function to validate number input
+  const isValidNumber = (value) => {
     if (!value || value.trim() === '') return false;
-    const trimmed = value.trim();
-    // Check if it's a range (e.g., "3.50-3.75") or single number
-    const rangePattern = /^\d+(\.\d+)?\s*-\s*\d+(\.\d+)?$/;
-    const numberPattern = /^\d+(\.\d+)?$/;
-    return rangePattern.test(trimmed) || numberPattern.test(trimmed);
+    return !isNaN(parseFloat(value)) && isFinite(value);
   };
 
   /*
@@ -404,6 +400,65 @@ const QcProductionDetails = () => {
       ...prev,
       [name]: filteredValue
     }));
+
+    // Dynamic validation removal for from/to pairs
+    if (name.endsWith('From') || name.endsWith('To')) {
+      const isFromField = name.endsWith('From');
+      const fromField = isFromField ? name : name.replace('To', 'From');
+      const toField = isFromField ? name.replace('From', 'To') : name;
+      
+      const fromValue = isFromField ? parseFloat(value) : parseFloat(formData[fromField]);
+      const toValue = isFromField ? parseFloat(formData[toField]) : parseFloat(value);
+
+      // If the range is now valid, remove red borders from both
+      if (!isNaN(fromValue) && !isNaN(toValue) && (toValue === 0 || fromValue <= toValue)) {
+        // Clear validation errors for both from and to fields
+        const baseField = fromField.replace('From', '');
+        
+        switch(baseField) {
+          case 'cPercent':
+            setCPercentFromValid(null);
+            setCPercentToValid(null);
+            break;
+          case 'siPercent':
+            setSiPercentFromValid(null);
+            setSiPercentToValid(null);
+            break;
+          case 'mnPercent':
+            setMnPercentFromValid(null);
+            setMnPercentToValid(null);
+            break;
+          case 'pPercent':
+            setPPercentFromValid(null);
+            setPPercentToValid(null);
+            break;
+          case 'sPercent':
+            setSPercentFromValid(null);
+            setSPercentToValid(null);
+            break;
+          case 'mgPercent':
+            setMgPercentFromValid(null);
+            setMgPercentToValid(null);
+            break;
+          case 'cuPercent':
+            setCuPercentFromValid(null);
+            setCuPercentToValid(null);
+            break;
+          case 'crPercent':
+            setCrPercentFromValid(null);
+            setCrPercentToValid(null);
+            break;
+          case 'graphiteType':
+            setGraphiteTypeFromValid(null);
+            setGraphiteTypeToValid(null);
+            break;
+          case 'hardnessBHN':
+            setHardnessBHNFromValid(null);
+            setHardnessBHNToValid(null);
+            break;
+        }
+      }
+    }
   };
 
   const handleBlur = (e) => {
@@ -848,6 +903,28 @@ const QcProductionDetails = () => {
         if (!firstErrorField) firstErrorField = 'elMin';
       }
     }
+
+    // Validate from/to pairs - ensure from <= to when to > 0
+    const validateRange = (fromVal, toVal, fromSetter, toSetter, label) => {
+      const from = parseFloat(fromVal);
+      const to = parseFloat(toVal);
+      if (!isNaN(from) && !isNaN(to) && to > 0 && from > to) {
+        fromSetter(false);
+        toSetter(false);
+        hasErrors = true;
+      }
+    };
+
+    validateRange(formData.cPercentFrom, formData.cPercentTo, setCPercentFromValid, setCPercentToValid, 'C %');
+    validateRange(formData.siPercentFrom, formData.siPercentTo, setSiPercentFromValid, setSiPercentToValid, 'Si %');
+    validateRange(formData.mnPercentFrom, formData.mnPercentTo, setMnPercentFromValid, setMnPercentToValid, 'Mn %');
+    validateRange(formData.pPercentFrom, formData.pPercentTo, setPPercentFromValid, setPPercentToValid, 'P %');
+    validateRange(formData.sPercentFrom, formData.sPercentTo, setSPercentFromValid, setSPercentToValid, 'S %');
+    validateRange(formData.mgPercentFrom, formData.mgPercentTo, setMgPercentFromValid, setMgPercentToValid, 'Mg %');
+    validateRange(formData.cuPercentFrom, formData.cuPercentTo, setCuPercentFromValid, setCuPercentToValid, 'Cu %');
+    validateRange(formData.crPercentFrom, formData.crPercentTo, setCrPercentFromValid, setCrPercentToValid, 'Cr %');
+    validateRange(formData.graphiteTypeFrom, formData.graphiteTypeTo, setGraphiteTypeFromValid, setGraphiteTypeToValid, 'Graphite Type');
+    validateRange(formData.hardnessBHNFrom, formData.hardnessBHNTo, setHardnessBHNFromValid, setHardnessBHNToValid, 'Hardness BHN');
 
     if (hasErrors) {
       setSubmitErrorMessage('Enter data in correct Format');
