@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BookOpenCheck } from 'lucide-react';
 import { FilterButton, ClearButton, MachineDropdown, CustomPagination } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import { buildApiUrl } from '../../config/api';
+import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Moulding/DisamaticProductReport.css';
 import '../../styles/ComponentStyles/Buttons.css';
 // Redesigned to mirror TensileReport: one consolidated table showing all parameter rows across shifts.
@@ -25,19 +25,25 @@ const DmmSettingParametersReport = () => {
     return `${y}-${m}-${d}`;
   };
   const todayStr = getTodayLocal();
-  const [fromDate, setFromDate] = useState(todayStr);
-  const [toDate, setToDate] = useState(todayStr);
+
+  // Helper: Convert any date value to 'YYYY-MM-DD' string in local timezone
+  // Used for consistent date comparisons (avoids timezone issues with toISOString)
+  const formatDateLocal = formatDate;
+
+  const [fromDate, setFromDate] = useState('');         // optional — no lower bound when empty
+  const [toDate, setToDate] = useState(todayStr);       // required — defaults to today
   const [selectedMachine, setSelectedMachine] = useState('');
   const [selectedShift, setSelectedShift] = useState('');
-  const [reports, setReports] = useState([]);
-  const [filteredReports, setFilteredReports] = useState([]);
+  const [appliedShift, setAppliedShift] = useState('');
+  const [allEntries, setAllEntries] = useState([]);
+  const [filteredEntries, setFilteredEntries] = useState([]);
   const [loading, setLoading] = useState(false);
   const [remarksModal, setRemarksModal] = useState({ show: false, content: '', title: 'Remarks' });
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(15);
 
-  // Only fromDate is required
-  const isFilterEnabled = fromDate && fromDate.trim() !== '';
+  // Filter enabled when toDate is set AND (fromDate is empty OR toDate >= fromDate)
+  const isFilterEnabled = toDate && toDate.trim() !== '' && (!fromDate || toDate >= fromDate);
 
   // Section checkboxes removed – always show all columns
 
@@ -54,7 +60,7 @@ const DmmSettingParametersReport = () => {
   const fetchReports = async () => {
     try {
       setLoading(true);
-      const resp = await fetch(buildApiUrl('/api/v1/moulding-dmm/all'), {
+      const resp = await fetch(`${API_ENDPOINTS.mouldingDmm}/all`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -65,46 +71,47 @@ const DmmSettingParametersReport = () => {
       const data = await resp.json();
       if (data.success) {
         const all = data.data || [];
-        setReports(all);
-        // Auto-filter to show today's data by default
+        setAllEntries(all);
+        // Auto-filter: show only today's entries on mount
         const todayDate = getTodayLocal();
-        let filtered = all.filter(r => {
+        const filtered = all.filter(r => {
           if (!r.date) return false;
-          const reportDate = formatDate(r.date);
-          return reportDate >= todayDate && reportDate <= todayDate;
+          return formatDateLocal(r.date) === todayDate;
         });
-        setFilteredReports(filtered);
+        setFilteredEntries(filtered);
       }
     } catch (err) {
       console.error('Failed to fetch dmm settings', err);
     } finally { setLoading(false); }
   };
 
-  const applyFilters = () => {
-    // Only fromDate is required
-    if (!fromDate) {
-      setFilteredReports([]);
-      return;
-    }
-    
-    let filtered = [...reports];
-    
-    // Filter by date range
-    const fromDateStr = fromDate;
-    const toDateStr = toDate || fromDate; // If toDate not selected, use fromDate
-    
+  const applyFilters = (overrideFrom, overrideTo, overrideMachine, overrideShift) => {
+    const fd = overrideFrom !== undefined ? overrideFrom : fromDate;
+    const td = overrideTo   !== undefined ? overrideTo   : toDate;
+    const mach = overrideMachine !== undefined ? overrideMachine : selectedMachine;
+    const sh   = overrideShift   !== undefined ? overrideShift   : selectedShift;
+
+    let filtered = [...allEntries];
+
+    // Date filter:
+    // - If fromDate is set → show range [fromDate, toDate]
+    // - If fromDate is empty → show only entries matching toDate exactly
     filtered = filtered.filter(r => {
       if (!r.date) return false;
-      const reportDate = formatDate(r.date);
-      return reportDate >= fromDateStr && reportDate <= toDateStr;
+      const d = formatDateLocal(r.date);
+      if (fd && fd.trim() !== '') {
+        return d >= fd && d <= td;
+      }
+      return d === td;
     });
-    
-    // Filter by machine (optional)
-    if (selectedMachine && selectedMachine.trim() !== '') {
-      filtered = filtered.filter(r => String(r.machine) === String(selectedMachine));
+
+    // Optional machine filter
+    if (mach && mach.trim() !== '') {
+      filtered = filtered.filter(r => String(r.machine) === String(mach));
     }
-    
-    setFilteredReports(filtered);
+
+    setFilteredEntries(filtered);
+    setAppliedShift(sh);
   };
 
   const handleFilter = () => {
@@ -115,21 +122,23 @@ const DmmSettingParametersReport = () => {
   };
 
   const handleClear = () => {
+    const today = getTodayLocal();
     setFromDate('');
-    setToDate('');
+    setToDate(today);
     setSelectedMachine('');
     setSelectedShift('');
-    setFilteredReports([]);
+    // Re-filter to today only (same as initial mount)
+    applyFilters('', today, '', '');
     setCurrentPage(1);
   };
 
   // Flatten each shift's parameter arrays into unified list of rows.
-  const flattenedRows = filteredReports.flatMap(report => {
+  const flattenedRows = filteredEntries.flatMap(report => {
     const rows = [];
     if (report.parameters) {
       ['shift1','shift2','shift3'].forEach(shiftKey => {
         // Only show data for the selected shift
-        if (selectedShift && selectedShift !== shiftKey.replace('shift','Shift ')) return;
+        if (appliedShift && appliedShift !== shiftKey.replace('shift','Shift ')) return;
         const arr = report.parameters[shiftKey];
         if (Array.isArray(arr) && arr.length > 0) {
           arr.forEach((param, rowIndex) => {
@@ -159,11 +168,11 @@ const DmmSettingParametersReport = () => {
 
   // Resolve the full report by id, or fallback to date+machine match
   const resolveReportByRow = (row) => {
-    const byId = reports.find(r => r._id === row._id);
+    const byId = allEntries.find(r => r._id === row._id);
     if (byId) return byId;
     try {
       const rowDateKey = row.date ? formatDate(row.date) : '';
-      return reports.find(r => {
+      return allEntries.find(r => {
         const repDateKey = r.date ? formatDate(r.date) : '';
         return repDateKey === rowDateKey && String(r.machine) === String(row.machine);
       }) || null;
@@ -248,7 +257,7 @@ const DmmSettingParametersReport = () => {
                   <th style={{ padding: '14px 18px', textAlign: 'center', fontWeight: 600, fontSize: '0.875rem', background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>Machine</th>
                   <th style={{ padding: '14px 18px', textAlign: 'center', fontWeight: 600, fontSize: '0.875rem', background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>Shift</th>
                   <th style={{ padding: '14px 18px', textAlign: 'center', fontWeight: 600, fontSize: '0.875rem', background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>Operator Name</th>
-                  <th style={{ padding: '14px 18px', textAlign: 'center', fontWeight: 600, fontSize: '0.875rem', background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>Checked By</th>
+                  <th style={{ padding: '14px 18px', textAlign: 'center', fontWeight: 600, fontSize: '0.875rem', background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>Operated By</th>
                   <th style={{ padding: '14px 18px', textAlign: 'center', fontWeight: 600, fontSize: '0.875rem', background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>Customer</th>
                   <th style={{ padding: '14px 18px', textAlign: 'center', fontWeight: 600, fontSize: '0.875rem', background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>Item Description</th>
                   <th style={{ padding: '14px 18px', textAlign: 'center', fontWeight: 600, fontSize: '0.875rem', background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>Time</th>

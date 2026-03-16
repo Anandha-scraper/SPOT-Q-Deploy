@@ -7,7 +7,10 @@ router.get('/grouped', microTensileController.getGroupedByDate);
 router.get('/by-date', microTensileController.getEntriesByDate);
 router.get('/filter', microTensileController.filterEntries);
 
+router.route('/')
+    .get(microTensileController.getAllEntries)
+    .post(microTensileController.createEntry);
+
 router.post('/save-primary', microTensileController.savePrimary);
-router.post('/', microTensileController.createEntry);
 
 module.exports = router;

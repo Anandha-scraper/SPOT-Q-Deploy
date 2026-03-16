@@ -6,8 +6,6 @@ import Table from '../../Components/Table';
 import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Sandlab/FoundrySandTestingReport.css';
 
-const API_BASE_URL = API_ENDPOINTS.foundrySandTestingNotes;
-
 const FoundrySandTestingReport = () => {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -37,7 +35,7 @@ const FoundrySandTestingReport = () => {
       const to = toDate || from;
       const rangeMode = toDate && toDate !== fromDate;
 
-      let url = `${API_BASE_URL}?startDate=${encodeURIComponent(from)}&endDate=${encodeURIComponent(to)}`;
+      let url = `${API_ENDPOINTS.foundrySandTestingNotes}?startDate=${encodeURIComponent(from)}&endDate=${encodeURIComponent(to)}`;
       const res = await fetch(url, { credentials: 'include' });
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
       const data = await res.json();

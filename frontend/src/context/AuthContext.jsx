@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect, useCallback, useContext } from 'react';
-import { API_URL, API_ENDPOINTS } from '../config/api';
+import { API_ENDPOINTS } from '../config/api';
 
 // Brain of authentication
 export const AuthContext = createContext();

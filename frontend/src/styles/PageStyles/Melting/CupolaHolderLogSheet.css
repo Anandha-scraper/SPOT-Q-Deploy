@@ -301,6 +301,45 @@
   pointer-events: none;
 }
 
+/*
+ * ─── PRIMARY STATUS MESSAGE TECHNIQUE ────────────────────────────────────────
+ *
+ * HOW IT WORKS (reuse on other pages for the same pattern):
+ *
+ *  1. Two states control visibility and the exit phase:
+ *       showCombinationFound / showCombinationSaved  → renders the message
+ *       closingCombinationMsg                        → triggers the exit animation
+ *
+ *  2. When the message should appear:
+ *       setShowCombinationXxx(true);
+ *       setClosingCombinationMsg(false);
+ *       setTimeout(() => setClosingCombinationMsg(true),  2600); // start exit anim
+ *       setTimeout(() => { setShowCombinationXxx(false);
+ *                          setClosingCombinationMsg(false); }, 3000); // fully remove
+ *
+ *  3. In JSX wrap the <InlineLoader> with the transition div:
+ *       <div className={`combination-msg-transition${closingCombinationMsg ? ' combination-msg-closing' : ''}`}>
+ *         <InlineLoader ... />
+ *       </div>
+ *
+ *  4. The CSS below drives the animation:
+ *       .combination-msg-transition  → enter state  (opacity 1, translateY 0)
+ *       .combination-msg-closing     → exit  state  (opacity 0, translateY +8px, scale down)
+ *     The 400ms CSS transition duration must be ≤ the gap between the two timeouts (400 ≤ 3000‑2600).
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+.combination-msg-transition {
+  display: inline-flex;
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.combination-msg-transition.combination-msg-closing {
+  opacity: 0;
+  transform: translateY(8px) scale(0.96);
+}
+
 .cupola-holder-submit-container {
   margin-top: 1.5rem;
   display: flex;

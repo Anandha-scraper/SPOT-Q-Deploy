@@ -1,6 +1,7 @@
 const User = require('../models/user');
 const LoginActivity = require('../models/LoginActivity');
 const { generateToken } = require('../utils/jwt');
+const { keepLastNLoginActivitiesForUser, cleanupLoginActivity } = require('../utils/cleanupLoginActivity');
 const { hashPassword, comparePassword } = require('../utils/password');
 // Centralized Department List
 const DEPARTMENTS = [
@@ -27,28 +28,22 @@ exports.login = async (req, res) => {
         if (!isMatch) {
             return res.status(401).json({ success: false, message: 'Invalid credentials.' });
         }
-
         // Generate fresh JWT token for this login
         const token = generateToken(user._id);
-
         // Convert JWT_EXPIRE to seconds 
         const expiresInSeconds = (() => {
          const expire = process.env.JWT_EXPIRE;
          if (!isNaN(expire)) return parseInt(expire); 
-    
         // strings like '1h', '8h', '1d'
          const match = expire.match(/^(\d+)([smhd])$/);
          if (!match) return 60;// Default to 60 seconds if format is invalid 
-    
          const value = parseInt(match[1]);
          const unit = match[2];
-    
          const multipliers = { s: 1, m: 60, h: 3600, d: 86400 };
         return value * multipliers[unit];
     })();
 
         const expiresAt = new Date(Date.now() + (expiresInSeconds * 1000)).toISOString();
-
         // Set JWT token in httpOnly cookie
         res.cookie('token', token, {
             httpOnly: true,
@@ -66,6 +61,12 @@ exports.login = async (req, res) => {
                 ip: req.ip || req.headers['x-forwarded-for'],
                 userAgent: req.headers['user-agent'] || 'Unknown'
             });
+
+            // Keep only the last 5 login activities for this user
+            await keepLastNLoginActivitiesForUser(user._id, 5);
+
+            // Run global cleanup (excess + orphaned records)
+            await cleanupLoginActivity(5);
         } catch (auditError) {
             console.error('Audit Log failed:', auditError.message);
         }
@@ -179,26 +180,22 @@ exports.getAllUsers = async (req, res) => {
     }
 };
 
-exports.updateEmployee = async (req, res) => {
+exports.resetEmployeePassword = async (req, res) => {
     try {
-        const { name, department, password, isActive } = req.body;
-        const user = await User.findById(req.params.id);
-
-        if (!user) return res.status(404).json({ success: false, message: 'User not found' });
-        
-        if (user._id.toString() === req.user._id.toString() && isActive === false) {
-            return res.status(400).json({ success: false, message: 'Cannot deactivate yourself.' });
+        const { password } = req.body;
+        if (!password || password.length < 6) {
+            return res.status(400).json({ success: false, message: 'Password must be at least 6 characters.' });
         }
 
-        if (name) user.name = name;
-        if (department && DEPARTMENTS.includes(department)) user.department = department;
-        if (typeof isActive === 'boolean') user.isActive = isActive;
-        if (password) user.password = password;
+        const user = await User.findById(req.params.id);
+        if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
+        user.password = await hashPassword(password);
         await user.save();
-        res.status(200).json({ success: true, data: user });
+
+        res.status(200).json({ success: true, message: 'Password reset successfully.' });
     } catch (error) {
-        res.status(500).json({ success: false, message: 'Update failed.' });
+        res.status(500).json({ success: false, message: 'Password reset failed.' });
     }
 };
 
@@ -209,15 +206,6 @@ exports.deleteEmployee = async (req, res) => {
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
-        
-        if (user.role === 'admin') {
-            return res.status(403).json({ success: false, message: 'Cannot delete admin users' });
-        }
-        
-        if (user._id.toString() === req.user._id.toString()) {
-            return res.status(400).json({ success: false, message: 'Cannot delete yourself' });
-        }
-        
         await User.findByIdAndDelete(req.params.id);
         res.status(200).json({ success: true, message: 'Employee deleted successfully' });
     } catch (error) {

@@ -100,7 +100,7 @@ const DepartmentRouteGuard = ({ children }) => {
   if (!hasDepartmentAccess(user, requiredDepartment)) {
     // Redirect to user's department default page
     const userDepartment = user?.department;
-    const defaultRoute = DEPARTMENT_DEFAULT_ROUTE[userDepartment] || '/micro-tensile';
+    const defaultRoute = DEPARTMENT_DEFAULT_ROUTE[userDepartment];
     
     return <Navigate to={defaultRoute} replace />;
   }

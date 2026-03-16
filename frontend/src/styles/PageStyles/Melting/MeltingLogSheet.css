@@ -336,6 +336,14 @@
   padding-left: 0.5rem;
 }
 
+/* Primary Fields Row (Date, Shift, Furnace, Panel) */
+.melting-primary-fields-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
 /* Improved Grid Layout */
 .melting-log-form-grid {
   display: grid;
@@ -438,6 +446,38 @@
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2) !important;
 }
 
+/* Primary button smooth transition wrapper */
+.melting-primary-btn-wrapper {
+  overflow: hidden;
+  transition: max-height 0.35s ease, opacity 0.3s ease, margin-top 0.35s ease;
+}
+
+.melting-primary-btn-wrapper.show {
+  max-height: 100px;
+  opacity: 1;
+  margin-top: 0;
+}
+
+.melting-primary-btn-wrapper.hide {
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
+  pointer-events: none;
+}
+
+/* Combination message enter/exit animation */
+.melting-combination-msg-transition {
+  display: inline-flex;
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.melting-combination-msg-transition.melting-combination-msg-closing {
+  opacity: 0;
+  transform: translateY(8px) scale(0.96);
+}
+
 /* Submit Container */
 .melting-log-submit-container {
   margin-top: 1.5rem;
@@ -468,6 +508,10 @@
     gap: 1rem;
   }
 
+  .melting-primary-fields-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
   .melting-log-main-card {
     padding: 1.25rem;
   }
@@ -475,6 +519,10 @@
 
 @media (max-width: 640px) {
   .melting-log-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .melting-primary-fields-row {
     grid-template-columns: 1fr;
   }
 }
@@ -516,7 +564,22 @@
   color: #64748b;
 }
 
-/* Error Highlight for Required Fields */
+/* ============================================================================
+ * RED VIBRATION (SHAKE) CSS — COPY THESE 2 BLOCKS TO REUSE ON ANOTHER PAGE
+ * ============================================================================
+ * HOW TO USE:
+ *   1. Add class 'error-highlight' to the WRAPPER div of the input/select
+ *      e.g. <div className={`form-group ${errorState ? 'error-highlight' : ''}`}>
+ *   2. The CSS below targets input/select INSIDE .error-highlight and applies:
+ *      - Red border (#ef4444)
+ *      - Light red background (#fef2f2)
+ *      - Red glow via box-shadow
+ *      - shake animation (0.3s left-right vibration)
+ *   3. In JS, toggle the state off→on via requestAnimationFrame to re-trigger
+ *      the animation on repeated clicks (see triggerHighlight in JSX)
+ * ============================================================================ */
+
+/* BLOCK 1: .error-highlight — red border + shake on child inputs */
 .error-highlight input,
 .error-highlight select,
 .error-highlight .shift-dropdown-wrapper select,
@@ -528,6 +591,7 @@
   animation: shake 0.3s ease-in-out;
 }
 
+/* BLOCK 2: @keyframes shake — the vibration animation */
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
   25% { transform: translateX(-5px); }
@@ -545,4 +609,10 @@
   border-color: #ef4444 !important;
   background-color: #fef2f2 !important;
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
+}
+
+/* Fade-in animation for warning alerts */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
 }

@@ -1,143 +1,151 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { BookOpenCheck } from 'lucide-react';
-import { FilterButton, ClearButton } from '../../Components/Buttons';
+import { FilterButton, ClearButton, CustomPagination } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import Table from '../../Components/Table';
-import { buildApiUrl } from '../../config/api';
+import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Impact/ImpactReport.css';
+import '../../styles/ComponentStyles/Table.css';
 
 const ImpactReport = () => {
-  const [currentDate, setCurrentDate] = useState('');
-  const [entries, setEntries] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const formatDateLocal = (d) => {
+    if (!d) return '';
+    const dt = new Date(d);
+    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+  };
 
-  // Filter states
-  const [startDate, setStartDate] = useState(null);
-  const [endDate, setEndDate] = useState(null);
-  const [isFiltered, setIsFiltered] = useState(false);
+  const getTodayLocal = () => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  };
 
+  const todayStr = getTodayLocal();
+
+  // --- Filter States ---
+  const [fromDate, setFromDate] = useState('');               // Start date (optional — empty means no lower bound)
+  const [toDate, setToDate] = useState(todayStr);             // End date (required — defaults to today)
+  const [allEntries, setAllEntries] = useState([]);            // Full dataset fetched once from API
+  const [filteredEntries, setFilteredEntries] = useState([]);  // Filtered subset shown in table
+  const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);          // Pagination — reset to 1 on every filter/clear
+
+  const itemsPerPage = 15;
+
+  // FILTER BUTTON ENABLE LOGIC:
+  // Enabled when: toDate exists AND (fromDate is empty OR toDate > fromDate)
+  const isFilterEnabled = toDate && toDate.trim() !== '' && !(fromDate && fromDate.trim() !== '' && toDate <= fromDate);
+
+  // STEP 1: Fetch ALL entries once on mount.
+  // Store full dataset in `allEntries` (never mutated after fetch).
+  // Apply initial filter: show only today's entries by default.
   useEffect(() => {
-    fetchCurrentDateAndEntries();
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`${API_ENDPOINTS.impactTests}/filter?startDate=2000-01-01&endDate=2099-12-31`, {
+          credentials: 'include'
+        });
+        if (!response.ok) throw new Error('Failed to fetch impact data');
+        const result = await response.json();
+
+        if (result.success && result.data) {
+          setAllEntries(result.data);
+
+          // Default view: only today's entries
+          const todayFiltered = result.data.filter(r => {
+            if (!r.date) return false;
+            return formatDateLocal(r.date) === todayStr;
+          });
+          setFilteredEntries(todayFiltered);
+        }
+      } catch (error) {
+        console.error('Error fetching impact data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
   }, []);
 
-  const fetchCurrentDateAndEntries = async () => {
-    setLoading(true);
-    try {
-      // Get today's date in local timezone (YYYY-MM-DD format)
-      const today = new Date();
-      const year = today.getFullYear();
-      const month = String(today.getMonth() + 1).padStart(2, '0');
-      const day = String(today.getDate()).padStart(2, '0');
-      const todayStr = `${year}-${month}-${day}`;
-      
-      setCurrentDate(todayStr);
-
-      // Fetch entries for current date
-      const response = await fetch(buildApiUrl(`/api/v1/impact-tests/by-date?date=${todayStr}`), {
-        credentials: 'include'
-      });
-      const data = await response.json();
-
-      if (data.success) {
-        const list = Array.isArray(data.data) ? data.data.map(item => ({ ...item, date: todayStr })) : [];
-        setEntries(list);
-      }
-    } catch (error) {
-      console.error('Error fetching entries:', error);
-      const today = new Date();
-      const year = today.getFullYear();
-      const month = String(today.getMonth() + 1).padStart(2, '0');
-      const day = String(today.getDate()).padStart(2, '0');
-      const todayStr = `${year}-${month}-${day}`;
-      setCurrentDate(todayStr);
-    } finally {
-      setLoading(false);
+  // STEP 2: handleFilter — Client-side filtering of `allEntries`.
+  // Filters by date range. Always resets pagination to page 1.
+  const handleFilter = () => {
+    if (!toDate) {
+      setFilteredEntries([]);
+      return;
     }
+
+    const toDateStr = toDate;
+    const fromDateStr = fromDate || '';
+
+    // Date range filter:
+    // - If fromDate is set: entry date must be >= fromDate AND <= toDate
+    // - If fromDate is empty: show only entries matching toDate exactly
+    const filtered = allEntries.filter(r => {
+      if (!r.date) return false;
+      const reportDate = formatDateLocal(r.date);
+      if (fromDateStr) {
+        return reportDate >= fromDateStr && reportDate <= toDateStr;
+      }
+      return reportDate === toDateStr;
+    });
+
+    setFilteredEntries(filtered);
+    setCurrentPage(1);
   };
 
-  const handleFilter = async () => {
-    if (!startDate) {
-      alert('Please select a start date');
-      return;
-    }
+  // STEP 3: handleClear — Reset all filters to defaults.
+  // Shows only today's entries (same as initial load), resets dates and pagination.
+  const handleClear = () => {
+    setFromDate('');
+    setToDate(todayStr);
+    // Re-filter to today's entries only (not all entries)
+    const todayFiltered = allEntries.filter(r => {
+      if (!r.date) return false;
+      return formatDateLocal(r.date) === todayStr;
+    });
+    setFilteredEntries(todayFiltered);
+    setCurrentPage(1);
+  };
 
-    // Validate that end date is not before start date
-    if (endDate && new Date(endDate) < new Date(startDate)) {
-      alert('End date cannot be before start date');
-      return;
-    }
+  const formatDisplayDate = (dateString) => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return `${String(date.getDate()).padStart(2, '0')} / ${String(date.getMonth() + 1).padStart(2, '0')} / ${date.getFullYear()}`;
+  };
 
-    try {
-      setLoading(true);
-      const response = await fetch(buildApiUrl(`/api/v1/impact-tests/by-date?date=${startDate}`), {
-        credentials: 'include'
-      });
-      const data = await response.json();
+  // Sort entries by date descending
+  const sortedEntries = useMemo(() => {
+    return [...filteredEntries].sort((a, b) => new Date(b.date) - new Date(a.date));
+  }, [filteredEntries]);
 
-      if (data.success) {
-        let list = Array.isArray(data.data) ? data.data.map(item => ({ ...item, date: startDate })) : [];
-        
-        // If end date is provided and different from start date, fetch additional dates
-        if (endDate && endDate !== startDate) {
-          const start = new Date(startDate);
-          const end = new Date(endDate);
-          const allEntries = [...list];
-          
-          // Fetch entries for each date in range
-          const currentDate = new Date(start);
-          currentDate.setDate(currentDate.getDate() + 1); // Start from day after start date
-          
-          while (currentDate <= end) {
-            const dateStr = currentDate.toISOString().split('T')[0];
-            try {
-              const dateResponse = await fetch(buildApiUrl(`/api/v1/impact-tests/by-date?date=${dateStr}`), {
-                credentials: 'include'
-              });
-              const dateData = await dateResponse.json();
-              if (dateData.success && Array.isArray(dateData.data)) {
-                const dateEntries = dateData.data.map(item => ({ ...item, date: dateStr }));
-                allEntries.push(...dateEntries);
-              }
-            } catch (err) {
-              console.error(`Error fetching entries for ${dateStr}:`, err);
-            }
-            currentDate.setDate(currentDate.getDate() + 1);
-          }
-          
-          list = allEntries;
+  // Pagination
+  const totalPages = Math.ceil(sortedEntries.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedEntries = sortedEntries.slice(startIndex, startIndex + itemsPerPage);
+
+  // Group calculation for date rowSpan
+  const getGroupInfo = () => {
+    const groups = {};
+    let currentDate = null;
+    let groupStartIdx = 0;
+
+    paginatedEntries.forEach((item, idx) => {
+      const itemDate = formatDateLocal(item.date);
+      if (itemDate !== currentDate) {
+        if (currentDate !== null) {
+          groups[groupStartIdx] = { rowspan: idx - groupStartIdx, date: currentDate };
         }
-        
-        setEntries(list);
-        setCurrentDate(startDate);
-        setIsFiltered(true);
+        currentDate = itemDate;
+        groupStartIdx = idx;
       }
-    } catch (error) {
-      console.error('Error fetching entries by date:', error);
-      alert('Failed to fetch entries');
-    } finally {
-      setLoading(false);
-    }
+      if (idx === paginatedEntries.length - 1) {
+        groups[groupStartIdx] = { rowspan: idx - groupStartIdx + 1, date: currentDate };
+      }
+    });
+    return groups;
   };
 
-  const handleClearFilter = () => {
-    setStartDate(null);
-    setEndDate(null);
-    setIsFiltered(false);
-    fetchCurrentDateAndEntries();
-  };
-
-  const formatDateDisplay = (dateStr) => {
-    if (!dateStr) return '-';
-    try {
-      const date = new Date(dateStr);
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const year = date.getFullYear();
-      return `${day} / ${month} / ${year}`;
-    } catch {
-      return dateStr;
-    }
-  };
+  const dateGroups = getGroupInfo();
 
   return (
     <>
@@ -148,77 +156,89 @@ const ImpactReport = () => {
             Impact Test - Report
           </h2>
         </div>
-        <div aria-label="Date" style={{ fontWeight: 600, color: '#25424c' }}>
-          {loading ? 'Loading...' : `DATE : ${formatDateDisplay(currentDate)}`}
-        </div>
       </div>
 
+      {/* Filters */}
       <div className="impact-filter-container">
         <div className="impact-filter-group">
-          <label>Start Date</label>
+          <label>From Date</label>
           <CustomDatePicker
-            value={startDate || ''}
-            onChange={(e) => setStartDate(e.target.value)}
-            placeholder="Select start date"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            placeholder="From date"
           />
         </div>
         <div className="impact-filter-group">
-          <label>End Date</label>
+          <label>To Date</label>
           <CustomDatePicker
-            value={endDate || ''}
-            onChange={(e) => setEndDate(e.target.value)}
-            placeholder="Select end date"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+            placeholder="To date"
           />
         </div>
-        <FilterButton onClick={handleFilter} disabled={!startDate}>
-      Filter
-        </FilterButton>
-        <ClearButton onClick={handleClearFilter} disabled={!startDate && !endDate}>
-          Clear
-        </ClearButton>
+        <FilterButton onClick={handleFilter} disabled={!isFilterEnabled} />
+        <ClearButton onClick={handleClear} />
       </div>
 
+      {/* Table */}
       {loading ? (
         <div className="impact-loader-container">
-          <div>Loading...</div>
+          <div style={{ color: '#64748b', fontSize: '0.9rem' }}>Loading...</div>
         </div>
       ) : (
-        <Table
-          columns={[
-            { 
-              key: 'date', 
-              label: 'Date', 
-              width: '120px',
-              align: 'center',
-              render: (item) => {
-                const raw = item.date || currentDate;
-                const isoDate = typeof raw === 'string' ? raw.split('T')[0] : new Date(raw).toISOString().split('T')[0];
-                return formatDateDisplay(isoDate);
-              }
-            },
-            { key: 'partName', label: 'Part Name', width: '200px', align : 'center' },
-            { key: 'dateCode', label: 'Date Code', width: '120px', align: 'center' },
-            { 
-              key: 'specification', 
-              label: 'Specification', 
-              width: '200px',
-              align: 'center',
-              render: (item) => item.specification || '-'
-            },
-            { 
-              key: 'observedValue', 
-              label: 'Observed Value', 
-              width: '140px',
-              align: 'center',
-              render: (item) => item.observedValue !== undefined && item.observedValue !== null ? item.observedValue : '-'
-            },
-            { key: 'remarks', label: 'Remarks', width: '250px', align: 'center' }
-          ]}
-          data={entries}
-          minWidth={1200}
-          defaultAlign="left"
-          groupByColumn="date"
-          noDataMessage={isFiltered ? 'No entries found for the selected date' : 'No entries found for today'}
+        <div className="reusable-table-container">
+          <table className="reusable-table" style={{ tableLayout: 'auto' }}>
+            <thead>
+              <tr>
+                <th style={{ width: '10%', textAlign: 'center', whiteSpace: 'nowrap' }}>Date</th>
+                <th style={{ width: '20%', textAlign: 'center', whiteSpace: 'nowrap' }}>Part Name</th>
+                <th style={{ width: '10%', textAlign: 'center', whiteSpace: 'nowrap' }}>Date Code</th>
+                <th style={{ width: '25%', textAlign: 'center', whiteSpace: 'nowrap' }}>Specification</th>
+                <th style={{ width: '20%', textAlign: 'center', whiteSpace: 'nowrap' }}>Observed Value</th>
+                <th style={{ width: '15%', textAlign: 'center', whiteSpace: 'nowrap' }}>Remarks</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginatedEntries.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="reusable-table-no-records">No records found</td>
+                </tr>
+              ) : (
+                paginatedEntries.map((item, idx) => {
+                  const isDateGroupStart = dateGroups[idx];
+
+                  return (
+                    <tr key={item._id || idx}>
+                      {isDateGroupStart ? (
+                        <td
+                          rowSpan={isDateGroupStart.rowspan}
+                          style={{ textAlign: 'center', verticalAlign: 'middle' }}
+                        >
+                          {formatDisplayDate(item.date)}
+                        </td>
+                      ) : null}
+                      <td style={{ textAlign: 'center' }}>{item.partName || '-'}</td>
+                      <td style={{ textAlign: 'center' }}>{item.dateCode || '-'}</td>
+                      <td style={{ textAlign: 'center' }}>{item.specification || '-'}</td>
+                      <td style={{ textAlign: 'center' }}>
+                        {item.observedValue !== undefined && item.observedValue !== null ? item.observedValue : '-'}
+                      </td>
+                      <td style={{ textAlign: 'center' }}>{item.remarks || '-'}</td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {!loading && sortedEntries.length > itemsPerPage && (
+        <CustomPagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
         />
       )}
     </>

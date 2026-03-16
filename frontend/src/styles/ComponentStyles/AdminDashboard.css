@@ -88,74 +88,12 @@
 
 .emp-table th {
   padding: 16px 20px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  text-align: center;
 }
-
-.emp-table th:nth-child(1) { width: 130px; } /* Employee ID */
-.emp-table th:nth-child(2) { width: 250px; } /* Department */
-.emp-table th:nth-child(3) { width: 250px; } /* Last Login */
-.emp-table th:nth-child(4) { width: 120px; text-align: center; } /* Actions */
 
 .emp-table td {
   padding: 12px 15px;
   border-bottom: 1px solid #edf2f7;
-  font-size: 0.95rem;
-  color: #2d3748;
   vertical-align: middle;
-  text-align: center;
-}
-
-.emp-table td.emp-id {
-  font-family: 'bold', sans-serif;
-  font-weight: 400;
-  font-size: 18px!important;
-  color: #000000;
-  letter-spacing: 0.5px;
-}
-
-.emp-id {
-  font-family: 'Courier New', monospace;
-  font-weight: 700;
-  font-size: 1.25rem;
-  color: #000000;
-  letter-spacing: 0.5px;
-}
-
-.emp-table td.actions {
-  text-align: center;
-}
-
-.emp-table .actions {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 10px;
-}
-
-.emp-table .actions button {
-  width: 70px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-}
-
-.emp-table .actions button:first-child {
-  background-color: #4a5568;
-  color: white; 
-}
-
-.emp-table .actions button:last-child {
-  background-color: #fc8181;
-  color: white;
 }
 
 /* Action buttons for table */

@@ -1,3 +1,183 @@
+/* --- Header --- */
+.micro-report-header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 0 0 1.5rem 0;
+  padding: 0 0 1rem 0;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.micro-report-header-text {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+}
+
+.micro-report-header-text h2 {
+  font-size: 1.625rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  line-height: 1;
+  width: 100%;
+  position: relative;
+}
+
+/* --- Filter Section --- */
+.micro-report-filter-wrapper {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  margin-bottom: 1rem;
+}
+
+.micro-filter-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.micro-report-filter-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+/* --- Loader --- */
+.micro-loader-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 3rem;
+}
+
+/* --- Table Row --- */
+.micro-report-data-row {
+  transition: background-color 0.2s ease;
+}
+
+.micro-report-data-row:hover {
+  background-color: #e0f2fe;
+}
+
+.micro-report-data-row.group-first {
+  border-top: 2px solid #e2e8f0;
+}
+
+/* --- Date Group Cell --- */
+.micro-report-date-cell {
+  text-align: center;
+  font-weight: 500;
+  vertical-align: middle;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.micro-report-date-cell.border-top {
+  border-top: 2px solid #e2e8f0;
+}
+
+/* --- DISA Group Cell --- */
+.micro-report-disa-cell {
+  text-align: center;
+  font-weight: 500;
+  vertical-align: middle;
+}
+
+/* --- Remarks Cell --- */
+.micro-report-remarks-cell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.micro-report-remarks-cell.clickable {
+  cursor: pointer;
+  color: #5B9AA9;
+  text-decoration: underline;
+}
+
+.micro-report-remarks-cell.empty {
+  cursor: default;
+  color: #94a3b8;
+  text-decoration: none;
+}
+
+/* --- Remarks Modal --- */
+.micro-report-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.micro-report-modal-content {
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 300px;
+  overflow-y: auto;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.micro-report-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.micro-report-modal-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.micro-report-modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+  color: #64748b;
+}
+
+.micro-report-modal-close:hover {
+  color: #334155;
+}
+
+.micro-report-modal-text {
+  margin: 0;
+  line-height: 1.6;
+  color: #334155;
+}
+
+/* --- Responsive --- */
+@media (max-width: 768px) {
+  .micro-report-filter-wrapper {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
 /* Microstructure Table Container with Horizontal Scroll */
 .microstructure-table-container {
   overflow-x: auto;

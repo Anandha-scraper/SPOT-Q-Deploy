@@ -4,7 +4,7 @@ import { Save, RefreshCw, FileText, Loader2, RotateCcw } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { DisaDropdown, ShiftDropdown, SubmitButton } from '../../Components/Buttons';
 import Table from '../../Components/Table';
-import { buildApiUrl, API_ENDPOINTS } from '../../config/api';
+import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Sandlab/FoundarySandTestingNote.css';
 
 const initialFormData = {
@@ -117,7 +117,7 @@ export default function FoundrySandTestingNote() {
     try {
       setCheckingData(true);
       const dateStr = date instanceof Date ? date.toISOString().split('T')[0] : date;
-      const res = await fetch(buildApiUrl(`/api/v1/foundry-sand-testing-notes?startDate=${encodeURIComponent(dateStr)}&endDate=${encodeURIComponent(dateStr)}`), { credentials: 'include' });
+      const res = await fetch(`${API_ENDPOINTS.foundrySandTestingNotes}?startDate=${encodeURIComponent(dateStr)}&endDate=${encodeURIComponent(dateStr)}`, { credentials: 'include' });
       const response = await res.json();
 
       let record = null;

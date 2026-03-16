@@ -3,8 +3,7 @@ import { PencilLine, Trash2, BookOpenCheck, ChevronLeft, ChevronRight } from 'lu
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { FilterButton, ClearButton } from '../../Components/Buttons';
 import Table from '../../Components/Table';
-import Sakthi from '../../Components/Sakthi';
-import { buildApiUrl } from '../../config/api';
+import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Sandlab/SandTestingRecordReport.css';
 
 const SandTestingRecordReport = () => {
@@ -67,7 +66,7 @@ const SandTestingRecordReport = () => {
   // Function to fetch data for a single date
   const fetchDataForDate = async (date) => {
     try {
-      const response = await fetch(buildApiUrl(`/api/v1/sand-testing-records/date/${date}`), {
+      const response = await fetch(`${API_ENDPOINTS.sandTestingRecords}/date/${date}`, {
         credentials: 'include'
       });
       

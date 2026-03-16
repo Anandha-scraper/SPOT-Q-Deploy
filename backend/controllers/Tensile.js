@@ -83,6 +83,19 @@ exports.getEntriesByDate = async (req, res) => {
     }
 };
 
+// Get ALL entries (flattened across all date documents) — used for client-side filtering
+exports.getAllEntries = async (req, res) => {
+    try {
+        const documents = await Tensile.find().sort({ date: -1 });
+        const allEntries = documents.flatMap(doc =>
+            doc.entries.map(entry => ({ ...entry.toObject(), date: doc.date }))
+        );
+        res.status(200).json({ success: true, count: allEntries.length, data: allEntries });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Error fetching all entries.' });
+    }
+};
+
 // 3. CRUD OPERATIONS
 
 exports.createEntry = async (req, res) => {

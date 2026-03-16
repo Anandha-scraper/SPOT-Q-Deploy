@@ -205,6 +205,24 @@ exports.createEntry = async (req, res) => {
 
 /** 4. ADVANCED FILTERING (Reporting) **/
 
+exports.getAllEntries = async (req, res) => {
+    try {
+        const documents = await MicroTensile.find().sort({ date: -1 });
+
+        const allEntries = documents.flatMap(doc =>
+            doc.entries.map(entry => ({
+                ...entry.toObject(),
+                date: doc.date,
+                formattedDate: doc.date.toISOString().split('T')[0]
+            }))
+        );
+
+        res.status(200).json({ success: true, count: allEntries.length, data: allEntries });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Error fetching all entries.' });
+    }
+};
+
 exports.filterEntries = async (req, res) => {
     try {
         const { startDate, endDate } = req.query;

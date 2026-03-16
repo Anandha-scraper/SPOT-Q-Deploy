@@ -40,6 +40,22 @@
   padding: 0;
 }
 
+/* ==================== Section Header ==================== */
+.microstructure-section-header {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  margin-bottom: 1.5rem;
+}
+
+.microstructure-section-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #334155;
+  padding-bottom: 0.5rem;
+}
+
 /* ==================== Divider ==================== */
 .microstructure-divider {
   width: 100%;
@@ -51,16 +67,18 @@
 /* ==================== Form Row ==================== */
 .microstructure-form-row {
   display: flex;
-  flex-wrap: wrap;
-  gap: 1.5rem;
+  flex-wrap: nowrap;
+  gap: 1rem;
   margin-bottom: 1.5rem;
+  overflow: visible;
 }
 
 .microstructure-field {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  min-width: 200px;
+  min-width: 15%;
+  flex: 1;
 }
 
 .microstructure-field label {
@@ -112,7 +130,7 @@
 
 .microstructure-range-input .microstructure-input {
   flex: 1;
-  min-width: 80px;
+  min-width: 0;
 }
 
 .range-separator {
@@ -123,8 +141,8 @@
 
 /* ==================== Small Field ==================== */
 .microstructure-field-small {
-  min-width: 150px;
-  max-width: 200px;
+  min-width: 15%;
+  max-width: 25%;
 }
 
 /* ==================== Submit Row ==================== */

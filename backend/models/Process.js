@@ -36,7 +36,8 @@ const ProcessEntrySchema = new mongoose.Schema({
     metalCompositionCu: { type: Number, default: 0 },
     metalCompositionCr: { type: Number, default: 0 },
     timeOfPouring: { type: String, default: '' }, // Format: "HH:MM - HH:MM" (24-hour)
-    pouringTemperature: { type: Number, default: 0 },
+    pouringTemperatureMin: { type: Number, default: 0 },
+    pouringTemperatureMax: { type: Number, default: 0 },
     ppCode: { type: String, trim: true, default: '' },
     treatmentNo: { type: String, trim: true, default: '' },
     fcNo: { type: String, trim: true, default: '' },

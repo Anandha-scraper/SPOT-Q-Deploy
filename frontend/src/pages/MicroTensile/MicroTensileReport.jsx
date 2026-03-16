@@ -1,209 +1,199 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { BookOpenCheck } from 'lucide-react';
-import { FilterButton, ClearButton } from '../../Components/Buttons';
+import { FilterButton, ClearButton, FilterDisaDropdown, CustomPagination } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import Table from '../../Components/Table';
-import { RemarksCard } from '../../Components/PopUp';
-import { buildApiUrl } from '../../config/api';
+import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/MicroTensile/MicroTensileReport.css';
+import '../../styles/ComponentStyles/Table.css';
 
 
 const MicroTensileReport = () => {
-  const [startDate, setStartDate] = useState(null);
-  const [endDate, setEndDate] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [entries, setEntries] = useState([]);
-  const [remarkModal, setRemarkModal] = useState({ open: false, text: '' });
-  
-  const disaOptions = ['DISA 1', 'DISA 2', 'DISA 3', 'DISA 4'];
 
-  const formatDate = (d) => {
+  // ========================================================================
+  // FILTER SYSTEM — fetch all once, filter client-side
+  // ========================================================================
+
+  const formatDateLocal = (d) => {
     if (!d) return '';
-    if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}/.test(d)) {
-      const [y, m, rest] = d.split('-');
-      const day = rest.slice(0, 2);
-      return `${day} / ${m} / ${y}`;
-    }
-    const date = new Date(d);
-    if (Number.isNaN(date.getTime())) return String(d);
-    const dd = String(date.getDate()).padStart(2, '0');
-    const mm = String(date.getMonth() + 1).padStart(2, '0');
-    const yyyy = date.getFullYear();
-    return `${dd} / ${mm} / ${yyyy}`;
+    const dt = new Date(d);
+    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
   };
 
-  const handleFilter = async () => {
-    if (!startDate) return;
-    
-    // Validate that end date is not before start date
-    if (endDate && new Date(endDate) < new Date(startDate)) {
-      alert('End date cannot be before start date');
-      return;
-    }
-    
-    setLoading(true);
-    setError('');
-    try {
-      const start = startDate;
-      const end = endDate || startDate;
-      const resp = await fetch(buildApiUrl(`/api/v1/micro-tensile/filter?startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}`), {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
-        }
-      });
-      const data = await resp.json();
-      if (data?.success) {
-        const list = Array.isArray(data.data) ? data.data : [];
-        console.log('Fetched entries:', list);
-        console.log('Sample entry DISA:', list[0]?.disa);
-        const sorted = [...list].sort((a, b) => {
-          const da = new Date(a.dateOfInspection || a.createdAt || 0).getTime();
-          const db = new Date(b.dateOfInspection || b.createdAt || 0).getTime();
-          return db - da;
-        });
-        setEntries(sorted); // Show all filtered entries
-      } else {
-        setEntries([]);
-      }
-    } catch (e) {
-      setError(e.message || 'Failed to fetch report data');
-      setEntries([]);
-    } finally {
-      setLoading(false);
-    }
+  const getTodayLocal = () => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   };
 
-  const loadRecent = async () => {
-    setLoading(true);
-    try {
-      const today = new Date();
-      const year = today.getFullYear();
-      const month = String(today.getMonth() + 1).padStart(2, '0');
-      const day = String(today.getDate()).padStart(2, '0');
-      const todayString = `${year}-${month}-${day}`;
-      
-      const resp = await fetch(buildApiUrl(`/api/v1/micro-tensile/filter?startDate=${encodeURIComponent(todayString)}&endDate=${encodeURIComponent(todayString)}`), {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
-        }
-      });
-      const res = await resp.json();
-      if (res?.success && Array.isArray(res.data)) {
-        // Filter to ensure we only get today's entries
-        const todaysEntries = res.data.filter(entry => {
-          const entryDate = entry.dateOfInspection || entry.date;
-          if (!entryDate) return false;
-          
-          // Normalize the date for comparison
-          const entryDateStr = typeof entryDate === 'string' 
-            ? entryDate.split('T')[0] 
-            : new Date(entryDate).toISOString().split('T')[0];
-          
-          return entryDateStr === todayString;
-        });
-        
-        const sorted = [...todaysEntries].sort((a, b) => {
-          const da = new Date(a.dateOfInspection || a.createdAt || 0).getTime();
-          const db = new Date(b.dateOfInspection || b.createdAt || 0).getTime();
-          return db - da;
-        });
-        setEntries(sorted);
-      } else {
-        setEntries([]);
-      }
-    } catch (e) {
-      setEntries([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const todayStr = getTodayLocal();
 
-  const handleClearFilter = () => {
-    setStartDate(null);
-    setEndDate(null);
-    setError('');
-    setEntries([]);
-    loadRecent();
-  };
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState(todayStr);
+  const [selectedDisa, setSelectedDisa] = useState('All');
+  const [allEntries, setAllEntries] = useState([]);
+  const [filteredEntries, setFilteredEntries] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [remarksModal, setRemarksModal] = useState({ show: false, content: '', title: 'Remarks' });
 
+  const itemsPerPage = 15;
+
+  const isFilterEnabled = toDate && toDate.trim() !== '' && !(fromDate && fromDate.trim() !== '' && toDate <= fromDate);
+
+  const disaOptions = useMemo(() => {
+    return Array.from(new Set(allEntries.map(item => item.disa).filter(Boolean))).sort();
+  }, [allEntries]);
+
+  // Fetch ALL entries once on mount
   useEffect(() => {
-    loadRecent();
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(API_ENDPOINTS.microTensile, { credentials: 'include' });
+        if (!response.ok) throw new Error('Failed to fetch micro tensile data');
+        const result = await response.json();
+
+        if (result.success && result.data) {
+          const validEntries = result.data.filter(entry => entry.disa && entry.disa.trim() !== '');
+          setAllEntries(validEntries);
+
+          // Default: show only today's entries
+          const todayFiltered = validEntries.filter(r => {
+            const d = r.date || r.dateOfInspection;
+            if (!d) return false;
+            return formatDateLocal(d) === todayStr;
+          });
+          setFilteredEntries(todayFiltered);
+        }
+      } catch (error) {
+        console.error('Error fetching micro tensile data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
   }, []);
 
-  const PrimaryTable = ({ list }) => {
-    const columns = [
-      { 
-        key: 'dateOfInspection', 
-        label: 'Date of Inspection', 
-        width: '10%',
-        align: 'center',
-        render: (r) => formatDate(r.dateOfInspection || r.date || r.dateOfInspection)
-      },
-      { 
-        key: 'disa', 
-        label: 'DISA', 
-        width: '8%',
-        align: 'center',
-        render: (r) => {
-          console.log('Rendering DISA for row:', r.disa, 'Full row:', r);
-          return Array.isArray(r.disa) ? r.disa.join(', ') : (r.disa || '-');
-        }
-      },
-      { 
-        key: 'item', 
-        label: 'Item', 
-        width: '15%',
-        align : "center",
-        render: (r) => {
-          if (!r.item) return '-';
-          if (typeof r.item === 'string') return r.item;
-          if (typeof r.item === 'object') {
-            const it1 = r.item.it1 || '';
-            const it2 = r.item.it2 || '';
-            return `${it1}${it2 ? ' ' + it2 : ''}`.trim() || '-';
-          }
-          return String(r.item);
-        }
-      },
-      { key: 'dateCode', label: 'Date Code', width: '8%', align: 'center' },
-      { key: 'heatCode', label: 'Heat Code', width: '8%', align: 'center' },
-      { key: 'barDia', label: 'Bar Dia (mm)', width: '8%', align: 'center', render: (r) => r.barDia ?? '-' },
-      { key: 'gaugeLength', label: 'Gauge Length (mm)', width: '10%', align: 'center', render: (r) => r.gaugeLength ?? '-' },
-      { key: 'maxLoad', label: 'Max Load (Kgs/KN)', width: '10%', align: 'center', render: (r) => r.maxLoad ?? '-' },
-      { key: 'yieldLoad', label: 'Yield Load (Kgs/KN)', width: '11%', align: 'center', render: (r) => r.yieldLoad ?? '-' },
-      { key: 'tensileStrength', label: 'Tensile Strength (Kg/mm² or MPa)', width: '14%', align: 'center', render: (r) => r.tensileStrength ?? '-' },
-      { key: 'yieldStrength', label: 'Yield Strength (Kg/mm² or MPa)', width: '14%', align: 'center', render: (r) => r.yieldStrength ?? '-' },
-      { key: 'elongation', label: 'Elongation', width: '8%', align: 'center', render: (r) => r.elongation ?? '-' },
-      { key: 'testedBy', label: 'Tested By', width: '9%', render: (r) => r.testedBy ?? '-' },
-      { 
-        key: 'remarks', 
-        label: 'Remarks', 
-        width: '10%',
-        render: (r) => r.remarks || '-'
-      },
-    ];
+  const handleFilter = () => {
+    if (!toDate) { setFilteredEntries([]); return; }
 
-    const noDataMessage = startDate 
-      ? 'No records found for the selected date range.' 
-      : 'No records found for the current date.';
+    const toDateStr = toDate;
+    const fromDateStr = fromDate || '';
 
-    return (
-      <Table
-        columns={columns}
-        data={list}
-        minWidth={2000}
-        defaultAlign="left"
-        noDataMessage={noDataMessage}
-      />
-    );
+    let filtered = allEntries.filter(r => {
+      const d = r.date || r.dateOfInspection;
+      if (!d) return false;
+      const reportDate = formatDateLocal(d);
+      if (fromDateStr) {
+        return reportDate >= fromDateStr && reportDate <= toDateStr;
+      }
+      return reportDate === toDateStr;
+    });
+
+    if (selectedDisa && selectedDisa !== 'All') {
+      filtered = filtered.filter(r => r.disa === selectedDisa);
+    }
+
+    setFilteredEntries(filtered);
+    setCurrentPage(1);
   };
+
+  const handleClear = () => {
+    setFromDate('');
+    setToDate(todayStr);
+    setSelectedDisa('All');
+    const todayFiltered = allEntries.filter(r => {
+      const d = r.date || r.dateOfInspection;
+      if (!d) return false;
+      return formatDateLocal(d) === todayStr;
+    });
+    setFilteredEntries(todayFiltered);
+    setCurrentPage(1);
+  };
+
+  const formatDisplayDate = (dateString) => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return `${String(date.getDate()).padStart(2, '0')} / ${String(date.getMonth() + 1).padStart(2, '0')} / ${date.getFullYear()}`;
+  };
+
+  const renderItem = (r) => {
+    if (!r.item) return '-';
+    if (typeof r.item === 'string') return r.item;
+    if (typeof r.item === 'object') {
+      const it1 = r.item.it1 || '';
+      const it2 = r.item.it2 || '';
+      return `${it1}${it2 ? ' ' + it2 : ''}`.trim() || '-';
+    }
+    return String(r.item);
+  };
+
+  // Sort: date desc, then disa asc
+  const sortedEntries = useMemo(() => {
+    return [...filteredEntries].sort((a, b) => {
+      const da = new Date(a.date || a.dateOfInspection);
+      const db = new Date(b.date || b.dateOfInspection);
+      const dateCompare = db - da;
+      if (dateCompare !== 0) return dateCompare;
+      return (a.disa || '').localeCompare(b.disa || '');
+    });
+  }, [filteredEntries]);
+
+  const totalPages = Math.ceil(sortedEntries.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedEntries = sortedEntries.slice(startIndex, startIndex + itemsPerPage);
+
+  const showRemarksPopup = (content) => {
+    setRemarksModal({ show: true, content, title: 'Remarks' });
+  };
+
+  const closeRemarksModal = () => {
+    setRemarksModal({ show: false, content: '', title: 'Remarks' });
+  };
+
+  // Date rowspan grouping
+  const getDateGroups = () => {
+    const groups = {};
+    let currentDate = null;
+    let groupStartIdx = 0;
+    paginatedEntries.forEach((item, idx) => {
+      const itemDate = formatDateLocal(item.date || item.dateOfInspection);
+      if (itemDate !== currentDate) {
+        if (currentDate !== null) {
+          groups[groupStartIdx] = { rowspan: idx - groupStartIdx, date: currentDate };
+        }
+        currentDate = itemDate;
+        groupStartIdx = idx;
+      }
+      if (idx === paginatedEntries.length - 1) {
+        groups[groupStartIdx] = { rowspan: idx - groupStartIdx + 1, date: currentDate };
+      }
+    });
+    return groups;
+  };
+
+  // DISA rowspan grouping (consecutive same date+disa)
+  const getDisaGroups = () => {
+    const groups = {};
+    let currentKey = null;
+    let groupStartIdx = 0;
+    paginatedEntries.forEach((item, idx) => {
+      const key = `${formatDateLocal(item.date || item.dateOfInspection)}|${item.disa || ''}`;
+      if (key !== currentKey) {
+        if (currentKey !== null) {
+          groups[groupStartIdx] = { rowspan: idx - groupStartIdx, disa: currentKey.split('|')[1] };
+        }
+        currentKey = key;
+        groupStartIdx = idx;
+      }
+      if (idx === paginatedEntries.length - 1) {
+        groups[groupStartIdx] = { rowspan: idx - groupStartIdx + 1, disa: currentKey.split('|')[1] };
+      }
+    });
+    return groups;
+  };
+
+  const dateGroups = getDateGroups();
+  const disaGroups = getDisaGroups();
 
   return (
     <>
@@ -214,54 +204,135 @@ const MicroTensileReport = () => {
             Micro Tensile Test - Report
           </h2>
         </div>
-        <div aria-label="Date" style={{ fontWeight: 600, color: '#25424c' }}>
-          {loading ? 'Loading...' : (() => {
-            const date = new Date();
-            const day = String(date.getDate()).padStart(2, '0');
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const year = date.getFullYear();
-            return `DATE : ${day} / ${month} / ${year}`;
-          })()}
-        </div>
       </div>
 
+      {/* Filters */}
       <div className="microtensile-filter-container">
         <div className="microtensile-filter-group">
-          <label>Start Date</label>
-          <CustomDatePicker
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            placeholder="Select start date"
-          />
+          <label className="microtensile-report-filter-label">From Date</label>
+          <CustomDatePicker value={fromDate} onChange={(e) => setFromDate(e.target.value)} placeholder="From date" />
         </div>
         <div className="microtensile-filter-group">
-          <label>End Date</label>
-          <CustomDatePicker
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            placeholder="Select end date"
+          <label className="microtensile-report-filter-label">To Date</label>
+          <CustomDatePicker value={toDate} onChange={(e) => setToDate(e.target.value)} placeholder="To date" />
+        </div>
+        <div className="microtensile-filter-group">
+          <label className="microtensile-report-filter-label">DISA (Optional)</label>
+          <FilterDisaDropdown
+            value={selectedDisa}
+            onChange={(e) => setSelectedDisa(e.target.value)}
+            options={disaOptions}
           />
         </div>
-        <FilterButton onClick={handleFilter} disabled={!startDate || loading}>
-          {loading ? 'Loading...' : 'Filter'}
-        </FilterButton>
-        <ClearButton onClick={handleClearFilter} disabled={!startDate && !endDate}>
-          Clear
-        </ClearButton>
+        <FilterButton onClick={handleFilter} disabled={!isFilterEnabled} />
+        <ClearButton onClick={handleClear} />
       </div>
 
-      <PrimaryTable list={entries} />
+      {/* Table */}
+      {loading ? (
+        <div className="microtensile-loader-container"><div>Loading...</div></div>
+      ) : (
+        <div className="reusable-table-container">
+          <table className="reusable-table" style={{ tableLayout: 'auto' }}>
+            <thead>
+              <tr>
+                <th style={{ minWidth: '140px', textAlign: 'center', whiteSpace: 'nowrap' }}>Date</th>
+                <th style={{ minWidth: '80px', textAlign: 'center', whiteSpace: 'nowrap' }}>DISA</th>
+                <th style={{ minWidth: '180px', textAlign: 'center', whiteSpace: 'nowrap' }}>Item</th>
+                <th style={{ minWidth: '90px', textAlign: 'center', whiteSpace: 'nowrap' }}>Date Code</th>
+                <th style={{ minWidth: '90px', textAlign: 'center', whiteSpace: 'nowrap' }}>Heat Code</th>
+                <th style={{ minWidth: '90px', textAlign: 'center', whiteSpace: 'nowrap' }}>Bar Dia (mm)</th>
+                <th style={{ minWidth: '120px', textAlign: 'center', whiteSpace: 'nowrap' }}>Gauge Length (mm)</th>
+                <th style={{ minWidth: '120px', textAlign: 'center', whiteSpace: 'nowrap' }}>Max Load</th>
+                <th style={{ minWidth: '120px', textAlign: 'center', whiteSpace: 'nowrap' }}>Yield Load</th>
+                <th style={{ minWidth: '160px', textAlign: 'center', whiteSpace: 'nowrap' }}>Tensile Strength</th>
+                <th style={{ minWidth: '160px', textAlign: 'center', whiteSpace: 'nowrap' }}>Yield Strength</th>
+                <th style={{ minWidth: '90px', textAlign: 'center', whiteSpace: 'nowrap' }}>Elongation (%)</th>
+                <th style={{ minWidth: '100px', textAlign: 'center', whiteSpace: 'nowrap' }}>Tested By</th>
+                <th style={{ minWidth: '100px', textAlign: 'center', whiteSpace: 'nowrap' }}>Remarks</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginatedEntries.length === 0 ? (
+                <tr>
+                  <td colSpan={14} className="reusable-table-no-records">No records found</td>
+                </tr>
+              ) : (
+                paginatedEntries.map((item, idx) => {
+                  const itemDate = formatDateLocal(item.date || item.dateOfInspection);
+                  const prevItem = idx > 0 ? paginatedEntries[idx - 1] : null;
+                  const isFirstInGroup = !prevItem || formatDateLocal(prevItem.date || prevItem.dateOfInspection) !== itemDate;
+                  const isDateGroupStart = dateGroups[idx];
+                  const isDisaGroupStart = disaGroups[idx];
 
-      {error && (
-        <div className="chr-error">{error}</div>
+                  return (
+                    <tr
+                      key={item._id || idx}
+                      className={`mt-report-data-row${isFirstInGroup && idx > 0 ? ' group-first' : ''}`}
+                    >
+                      {isDateGroupStart ? (
+                        <td
+                          rowSpan={isDateGroupStart.rowspan}
+                          className={`mt-report-date-cell${idx > 0 ? ' border-top' : ''}`}
+                        >
+                          {formatDisplayDate(item.date || item.dateOfInspection)}
+                        </td>
+                      ) : null}
+                      {isDisaGroupStart ? (
+                        <td
+                          rowSpan={isDisaGroupStart.rowspan}
+                          className="mt-report-disa-cell"
+                        >
+                          {item.disa || '-'}
+                        </td>
+                      ) : null}
+                      <td>{renderItem(item)}</td>
+                      <td>{item.dateCode || '-'}</td>
+                      <td>{item.heatCode || '-'}</td>
+                      <td>{item.barDia ?? '-'}</td>
+                      <td>{item.gaugeLength ?? '-'}</td>
+                      <td>{item.maxLoad ?? '-'}</td>
+                      <td>{item.yieldLoad ?? '-'}</td>
+                      <td>{item.tensileStrength ?? '-'}</td>
+                      <td>{item.yieldStrength ?? '-'}</td>
+                      <td>{item.elongation ?? '-'}</td>
+                      <td>{item.testedBy || '-'}</td>
+                      <td
+                        className={`mt-report-remarks-cell ${item.remarks ? 'clickable' : 'empty'}`}
+                        onClick={() => item.remarks && showRemarksPopup(item.remarks)}
+                        title={item.remarks || 'No remarks'}
+                      >
+                        {item.remarks || '-'}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
 
-      {remarkModal.open && (
-        <RemarksCard
-          isOpen={remarkModal.open}
-          onClose={() => setRemarkModal({ open: false, text: '' })}
-          remarksText={remarkModal.text}
+      {/* Pagination */}
+      {!loading && sortedEntries.length > itemsPerPage && (
+        <CustomPagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
         />
+      )}
+
+      {/* Remarks Modal */}
+      {remarksModal.show && (
+        <div className="mt-report-modal-overlay" onClick={closeRemarksModal}>
+          <div className="mt-report-modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="mt-report-modal-header">
+              <h3 className="mt-report-modal-title">{remarksModal.title}</h3>
+              <button onClick={closeRemarksModal} className="mt-report-modal-close">&times;</button>
+            </div>
+            <p className="mt-report-modal-text">{remarksModal.content}</p>
+          </div>
+        </div>
       )}
     </>
   );

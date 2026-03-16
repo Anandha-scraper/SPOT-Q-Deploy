@@ -22,7 +22,6 @@ import QcProductionDetails from './src/pages/QcProduction/QcProductionDetails';
 import QcProductionDetailsReport from './src/pages/QcProduction/QcProductionDetailsReport';
 import Process from './src/pages/Process/Process';
 import ProcessReport from './src/pages/Process/ProcessReport';
-import ProcessReportEntries from './src/pages/Process/ProcessReportEntries';
 import MeltingLogSheet from './src/pages/Melting/MeltingLogSheet';
 import MeltingLogSheetReport from './src/pages/Melting/MeltingLogSheetReport';
 import CupolaHolderLogSheet from './src/pages/Melting/CupolaHolderLogSheet';
@@ -138,7 +137,6 @@ const App = () => {
           <Route path="process">
              <Route index element={<DepartmentRouteGuard><Process /></DepartmentRouteGuard>} />
              <Route path="report" element={<DepartmentRouteGuard><ProcessReport /></DepartmentRouteGuard>} />
-             <Route path="report/entries" element={<DepartmentRouteGuard><ProcessReportEntries /></DepartmentRouteGuard>} />
           </Route>
 
           <Route path="qc-production-details">

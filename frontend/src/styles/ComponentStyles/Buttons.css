@@ -737,6 +737,39 @@
   box-shadow: none;
 }
 
+/* Disabled State */
+.cus-time-input [data-slot="input-wrapper"].disabled,
+.cus-time-input.disabled [data-slot="input-wrapper"] {
+  cursor: not-allowed;
+  background-color: #f1f5f9;
+  opacity: 0.6;
+}
+
+.cus-time-input [data-slot="segment"].disabled,
+.cus-time-input.disabled [data-slot="segment"] {
+  cursor: not-allowed;
+  color: #64748b;
+}
+
+/* Custom Time Input Component - compact height */
+.custom-time-input-container {
+  min-height: 40px !important;
+  height: 40px !important;
+  padding: 0.35rem 0.75rem !important;
+}
+
+/* Custom Time Input Component Disabled Styles */
+.custom-time-input-container.disabled {
+  cursor: not-allowed !important;
+}
+
+.custom-time-input-container.disabled .time-input-field,
+.custom-time-input-container.disabled .time-period-select,
+.time-input-field:disabled,
+.time-period-select:disabled {
+  cursor: not-allowed !important;
+}
+
 /* Custom Pagination Styles */
 .custom-pagination-wrapper {
   display: flex;

@@ -30,12 +30,6 @@
   width: 100%;
 }
 
-.dmm-header-buttons {
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-}
-
 .dmm-header-text {
   flex: 1;
   display: flex;
@@ -59,8 +53,9 @@
 }
 
 /* Primary Section (mirrors Disamatic styling) */
-.primary-section {
-  margin-bottom: 2rem;
+.dmm-section.primary-section {
+  margin-top: 0.5rem;
+  margin-bottom: 0;
   padding: 0;
   background: transparent;
   border: none;
@@ -86,13 +81,6 @@
   border-bottom: none;
 }
 
-.primary-date-display {
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: #1e293b;
-  white-space: nowrap;
-}
-
 .primary-fields-row {
   display: flex;
   flex-wrap: nowrap;
@@ -104,67 +92,6 @@
   flex: 0 0 auto;
   width: 220px;
   min-width: 0;
-}
-
-.dmm-view-report-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.625rem 1.25rem;
-  margin-left: 1rem;
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
-}
-
-.dmm-view-report-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.4);
-  background: linear-gradient(135deg, #059669 0%, #047857 100%);
-}
-
-.dmm-view-report-btn svg {
-  width: 16px;
-  height: 16px;
-}
-
-.dmm-reset-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.875rem 2rem;
-  background: linear-gradient(135deg, #163442 0%, #1f4f5d 100%);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 6px rgba(22, 52, 66, 0.3);
-}
-
-.dmm-reset-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(22, 52, 66, 0.4);
-  background: linear-gradient(135deg, #1f4f5d 0%, #2a6575 100%);
-}
-
-.dmm-reset-btn:disabled {
-  background: #94a3b8;
-  cursor: not-allowed;
-  box-shadow: none;
-}
-
-.dmm-reset-btn svg {
-  width: 18px;
-  height: 18px;
 }
 
 .dmm-submit-btn {
@@ -183,11 +110,6 @@
   box-shadow: 0 4px 6px rgba(91, 154, 169, 0.3);
 }
 
-.dmm-submit-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(91, 154, 169, 0.4);
-  background: linear-gradient(135deg, #4A8494 0%, #3a6a78 100%);
-}
 
 .dmm-submit-btn svg {
   width: 18px;
@@ -233,12 +155,6 @@
   margin-bottom: 0;
 }
 
-/* Ensure shift dropdown and customer are in the same column (stacked vertically) */
-.dmm-shift-form-grid .dmm-form-group:first-child,
-.dmm-shift-form-grid .dmm-form-group:nth-child(2) {
-  grid-column: 1;
-}
-
 /* Shift parameters alignment tweaks */
 .dmm-shift-form-grid .dmm-form-group {
   min-width: 240px;
@@ -262,14 +178,6 @@
   min-height: 3rem;
   display: flex;
   align-items: flex-end;
-}
-
-/* Info icon in labels */
-.dmm-info {
-  display: inline-flex;
-  align-items: center;
-  color: #64748b;
-  cursor: help;
 }
 
 /* Make inputs consistent height for neat alignment */
@@ -297,40 +205,6 @@
   .dmm-shift-form-grid {
     grid-template-columns: 1fr;
   }
-}
-
-/* Primary Row Layout */
-.dmm-primary-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 1rem;
-  margin-bottom: 1rem;
-  flex-wrap: wrap;
-}
-
-.dmm-primary-row .dmm-form-group {
-  flex: 1;
-  min-width: 200px;
-  max-width: 300px;
-  margin-bottom: 0;
-}
-
-.dmm-primary-button-wrapper {
-  display: flex;
-  align-items: flex-end;
-  padding-bottom: 0;
-  margin-left: auto;
-  min-height: 78px; /* Match the form group min-height */
-  justify-content: flex-end;
-}
-
-.dmm-primary-button-wrapper .dmm-submit-btn {
-  white-space: nowrap;
-  padding: 0.625rem 1.25rem;
-  min-height: 42px; /* Match approximate input height */
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 /* Form Group */
@@ -363,6 +237,20 @@
   transition: all 0.3s ease;
 }
 
+.dmm-form-group select {
+  cursor: pointer;
+}
+
+/* Date picker input sizing inside dmm-form-group */
+.dmm-form-group .custom-date-picker .date-input-wrapper {
+  width: 100%;
+}
+
+.dmm-form-group .custom-date-picker .date-input {
+  width: 100%;
+  height: 42px;
+}
+
 .dmm-form-group input:focus,
 .dmm-form-group select:focus,
 .dmm-form-group textarea:focus {
@@ -387,132 +275,8 @@
   margin: 0;
 }
 
-.dmm-form-group input[type="date"] {
-  font-family: inherit;
-  cursor: pointer;
-}
-
 .dmm-form-group.full-width {
-  grid-column: 1 / -1;
-}
-
-.dmm-form-group textarea {
-  resize: vertical;
-  min-height: 80px;
-}
-
-/* Operation Table Styles */
-.dmm-operation-table-container {
-  width: 100%;
-  overflow-x: auto;
-  margin-bottom: 1rem;
-}
-
-.dmm-operation-table {
-  width: 100%;
-  border-collapse: collapse;
-  background: #ffffff;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.dmm-operation-table thead {
-  background: linear-gradient(135deg, #5B9AA9 0%, #4A8494 100%);
-  color: white;
-}
-
-.dmm-operation-table th {
-  padding: 0.875rem 1rem;
-  text-align: left;
-  font-size: 0.875rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.dmm-operation-table tbody tr {
-  border-bottom: 1px solid #e2e8f0;
-  transition: background-color 0.2s ease;
-}
-
-.dmm-operation-table tbody tr:last-child {
-  border-bottom: none;
-}
-
-.dmm-operation-table tbody tr:hover {
-  background-color: #f8fafc;
-}
-
-.dmm-operation-table td {
-  padding: 0.75rem 1rem;
-  vertical-align: middle;
-}
-
-.dmm-parameter-label {
-  font-weight: 600;
-  color: #334155;
-  background-color: #f1f5f9;
-  min-width: 150px;
-}
-
-.dmm-table-input {
-  width: 100%;
-  padding: 0.625rem 0.875rem;
-  border: 2px solid #cbd5e1;
-  border-radius: 6px;
-  font-size: 0.875rem;
-  font-family: inherit;
-  color: #1e293b;
-  background-color: #ffffff;
-  transition: all 0.3s ease;
-}
-
-.dmm-table-input:focus {
-  outline: none;
-  border-color: #5B9AA9;
-  box-shadow: 0 0 0 3px rgba(91, 154, 169, 0.1);
-}
-
-.dmm-table-input::placeholder {
-  color: #94a3b8;
-}
-
-/* Add Row Button */
-.dmm-add-row-button {
-  width: 100%;
-  padding: 0.75rem 1rem;
-  background: transparent;
-  color: #475569;
-  border: 2px dashed #cbd5e1;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 0.875rem;
-  font-weight: 600;
-  font-family: 'Poppins', sans-serif;
-  transition: all 0.3s ease;
-  margin-top: 1rem;
-}
-
-.dmm-add-row-button:hover {
-  background-color: #f8fafc;
-  border-color: #94a3b8;
-  color: #1e293b;
-  transform: translateY(-1px);
-}
-
-.dmm-add-row-button:active {
-  transform: translateY(0);
-}
-
-/* Submit Container */
-.dmm-submit-container {
-  margin-top: 1.5rem;
-  padding: 0;
-  border: none;
-  background: transparent;
-  display: flex;
-  justify-content: flex-end;
+  grid-column: span 2;
 }
 
 /* Section Submit Button */
@@ -526,47 +290,10 @@
   width: 100%;
 }
 
-.dmm-section-submit .dmm-submit-btn {
-  min-width: 160px;
-}
-
 .dmm-submit-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
   transform: none;
-}
-
-/* Lock Primary Button - Styled to fit in grid */
-.dmm-lock-primary-btn {
-  width: 100%;
-  padding: 0.625rem 0.875rem;
-  border: 2px solid #5B9AA9;
-  border-radius: 8px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  background: linear-gradient(135deg, #5B9AA9 0%, #4A8494 100%);
-  color: white;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 4px rgba(91, 154, 169, 0.3);
-  min-height: 42px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.dmm-lock-primary-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(91, 154, 169, 0.4);
-  background: linear-gradient(135deg, #4A8494 0%, #3a6a78 100%);
-}
-
-.dmm-lock-primary-btn:disabled {
-  background: #94a3b8;
-  border-color: #94a3b8;
-  cursor: not-allowed;
-  box-shadow: none;
-  opacity: 0.6;
 }
 
 .dmm-submit-btn .spinner {
@@ -583,16 +310,64 @@
 }
 
 /* Validation styles */
-.valid-input {
-  border-color: #22c55e !important;
-  background-color: #f0fdf4 !important;
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1) !important;
-}
-
 .invalid-input {
   border-color: #ef4444 !important;
   background-color: #fef2f2 !important;
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
+}
+
+.invalid-input:focus {
+  outline: none;
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
+}
+
+.dmm-form-group input.invalid-input,
+.dmm-form-group select.invalid-input,
+.dmm-form-group textarea.invalid-input {
+  border-color: #ef4444 !important;
+  background-color: #fef2f2 !important;
+}
+
+.dmm-form-group input.invalid-input:focus,
+.dmm-form-group select.invalid-input:focus,
+.dmm-form-group textarea.invalid-input:focus {
+  outline: none;
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
+}
+
+/* CustomTimeInput sizing - match other input heights in the grid */
+.dmm-shift-form-grid .custom-time-input-container,
+.dmm-form-grid .custom-time-input-container {
+  width: 100%;
+  min-height: 44px;
+  height: 44px;
+  box-sizing: border-box;
+  padding: 0.625rem 0.875rem;
+}
+
+/* Hover style for time input — match other inputs */
+.dmm-shift-form-grid .custom-time-input-container:hover:not(.disabled),
+.dmm-form-grid .custom-time-input-container:hover:not(.disabled) {
+  border-color: #5B9AA9 !important;
+}
+
+/* Focus-within style for time input */
+.dmm-shift-form-grid .custom-time-input-container:focus-within:not(.disabled),
+.dmm-form-grid .custom-time-input-container:focus-within:not(.disabled) {
+  border-color: #5B9AA9 !important;
+  box-shadow: 0 0 0 3px rgba(91, 154, 169, 0.1) !important;
+}
+
+/* Remove cursor outline box on time input inner fields */
+.dmm-shift-form-grid .custom-time-input-container .time-input-field,
+.dmm-shift-form-grid .custom-time-input-container .time-period-select,
+.dmm-form-grid .custom-time-input-container .time-input-field,
+.dmm-form-grid .custom-time-input-container .time-period-select {
+  border-radius: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 /* Responsive Design */
@@ -653,10 +428,6 @@
     padding: 0;
   }
 
-  .dmm-add-row-button {
-    padding: 0.625rem;
-    font-size: 0.8125rem;
-  }
 }
 
 @media (max-width: 640px) {
@@ -683,9 +454,6 @@
     gap: 0.875rem;
   }
 
-  .dmm-submit-container {
-    justify-content: stretch;
-  }
 }
 
 @media (max-width: 480px) {
@@ -703,44 +471,190 @@
   }
 }
 
-/* Time Input Styles */
-.dmm-form-group.time-input .cus-time-input {
-  width: 100%;
+/* ============================================================================
+ * RED VIBRATION (SHAKE) CSS — COPY THESE 2 BLOCKS TO REUSE ON ANOTHER PAGE
+ * ============================================================================
+ * HOW TO USE:
+ *   1. Add class 'dmm-error-highlight' to the WRAPPER div of the input/select
+ *      e.g. <div className={`dmm-form-group ${errorState ? 'dmm-error-highlight' : ''}`}>
+ *   2. The CSS below targets input/select INSIDE .dmm-error-highlight and applies:
+ *      - Red border (#ef4444)
+ *      - Light red background (#fef2f2)
+ *      - Red glow via box-shadow
+ *      - shake animation (0.3s left-right vibration)
+ *   3. In JS, toggle the state off→on via requestAnimationFrame to re-trigger
+ *      the animation on repeated clicks (see triggerHighlight in JSX)
+ * ============================================================================ */
+
+/* ── Submit button wrapper transition (CupolaHolderLogSheet pattern) ── */
+.dmm-primary-status-wrapper {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
+  transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.4s ease,
+              margin-top 0.4s ease;
 }
 
-.dmm-form-group.time-input .cus-time-input > div {
-  width: 100%;
+.dmm-primary-status-wrapper.show {
+  max-height: 80px;
+  opacity: 1;
+  margin-top: 0.75rem;
 }
 
-.dmm-form-group.time-input .cus-time-input input {
-  width: 100%;
-  padding: 0.625rem 0.875rem;
-  border-radius: 8px;
-  font-size: 0.875rem;
-  font-family: inherit;
-  color: #1e293b;
-  background-color: #ffffff;
-  transition: all 0.3s ease;
+.dmm-submit-btn-wrapper {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.4s ease,
+              margin-top 0.4s ease;
+  margin-top: 0;
 }
 
-.dmm-form-group.time-input .cus-time-input.disabled input {
-  background-color: #f1f5f9;
-  cursor: not-allowed;
+.dmm-submit-btn-wrapper.show {
+  max-height: 100px;
+  opacity: 1;
+  margin-top: 1rem;
 }
 
-/* Error highlight with shake animation */
-.dmm-error-highlight {
-  animation: dmm-shake 0.5s ease-in-out;
+/* Save Primary button slide-in transition */
+.dmm-save-primary-btn-wrapper {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
+  transform: translateY(-8px);
+  transition: max-height 0.45s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.35s ease,
+              margin-top 0.35s ease,
+              transform 0.35s ease;
 }
 
+.dmm-save-primary-btn-wrapper.show {
+  max-height: 80px;
+  opacity: 1;
+  margin-top: 0.75rem;
+  transform: translateY(0);
+}
+
+/* Combination message enter / exit animation */
+.dmm-combination-msg-transition {
+  display: inline-flex;
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.dmm-combination-msg-transition.dmm-combination-msg-closing {
+  opacity: 0;
+  transform: translateY(8px) scale(0.96);
+}
+
+/* BLOCK 1: .dmm-error-highlight — red border + shake on child inputs */
 .dmm-error-highlight input,
-.dmm-error-highlight select {
+.dmm-error-highlight select,
+.dmm-error-highlight .machine-dropdown-wrapper select,
+.dmm-error-highlight .custom-date-picker input,
+.dmm-error-highlight .date-input {
   border-color: #ef4444 !important;
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2) !important;
+  background-color: #fef2f2 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
+  animation: dmm-shake 0.3s ease-in-out;
 }
 
+/* BLOCK 2: @keyframes dmm-shake — the vibration animation */
 @keyframes dmm-shake {
   0%, 100% { transform: translateX(0); }
-  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
-  20%, 40%, 60%, 80% { transform: translateX(4px); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+/* ============================================================================
+ * LOCKED OVERLAY SYSTEM — Progressive unlock with disabled gray styling
+ * ============================================================================ */
+
+/* Wrapper for lockable fields */
+.dmm-locked-wrapper {
+  position: relative;
+}
+
+/* Inside shift form grid, locked wrapper should participate in the grid */
+.dmm-shift-form-grid > .dmm-locked-wrapper {
+  min-width: 0;
+}
+
+/* Customer field inside locked wrapper — span 2 columns */
+.dmm-shift-form-grid > .dmm-locked-wrapper:first-child {
+  grid-column: span 2;
+}
+
+/* Ensure inner form-group fills the locked wrapper */
+.dmm-locked-wrapper > .dmm-form-group {
+  width: 100%;
+}
+
+/* In primary fields row, locked wrapper fills like a normal child */
+.primary-fields-row > .dmm-locked-wrapper {
+  flex: 0 0 auto;
+  width: 220px;
+  min-width: 0;
+}
+
+/* Transparent overlay — captures clicks, shows not-allowed cursor */
+.dmm-locked-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  cursor: not-allowed;
+  z-index: 5;
+  border-radius: 8px;
+}
+
+/* Disabled gray styling for inputs inside locked wrapper */
+.dmm-locked-wrapper .dmm-form-group input,
+.dmm-locked-wrapper .dmm-form-group select,
+.dmm-locked-wrapper .dmm-form-group textarea {
+  background-color: #f1f5f9 !important;
+  color: #94a3b8 !important;
+  cursor: not-allowed !important;
+  opacity: 0.7;
+}
+
+.dmm-locked-wrapper .dmm-form-group label {
+  color: #94a3b8 !important;
+}
+
+.dmm-locked-wrapper .custom-time-input-container {
+  opacity: 0.7;
+  background-color: #f1f5f9 !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* ── Submit Entry locked state ── */
+.dmm-submit-locked-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.dmm-submit-locked-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  cursor: not-allowed;
+  z-index: 5;
+  border-radius: 8px;
+}
+
+/* Locked submit button styling */
+.dmm-submit-btn.dmm-submit-btn-locked {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
 }

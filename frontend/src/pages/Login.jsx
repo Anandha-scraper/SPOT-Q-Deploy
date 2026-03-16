@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from "react";
+import React, { useState, useContext, useEffect, useRef } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { EyeButton } from "../Components/Buttons";
 import Loader from "../Components/Loader";
@@ -63,6 +63,37 @@ const Login = () => {
     };
   }, []);
 
+  // Server connection status
+  const [serverStatus, setServerStatus] = useState('connecting'); // 'connecting' | 'connected' | 'failed'
+  const retryRef = useRef(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const pingServer = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/health`, { method: 'GET' });
+        if (!cancelled && res.ok) {
+          setServerStatus('connected');
+        } else if (!cancelled) {
+          throw new Error('Not OK');
+        }
+      } catch {
+        if (!cancelled) {
+          // Retry every 3 seconds during cold start
+          retryRef.current = setTimeout(pingServer, 3000);
+        }
+      }
+    };
+
+    pingServer();
+
+    return () => {
+      cancelled = true;
+      if (retryRef.current) clearTimeout(retryRef.current);
+    };
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -75,7 +106,7 @@ const Login = () => {
     setIsLoading(true);
     
     try {
-      // Call login API directly
+      // Call login API
       const response = await fetch(API_ENDPOINTS.login, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -125,17 +156,30 @@ const Login = () => {
         </div>
       ) : null}
       <div className="login-container" style={{ display: isLoading ? 'none' : 'flex' }}>
-        {/* Server Status Indicator */}
-        {serverStatus && (
-          <div className={`server-status-indicator ${serverStatus}`}>
-            <div className="status-dot"></div>
-            <span className="status-text">
-              {serverStatus === "connecting" && "Connecting to server..."}
-              {serverStatus === "connected" && "Server connected"}
-            </span>
+        {/* Server Connection Status Badge */}
+        <div className={`server-status-badge ${serverStatus}`}>
+          <div className="server-status-icon">
+            {serverStatus === 'connecting' ? (
+              <svg className="server-spinner" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeDasharray="31.4 31.4" />
+              </svg>
+            ) : (
+              <svg className="server-check" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
           </div>
-        )}
-        
+          <div className="server-status-text">
+            <span className="server-status-label">
+              {serverStatus === 'connecting' ? 'Sakthi Auto Server is Connecting' : 'Sakthi Auto Server Connected'}
+            </span>
+            {serverStatus === 'connecting' && (
+              <span className="server-status-sub">Please wait — cold start in progress</span>
+            )}
+          </div>
+          <div className={`server-status-dot ${serverStatus}`} />
+        </div>
+
         {/* Left side - Company Logo */}
         <div className="login-left">
         <img

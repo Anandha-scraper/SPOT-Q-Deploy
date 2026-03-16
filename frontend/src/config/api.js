@@ -1,22 +1,28 @@
-// Centralized API Configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const getApiBaseUrl = () => {
+  // Use environment variable (set in Vercel for production, optional for dev)
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  // Development fallback
+  return 'http://localhost:5000';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 // Base URL for building custom endpoints  
 export const API_URL = API_BASE_URL;
-
 // Helper function to build API URLs
 export const buildApiUrl = (path) => `${API_BASE_URL}${path}`;
-
+// Dynamic API endpoints that adapt to the environment
 export const API_ENDPOINTS = {
   // Auth
   login: `${API_BASE_URL}/api/v1/auth/login`,
   logout: `${API_BASE_URL}/api/v1/auth/logout`,
   verify: `${API_BASE_URL}/api/v1/auth/verify`,
   loginHistory: `${API_BASE_URL}/api/v1/auth/login-history`,
-  
+  changePassword: `${API_BASE_URL}/api/v1/auth/changepassword`,
   // Admin
   adminDepartments: `${API_BASE_URL}/api/v1/auth/admin/departments`,
   adminUsers: `${API_BASE_URL}/api/v1/auth/admin/users`,
-  
   // Departments
   tensile: `${API_BASE_URL}/api/v1/tensile`,
   impactTests: `${API_BASE_URL}/api/v1/impact-tests`,

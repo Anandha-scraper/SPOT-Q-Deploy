@@ -7,26 +7,31 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+
 // 1. Global Middleware
-// Allow multiple origins for development and production
+// Configure CORS to accept requests from development and production
 const allowedOrigins = [
-    'http://localhost:3000',
-    'http://localhost:5173',
-    process.env.FRONTEND_URL, // Your Vercel URL
+    'http://localhost:3000', // Development
+    'http://localhost:5173', // Vite dev server
+    process.env.FRONTEND_URL // Production URL from environment variable
 ].filter(Boolean); // Remove undefined values
 
 app.use(cors({
-    origin: function(origin, callback) {
-        // Allow requests with no origin (like mobile apps or curl requests)
+    origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps, Postman, or same-origin)
         if (!origin) return callback(null, true);
         
-        if (allowedOrigins.indexOf(origin) !== -1) {
+        if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
             callback(null, true);
         } else {
+            console.log('CORS blocked origin:', origin);
+            console.log('Allowed origins:', allowedOrigins);
             callback(new Error('Not allowed by CORS'));
         }
     },
-    credentials: true
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
 }));
 app.use(express.json());
 app.use(cookieParser());
@@ -64,14 +69,9 @@ const dmmCtrl = require('./controllers/Moulding-DmmSettingParameters');
 const meltingCtrl = require('./controllers/Melting-MeltingLogsheet');
 
 // 5. Database Connection & Global Sync
-console.log('Attempting MongoDB connection to:', process.env.MONGODB_URI?.replace(/\/\/([^:]+):([^@]+)@/, '//$1:****@'));
-mongoose.connect(process.env.MONGODB_URI, {
-  serverSelectionTimeoutMS: 5000,
-  socketTimeoutMS: 45000,
-})
-  .then(async () => {
-    console.log('✅ SPOT-Q Database Connected');
-    console.log('Database Name:', mongoose.connection.db.databaseName);
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => {
+    console.log('SPOT-Q Database Connected');
   })
   .catch(err => {
     console.error('❌ MongoDB Connection Error:', err.message);
@@ -112,35 +112,15 @@ app.use('/api/v1/cupola-logs', protect, checkDepartmentAccess('Melting'), cupola
 // 7. System Utilities
 app.get('/', (req, res) => {
   res.json({ 
-    success: true,
-    message: 'SPOT-Q API Server',
+    success: true, 
+    message: 'SPOT-Q Backend API is running', 
     version: '1.0.0',
-    status: 'running',
     endpoints: {
       health: '/api/health',
-      auth: '/api/v1/auth',
-      departments: [
-        '/api/v1/tensile',
-        '/api/v1/impact-tests',
-        '/api/v1/micro-tensile',
-        '/api/v1/micro-structure',
-        '/api/v1/qc-reports',
-        '/api/v1/process',
-        '/api/v1/sand-testing-records',
-        '/api/v1/foundry-sand-testing-notes',
-        '/api/v1/moulding-disa',
-        '/api/v1/moulding-dmm',
-        '/api/v1/melting-logs',
-        '/api/v1/cupola-logs'
-      ]
-    },
-    timestamp: new Date()
+      auth: '/api/v1/auth/*',
+      departments: '/api/v1/*'
+    }
   });
-});
-
-// Health check endpoint (for cold start detection)
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected', timestamp: new Date() });
 });
 
 app.get('/api/health', (req, res) => {

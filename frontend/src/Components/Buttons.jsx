@@ -1,8 +1,10 @@
-import React, { forwardRef, useState, useEffect, useRef } from 'react';
+import React, { forwardRef, useState, useEffect, useRef, useImperativeHandle } from 'react';
 import { Settings, Filter, X, Pencil, Trash2, Plus, Minus, Save, RefreshCw } from 'lucide-react';
-import { TimeInput } from '@heroui/react';
 import { Time } from '@internationalized/date';
 import '../styles/ComponentStyles/Buttons.css';
+
+// Export Time class for use in other components
+export { Time };
 
 // Action Buttons
 export const EditButton = ({ onClick }) => (
@@ -149,7 +151,7 @@ export const LockPrimaryButton = ({ onClick, disabled = false, isLocked = false 
 
  // DISA Dropdown Component
 
-export const DisaDropdown = forwardRef(({ value, onChange, name, disabled, onKeyDown, className = '', onFocus, onBlur }, ref) => {
+export const DisaDropdown = forwardRef(({ value, onChange, name, disabled, onKeyDown, className = '', onFocus, onBlur, style }, ref) => {
   const disaOptions = ['DISA 1', 'DISA 2', 'DISA 3', 'DISA 4'];
 
   return (
@@ -163,6 +165,7 @@ export const DisaDropdown = forwardRef(({ value, onChange, name, disabled, onKey
         onFocus={onFocus}
         onBlur={onBlur}
         disabled={disabled}
+        style={style}
       >
         <option value="">Select DISA</option>
         {disaOptions.map((option) => (
@@ -175,6 +178,36 @@ export const DisaDropdown = forwardRef(({ value, onChange, name, disabled, onKey
   );
 });
 DisaDropdown.displayName = 'DisaDropdown';
+
+// Filter DISA Dropdown Component (for reports with "All" option)
+
+export const FilterDisaDropdown = forwardRef(({ value, onChange, name, disabled, onKeyDown, className = '', style = {}, options = [] }, ref) => {
+  // Default DISA options if none provided
+  const defaultDisaOptions = ['DISA 1', 'DISA 2', 'DISA 3', 'DISA 4'];
+  const disaOptions = options.length > 0 ? options : defaultDisaOptions;
+
+  return (
+    <div className={`disa-dropdown-wrapper ${className}`}>
+      <select
+        ref={ref}
+        name={name}
+        value={value}
+        onChange={onChange}
+        onKeyDown={onKeyDown}
+        disabled={disabled}
+        style={style}
+      >
+        <option value="All">All</option>
+        {disaOptions.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+});
+FilterDisaDropdown.displayName = 'FilterDisaDropdown';
 
 // Machine Dropdown Component
 
@@ -334,96 +367,436 @@ export const PanelDropdown = forwardRef(({ value, onChange, name, disabled, onKe
 });
 PanelDropdown.displayName = 'PanelDropdown';
 
-export { Time };
 export const CustomTimeInput = forwardRef(({ value, onChange, className = '', hasError = false, onFocus, onBlur, onEnterPress, disabled = false, style = {}, ...props }, ref) => {
-  const containerRef = useRef(null);
+  const hourRef = useRef(null);
+  const minuteRef = useRef(null);
+  const periodRef = useRef(null);
   
-  const handleFocus = () => {
-    if (disabled) return;
+  // Refs for timeout management to prevent memory leaks
+  const hourTimeoutRef = useRef(null);
+  const minuteTimeoutRef = useRef(null);
+  const hourBufferRef = useRef('');
+  const minuteBufferRef = useRef('');
+  
+  // Expose focus method to parent component
+  useImperativeHandle(ref, () => ({
+    focus: () => {
+      hourRef.current?.focus();
+      hourRef.current?.select();
+    }
+  }));
+  
+  // Extract hour, minute, period from Time object or initialize with defaults
+  const [hour, setHour] = useState('');
+  const [minute, setMinute] = useState('');
+  const [period, setPeriod] = useState('AM');
+  
+  // Clean up timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (hourTimeoutRef.current) clearTimeout(hourTimeoutRef.current);
+      if (minuteTimeoutRef.current) clearTimeout(minuteTimeoutRef.current);
+    };
+  }, []);
+  
+  // Sync with external value prop
+  useEffect(() => {
+    if (value) {
+      const hour24 = value.hour;
+      const displayHour = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24;
+      const displayPeriod = hour24 >= 12 ? 'PM' : 'AM';
+      
+      setHour(String(displayHour).padStart(2, '0'));
+      setMinute(String(value.minute).padStart(2, '0'));
+      setPeriod(displayPeriod);
+    } else {
+      setHour('');
+      setMinute('');
+      setPeriod('AM');
+    }
+  }, [value]);
+  
+  // Create Time object from current values and call onChange
+  const updateTime = (newHour, newMinute, newPeriod) => {
+    if (newHour && newMinute) {
+      const hour24 = newPeriod === 'PM' 
+        ? (parseInt(newHour) === 12 ? 12 : parseInt(newHour) + 12)
+        : (parseInt(newHour) === 12 ? 0 : parseInt(newHour));
+      
+      const timeObj = new Time(hour24, parseInt(newMinute));
+      onChange(timeObj);
+    } else if (!newHour && !newMinute) {
+      onChange(null);
+    }
+  };
+  
+  
+  const handleHourChange = (e) => {
+    let val = e.target.value.replace(/\D/g, '');
+    if (val.length > 2) val = val.slice(0, 2);
+    
+    // Clear any existing timeout
+    if (hourTimeoutRef.current) {
+      clearTimeout(hourTimeoutRef.current);
+      hourTimeoutRef.current = null;
+    }
+    
+    if (val === '') {
+      // Field cleared
+      hourBufferRef.current = '';
+      setHour('');
+      updateTime('', minute, period);
+      return;
+    }
+    
+    const inputLength = val.length;
+    
+    if (inputLength === 1) {
+      // Allow any single digit to be entered
+      setHour(val);
+      hourBufferRef.current = val;
+    } else if (inputLength === 2) {
+      // Two digits entered - validate the complete value
+      let num = parseInt(val);
+      
+      // Only accept hours between 01 and 12
+      if (num < 1 || num > 12) {
+        // Invalid hour, revert to previous value
+        setHour(hourBufferRef.current);
+        return;
+      }
+      
+      const finalHour = String(num).padStart(2, '0');
+      setHour(finalHour);
+      updateTime(finalHour, minute, period);
+      hourBufferRef.current = '';
+      
+      // Don't auto-advance - user must press Tab/Enter
+    }
+  };
+  
+  
+  const handleMinuteChange = (e) => {
+    let val = e.target.value.replace(/\D/g, '');
+    if (val.length > 2) val = val.slice(0, 2);
+    
+    // Clear any existing timeout
+    if (minuteTimeoutRef.current) {
+      clearTimeout(minuteTimeoutRef.current);
+      minuteTimeoutRef.current = null;
+    }
+    
+    if (val === '') {
+      // Field cleared
+      minuteBufferRef.current = '';
+      setMinute('');
+      updateTime(hour, '', period);
+      return;
+    }
+    
+    const inputLength = val.length;
+    
+    if (inputLength === 1) {
+      // Allow any single digit to be entered
+      setMinute(val);
+      minuteBufferRef.current = val;
+    } else if (inputLength === 2) {
+      // Two digits entered - validate the complete value
+      let num = parseInt(val);
+      
+      // Only accept minutes between 00 and 59
+      if (num > 59) {
+        // Invalid minute, revert to previous value
+        setMinute(minuteBufferRef.current);
+        return;
+      }
+      
+      const finalMinute = String(num).padStart(2, '0');
+      setMinute(finalMinute);
+      updateTime(hour, finalMinute, period);
+      minuteBufferRef.current = '';
+      
+      // Don't auto-advance - user must press Tab/Enter
+    }
+  };
+  
+  const handlePeriodChange = (newPeriod) => {
+    setPeriod(newPeriod);
+    updateTime(hour, minute, newPeriod);
+  };
+  
+  const handleHourKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      // Clear timeout if moving forward
+      if (hourTimeoutRef.current) {
+        clearTimeout(hourTimeoutRef.current);
+        hourTimeoutRef.current = null;
+      }
+      
+      // Pad single digit hour before moving
+      if (hour && hour.length === 1) {
+        const paddedHour = hour.padStart(2, '0');
+        setHour(paddedHour);
+        updateTime(paddedHour, minute, period);
+      }
+      
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        minuteRef.current?.focus();
+        minuteRef.current?.select();
+      }
+    }
+  };
+  
+  const handleMinuteKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      // Clear timeout if moving forward
+      if (minuteTimeoutRef.current) {
+        clearTimeout(minuteTimeoutRef.current);
+        minuteTimeoutRef.current = null;
+      }
+      
+      // If minute is empty, set to "00"
+      if (!minute || minute === '') {
+        setMinute('00');
+        updateTime(hour, '00', period);
+      } else if (minute.length === 1) {
+        // Pad single digit minute before moving
+        const paddedMinute = minute.padStart(2, '0');
+        setMinute(paddedMinute);
+        updateTime(hour, paddedMinute, period);
+      }
+      
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        periodRef.current?.focus();
+      }
+    }
+  };
+  
+  const handlePeriodKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      // Blur the period field to complete the time input
+      periodRef.current?.blur();
+      
+      // Use parent's onEnterPress callback for proper navigation
+      if (onEnterPress) {
+        onEnterPress(e);
+        return;
+      }
+      
+      // Fallback: find next focusable element outside this time input
+      const allFocusables = Array.from(document.querySelectorAll(
+        'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])'
+      )).filter(el => el.offsetParent !== null);
+      
+      const idx = allFocusables.indexOf(periodRef.current);
+      if (idx > -1 && idx < allFocusables.length - 1) {
+        allFocusables[idx + 1].focus();
+      }
+    } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      handlePeriodChange(period === 'AM' ? 'PM' : 'AM');
+    } else if (e.key.toLowerCase() === 'a') {
+      e.preventDefault();
+      handlePeriodChange('AM');
+    } else if (e.key.toLowerCase() === 'p') {
+      e.preventDefault();
+      handlePeriodChange('PM');
+    }
+  };
+  
+  const handleHourFocus = () => {
     if (onFocus) onFocus();
   };
   
-  const handleBlur = () => {
+  const handleHourBlur = () => {
+    // Clear timeout when leaving the field
+    if (hourTimeoutRef.current) {
+      clearTimeout(hourTimeoutRef.current);
+      hourTimeoutRef.current = null;
+    }
+    
+    // Pad hour to 2 digits when leaving the field
+    if (hour && hour.length === 1) {
+      const num = parseInt(hour);
+      const paddedHour = (num < 1 ? 1 : num).toString().padStart(2, '0');
+      setHour(paddedHour);
+      updateTime(paddedHour, minute, period);
+    }
+    
+    hourBufferRef.current = '';
+    if (onBlur) onBlur();
+  };
+  
+  const handleMinuteBlur = () => {
+    // Clear timeout when leaving the field
+    if (minuteTimeoutRef.current) {
+      clearTimeout(minuteTimeoutRef.current);
+      minuteTimeoutRef.current = null;
+    }
+    
+    // If minute is empty, set to "00"
+    if (!minute || minute === '') {
+      setMinute('00');
+      updateTime(hour, '00', period);
+    } else if (minute.length === 1) {
+      // Pad minute to 2 digits when leaving the field
+      const paddedMinute = minute.padStart(2, '0');
+      setMinute(paddedMinute);
+      updateTime(hour, paddedMinute, period);
+    }
+    
+    minuteBufferRef.current = '';
     if (onBlur) onBlur();
   };
   
   const getClassName = () => {
-    let classes = `cus-time-input ${className}`;
+    let classes = `custom-time-input-container ${className}`;
     if (hasError) {
-      classes += ' invalid-input';
+      classes += ' has-error';
+    }
+    if (disabled) {
+      classes += ' disabled';
     }
     return classes;
   };
-
-  // Handle Enter key press - navigate within segments, then exit on last segment
-  useEffect(() => {
-    if (!containerRef.current || disabled) return;
-    
-    const handleKeyDown = (e) => {
-      if (e.key !== 'Enter') return;
-      
-      e.preventDefault();
-      e.stopPropagation();
-      
-      // Find all spinbutton segments inside this time container
-      const segments = Array.from(containerRef.current.querySelectorAll('[role="spinbutton"]'));
-      const currentIdx = segments.indexOf(e.target);
-      
-      if (currentIdx > -1 && currentIdx < segments.length - 1) {
-        // Not the last segment - move to next segment within time input
-        segments[currentIdx + 1].focus();
-      } else {
-        // Last segment - navigate to next focusable element outside this container
-        const allFocusables = Array.from(document.querySelectorAll(
-          'input:not([type="hidden"]), select, textarea, [role="spinbutton"]'
-        )).filter(el => !el.disabled && el.offsetParent !== null);
-        
-        const lastSegment = segments[segments.length - 1] || e.target;
-        const idx = allFocusables.indexOf(lastSegment);
-        if (idx > -1 && idx < allFocusables.length - 1) {
-          allFocusables[idx + 1].focus();
-        }
-      }
-    };
-    
-    const container = containerRef.current;
-    const elements = container.querySelectorAll('[role="spinbutton"], input');
-    
-    elements.forEach(el => {
-      el.addEventListener('keydown', handleKeyDown);
-    });
-    
-    return () => {
-      elements.forEach(el => {
-        el.removeEventListener('keydown', handleKeyDown);
-      });
-    };
-  }, [disabled]);
-
+  
   return (
     <div 
-      ref={containerRef} 
+      ref={ref}
       className={getClassName()}
       style={{
         ...style,
-        pointerEvents: disabled ? 'none' : style.pointerEvents || 'auto',
-        opacity: disabled ? 0.6 : style.opacity || 1
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.5rem',
+        padding: '0.25rem 0.75rem',
+        border: hasError ? '2px solid #ef4444' : '2px solid #cbd5e1',
+        borderRadius: '8px',
+        backgroundColor: disabled ? '#f3f4f6' : '#fff',
+        opacity: disabled ? 0.6 : 1,
+        pointerEvents: disabled ? 'none' : 'auto',
+        transition: 'all 0.3s ease',
+        fontSize: '0.875rem'
       }}
     >
-      <TimeInput
-        ref={ref}
-        value={value}
-        onChange={onChange}
-        hourCycle={12}
-        onFocus={handleFocus}
-        onBlur={handleBlur}
-        isDisabled={disabled}
-        {...props}
+      <input
+        ref={hourRef}
+        type="text"
+        value={hour}
+        onChange={handleHourChange}
+        onKeyDown={handleHourKeyDown}
+        onFocus={handleHourFocus}
+        onBlur={handleHourBlur}
+        disabled={disabled}
+        placeholder="HH"
+        maxLength={2}
+        className="time-input-field"
+        style={{
+          width: '2.5rem',
+          border: 'none',
+          outline: 'none',
+          textAlign: 'center',
+          fontSize: '0.875rem',
+          fontWeight: '500',
+          backgroundColor: 'transparent',
+          padding: '0',
+          borderRadius: '6px',
+          cursor: 'text'
+        }}
       />
+      <span style={{ fontWeight: '600', color: '#64748b' }}>:</span>
+      <input
+        ref={minuteRef}
+        type="text"
+        value={minute}
+        onChange={handleMinuteChange}
+        onKeyDown={handleMinuteKeyDown}
+        onBlur={handleMinuteBlur}
+        disabled={disabled}
+        placeholder="MM"
+        maxLength={2}
+        className="time-input-field"
+        style={{
+          width: '2.5rem',
+          border: 'none',
+          outline: 'none',
+          textAlign: 'center',
+          fontSize: '0.875rem',
+          fontWeight: '500',
+          backgroundColor: 'transparent',
+          padding: '0',
+          borderRadius: '6px',
+          cursor: 'text'
+        }}
+      />
+      <select
+        ref={periodRef}
+        value={period}
+        onChange={(e) => handlePeriodChange(e.target.value)}
+        onKeyDown={handlePeriodKeyDown}
+        onBlur={onBlur}
+        disabled={disabled}
+        className="time-period-select"
+        style={{
+          width: '3.5rem',
+          border: 'none',
+          outline: 'none',
+          fontSize: '0.875rem',
+          fontWeight: '600',
+          backgroundColor: 'transparent',
+          cursor: 'pointer',
+          padding: '0',
+          color: '#1e293b',
+          appearance: 'none',
+          WebkitAppearance: 'none',
+          MozAppearance: 'none',
+          borderRadius: '6px'
+        }}
+      >
+        <option value="AM">AM</option>
+        <option value="PM">PM</option>
+      </select>
     </div>
   );
 });
 CustomTimeInput.displayName = 'CustomTimeInput';
+
+// Section Toggles Component (reusable checkboxes with clear button)
+
+export const SectionToggles = ({ sections = [], show = {}, onToggle, onClear }) => {
+  const anyActive = Object.values(show).some(Boolean);
+
+  return (
+    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '1.5rem' }}>
+      {sections.map(({ key, label }) => (
+        <label key={key} style={{
+          display: 'inline-flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer',
+          fontSize: '0.9rem', fontWeight: 600, color: show[key] ? '#0f766e' : '#64748b',
+          userSelect: 'none', whiteSpace: 'nowrap',
+          padding: '0.35rem 0.65rem', borderRadius: '6px',
+          background: show[key] ? '#f0fdfa' : 'transparent',
+          border: show[key] ? '1.5px solid #99f6e4' : '1.5px solid transparent',
+          transition: 'all 0.2s ease'
+        }}>
+          <input type="checkbox" checked={!!show[key]} onChange={() => onToggle(key)}
+            style={{ accentColor: '#0f766e', width: '17px', height: '17px', cursor: 'pointer' }} />
+          {label}
+        </label>
+      ))}
+      {anyActive && (
+        <button onClick={onClear}
+          style={{
+            padding: '0.3rem 0.7rem', borderRadius: '6px', border: '1.5px solid #fca5a5',
+            background: '#fef2f2', color: '#dc2626', fontSize: '0.8rem', fontWeight: 600,
+            cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.2s ease'
+          }}>Clear</button>
+      )}
+    </div>
+  );
+};
 
 // Pagination Component
 

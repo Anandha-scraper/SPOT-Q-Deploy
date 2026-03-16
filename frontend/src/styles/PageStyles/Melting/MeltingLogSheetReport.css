@@ -1,6 +1,7 @@
 /* Melting Log Sheet - Report Page Styles */
 
-.melting-log-report-header {
+/* --- Header --- */
+.melting-report-header {
   width: 100%;
   display: flex;
   justify-content: space-between;
@@ -12,7 +13,7 @@
   border-bottom: 2px solid #e2e8f0;
 }
 
-.melting-log-report-header-text {
+.melting-report-header-text {
   flex: 1;
   display: flex;
   align-items: center;
@@ -20,7 +21,7 @@
   padding: 0;
 }
 
-.melting-log-report-header-text h2 {
+.melting-report-header-text h2 {
   font-size: 1.625rem;
   font-weight: 700;
   color: #1e293b;
@@ -34,246 +35,141 @@
   position: relative;
 }
 
-.melting-log-report-entry-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.625rem 1.25rem;
-  margin-left: 1rem;
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
-}
-
-.melting-log-report-entry-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.4);
-  background: linear-gradient(135deg, #059669 0%, #047857 100%);
-}
-
-.melting-log-report-entry-btn svg {
-  width: 16px;
-  height: 16px;
-}
-
-/* Filter Section */
-.melting-log-filter-container {
+/* --- Filter Section --- */
+.melting-report-filter-wrapper {
   display: flex;
-  align-items: flex-end;
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
+  gap: 1rem;
   flex-wrap: wrap;
+  align-items: flex-end;
+  margin-bottom: 1rem;
 }
 
-.melting-log-filter-group {
+.melting-report-filter-group {
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
 
-.melting-log-filter-group label {
+.melting-report-filter-label {
   display: block;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: #334155;
-  margin-bottom: 0.25rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
 }
 
-.melting-log-filter-group input {
-  width: 160px;
-  padding: 0.625rem 0.875rem;
-  font-size: 0.875rem;
-}
-
-.melting-log-filter-container > div:has(button) {
-  display: inline-block;
-}
-
-.melting-log-filter-container button {
-  margin-bottom: 0;
-  min-height: 38px;
-  padding: 0.5rem 1rem;
-  font-size: 0.875rem;
-  width: auto !important;
-}
-
-.melting-log-filter-btn {
+/* --- Loader --- */
+.melting-report-loader-container {
   display: flex;
-  align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  padding: 0.625rem 1.5rem;
-  background: linear-gradient(135deg, #FF7F50 0%, #FF6A3D 100%);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 0.875rem;
-  font-weight: 600;
-  box-shadow: 0 2px 6px rgba(255, 127, 80, 0.3);
-  transition: all 0.3s ease;
-  white-space: nowrap;
-  min-height: 42px;
+  align-items: center;
+  padding: 3rem;
 }
 
-.melting-log-filter-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 10px rgba(255, 127, 80, 0.4);
-  background: linear-gradient(135deg, #FF6A3D 0%, #FF5722 100%);
+/* --- Table Row --- */
+.melting-report-data-row {
+  transition: background-color 0.2s ease;
 }
 
-.melting-log-filter-btn svg {
-  width: 16px;
-  height: 16px;
+.melting-report-data-row:hover {
+  background-color: #e0f2fe;
 }
 
-/* Responsive Design */
-@media (max-width: 768px) {
-  .melting-log-filter-grid {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-
-  .melting-log-filter-btn-container {
-    align-items: stretch;
-  }
-
-  .melting-log-filter-btn {
-    width: 100%;
-  }
+.melting-report-data-row.group-first {
+  border-top: 2px solid #e2e8f0;
 }
 
-/* Primary Data Table (reuse chr styles from Cupola Holder report) */
-.chr-primary-table-wrap {
-  margin-top: 1rem;
-}
-
-.chr-table-scroll {
-  width: 100%;
-  overflow: auto;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background: white;
-}
-
-.chr-primary-table {
-  width: 100%;
-  min-width: 560px;
-  border-collapse: collapse;
-}
-
-.chr-primary-table thead th {
-  position: sticky;
-  top: 0;
-  background: #f8fafc;
-  color: #334155;
-  font-weight: 600;
-  font-size: 0.8125rem;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-}
-
-.chr-primary-table th,
-.chr-primary-table td {
-  padding: 0.625rem 0.75rem;
-  text-align: left;
-  border-bottom: 1px solid #e5e7eb;
-  font-size: 0.875rem;
-  white-space: nowrap;
-}
-
-.chr-primary-table tbody tr:hover {
-  background: #f9fafb;
-}
-
-.chr-primary-table tbody tr:hover td:last-child {
-  background: #f9fafb;
-}
-
-/* Specific column widths for better alignment */
-.chr-primary-table th,
-.chr-primary-table td {
-  min-width: 100px;
-}
-
-/* Actions column - always last */
-.chr-primary-table th:last-child,
-.chr-primary-table td:last-child {
-  min-width: 140px;
+/* --- Grouped Cell (Date, Shift, Furnace, Panel) --- */
+.melting-report-grouped-cell {
   text-align: center;
+  font-weight: 500;
+  vertical-align: middle;
+  border-bottom: 2px solid #e2e8f0;
 }
 
-.chr-primary-table th:last-child {
-  background: #f8fafc;
+.melting-report-grouped-cell.border-top {
+  border-top: 2px solid #e2e8f0;
 }
 
-.chr-primary-table tbody td:last-child {
-  background: white;
+/* --- Reason Cell --- */
+.melting-report-reason-cell {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* Actions cell layout */
-.chr-actions {
-  display: inline-flex;
+.melting-report-reason-cell.clickable {
+  cursor: pointer;
+  color: #5B9AA9;
+  text-decoration: underline;
+}
+
+.melting-report-reason-cell.empty {
+  cursor: default;
+  color: #94a3b8;
+  text-decoration: none;
+}
+
+/* --- Modal --- */
+.melting-report-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  z-index: 9999;
 }
 
-/* Filter Section Styles */
-.melting-log-filter-container {
+.melting-report-modal-content {
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 300px;
+  overflow-y: auto;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.melting-report-modal-header {
   display: flex;
-  align-items: flex-end;
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
 }
 
-.melting-log-filter-group {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
+.melting-report-modal-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
 }
 
-.melting-log-filter-group label {
-  display: block;
-  font-size: 0.75rem;
-  font-weight: 500;
+.melting-report-modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+  color: #64748b;
+}
+
+.melting-report-modal-close:hover {
   color: #334155;
-  margin-bottom: 0.25rem;
 }
 
-.melting-log-filter-group input {
-  width: 160px;
-  padding: 0.625rem 0.875rem;
-  font-size: 0.875rem;
+.melting-report-modal-text {
+  margin: 0;
+  line-height: 1.6;
+  color: #334155;
 }
 
-.melting-log-filter-container > div:has(button) {
-  display: inline-block;
-}
-
-.melting-log-filter-container button {
-  margin-bottom: 0;
-  min-height: 38px;
-}
-
+/* --- Responsive --- */
 @media (max-width: 768px) {
-  .melting-log-filter-container {
+  .melting-report-filter-wrapper {
     flex-direction: column;
     align-items: stretch;
-  }
-  
-  .melting-log-filter-group {
-    width: 100%;
-  }
-  
-  .melting-log-filter-container button {
-    width: 100%;
   }
 }

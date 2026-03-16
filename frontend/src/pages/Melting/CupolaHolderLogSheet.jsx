@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Save, Loader2, CheckCircle } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { CustomTimeInput, Time, ShiftDropdown, HolderDropdown, PlusButton, MinusButton } from '../../Components/Buttons';
-import { SuccessAlert } from '../../Components/Alert';
-import { buildApiUrl } from '../../config/api';
+import { InlineLoader } from '../../Components/Alert';
+import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Melting/CupolaHolderLogSheet.css';
 
 const CupolaHolderLogSheet = () => {
@@ -20,6 +20,10 @@ const CupolaHolderLogSheet = () => {
   const [fetchingPrimary, setFetchingPrimary] = useState(false);
   const [isPrimaryDataSaved, setIsPrimaryDataSaved] = useState(false);
   const [dynamicCheckAlert, setDynamicCheckAlert] = useState(false);
+  const [showCombinationFound, setShowCombinationFound] = useState(false);
+  const [showCombinationSaved, setShowCombinationSaved] = useState(false);
+  // Controls the exit animation phase before fully hiding the message
+  const [closingCombinationMsg, setClosingCombinationMsg] = useState(false);
 
   // Sequential validation highlighting
   const [dateErrorHighlight, setDateErrorHighlight] = useState(false);
@@ -38,8 +42,7 @@ const CupolaHolderLogSheet = () => {
   // Helper function for primary field validation classes
   const classFor = (value, submitted, required = false) => {
     const has = value !== undefined && value !== null && String(value).trim() !== '';
-    if (has) return 'cupola-success-outline';
-    if (submitted && required) return 'cupola-error-outline';
+    if (submitted && required && !has) return 'cupola-error-outline';
     return '';
   };
 
@@ -283,16 +286,24 @@ const CupolaHolderLogSheet = () => {
     setFetchingPrimary(true);
     try {
       const dateStr = date instanceof Date ? date.toISOString().split('T')[0] : date;
-      const res = await fetch(
-        buildApiUrl(`/api/v1/cupola-logs/primary/${dateStr}?shift=${encodeURIComponent(shift)}&holderNumber=${encodeURIComponent(holderNumber)}`),
-        { method: 'GET', credentials: 'include', headers: { 'Content-Type': 'application/json' } }
-      );
+      const [res] = await Promise.all([
+        fetch(
+          `${API_ENDPOINTS.cupolaLogs}/primary/${dateStr}?shift=${encodeURIComponent(shift)}&holderNumber=${encodeURIComponent(holderNumber)}`,
+          { method: 'GET', credentials: 'include', headers: { 'Content-Type': 'application/json' } }
+        ),
+        new Promise(resolve => setTimeout(resolve, 1000))
+      ]);
       const response = await res.json();
 
       if (response.success && response.data) {
         const data = response.data;
         setPrimaryId(data._id);
         setIsPrimaryDataSaved(true);
+        setShowCombinationFound(true);
+        setClosingCombinationMsg(false);
+        // At 2.6s begin the exit animation, at 3s fully remove the message
+        setTimeout(() => setClosingCombinationMsg(true), 2600);
+        setTimeout(() => { setShowCombinationFound(false); setClosingCombinationMsg(false); }, 3000);
 
         // Only update Heat No based on database count, don't display previous entries
         if (data.entries && data.entries.length > 0) {
@@ -383,7 +394,7 @@ const CupolaHolderLogSheet = () => {
 
     setPrimaryLoading(true);
     try {
-      const res = await fetch(buildApiUrl('/api/v1/cupola-logs/primary'), {
+      const res = await fetch(`${API_ENDPOINTS.cupolaLogs}/primary`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -395,11 +406,12 @@ const CupolaHolderLogSheet = () => {
       
       if (response.success) {
         setPrimaryId(response.data._id);
-        setPrimarySavedVisual(true);
-        setTimeout(() => {
-          setIsPrimaryDataSaved(true);
-          setPrimarySavedVisual(false);
-        }, 1500);
+        setIsPrimaryDataSaved(true);
+        setShowCombinationSaved(true);
+        setClosingCombinationMsg(false);
+        // At 2.6s begin the exit animation, at 3s fully remove the message
+        setTimeout(() => setClosingCombinationMsg(true), 2600);
+        setTimeout(() => { setShowCombinationSaved(false); setClosingCombinationMsg(false); }, 3000);
       } else {
         alert('Error: ' + response.message);
       }
@@ -484,7 +496,7 @@ const CupolaHolderLogSheet = () => {
         remarks: row.remarks || ''
       }));
 
-      const response = await fetch(buildApiUrl('/api/v1/cupola-logs/table-update'), {
+      const response = await fetch(`${API_ENDPOINTS.cupolaLogs}/table-update`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -647,7 +659,6 @@ const CupolaHolderLogSheet = () => {
       <div>
         <h3 className="section-header" style={{ display: 'flex', alignItems: 'center' }}>
           Primary Data
-          {dynamicCheckAlert && <div style={{ marginLeft: 'auto' }}><SuccessAlert isVisible={dynamicCheckAlert} message="Data check completed successfully!" /></div>}
         </h3>
 
         <div className="cupola-holder-form-grid">
@@ -715,25 +726,37 @@ const CupolaHolderLogSheet = () => {
           </div>
         </div>
 
-        <div className={`cupola-primary-btn-wrapper ${!isPrimaryDataSaved && primaryData.date && primaryData.shift && primaryData.holderNumber ? 'show' : 'hide'}`}>
-          <div className="cupola-holder-submit-container" style={{ display: 'flex', alignItems: 'center', gap: '1rem', borderTop: 'none', paddingTop: '0.5rem' }}>
-            <button
-              ref={primarySaveButtonRef}
-              className={`cupola-holder-submit-btn ${primarySavedVisual ? 'saved' : ''}`}
-              type="button"
-              onClick={handlePrimarySubmit}
-              disabled={primaryLoading || fetchingPrimary || primarySavedVisual}
-            >
-              {primaryLoading ? (
-                <><Loader2 size={16} className="animate-spin" /> Saving...</>
-              ) : primarySavedVisual ? (
-                <><CheckCircle size={18} /> Saved</>
+        {primaryData.date && primaryData.shift && primaryData.holderNumber && (fetchingPrimary || showCombinationFound || showCombinationSaved || !isPrimaryDataSaved) && (
+          <div className="cupola-primary-btn-wrapper show">
+            <div className="cupola-holder-submit-container" style={{ display: 'flex', alignItems: 'center', gap: '1rem', borderTop: 'none', paddingTop: '0.5rem' }}>
+              {fetchingPrimary ? (
+                <InlineLoader message="Fetching Primary..." variant="primary" size="medium" />
+              ) : showCombinationFound ? (
+                <div className={`combination-msg-transition${closingCombinationMsg ? ' combination-msg-closing' : ''}`}>
+                  <InlineLoader message="Combination found" variant="success" size="medium" />
+                </div>
+              ) : showCombinationSaved ? (
+                <div className={`combination-msg-transition${closingCombinationMsg ? ' combination-msg-closing' : ''}`}>
+                  <InlineLoader message="Combination saved" variant="success" size="medium" />
+                </div>
               ) : (
-                <><Save size={18} /> Save Primary</>
+                <button
+                  ref={primarySaveButtonRef}
+                  className="cupola-holder-submit-btn"
+                  type="button"
+                  onClick={handlePrimarySubmit}
+                  disabled={primaryLoading}
+                >
+                  {primaryLoading ? (
+                    <><Loader2 size={16} className="animate-spin" /> Saving...</>
+                  ) : (
+                    <><Save size={18} /> Save Primary</>
+                  )}
+                </button>
               )}
-            </button>
+            </div>
           </div>
-        </div>
+        )}
         <div style={{ gridColumn: '1 / -1', height: '1px', backgroundColor: '#e2e8f0', margin: '1.5rem 0' }}></div>
       </div>
 

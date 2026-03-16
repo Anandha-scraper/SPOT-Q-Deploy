@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { DeleteButton } from './Buttons';
 import { Eye, EyeOff, UserRoundPen } from 'lucide-react';
 import DeletingStatus, { CreatingEmployeeStatus } from './Alert';
-import { API_ENDPOINTS } from '../config/api';
+import { API_ENDPOINTS } from '../config/api';//deployment ready API endpoints
 import '../styles/ComponentStyles/AdminDashboard.css';
 
 const AdminDashboard = () => {
@@ -235,20 +235,22 @@ const AdminDashboard = () => {
                             <table className="emp-table">
                                 <thead>
                                     <tr>
-                                        <th>Employee ID</th>
-                                        <th>Department</th>
-                                        <th>Last Login</th>
-                                        <th>Actions</th>
+                                        <th style={{ width: '50px', fontSize: '0.875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>S.no</th>
+                                        <th style={{ width: '130px', fontSize: '0.875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Employee ID</th>
+                                        <th style={{ width: '250px', fontSize: '0.875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Department</th>
+                                        <th style={{ width: '250px', fontSize: '0.875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Last Login</th>
+                                        <th style={{ width: '120px', fontSize: '0.875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {users
                                         .filter(u => u.role !== 'admin' && (selectedDepartment === 'All' || u.department === selectedDepartment))
-                                        .map((u) => (
+                                        .map((u, index) => (
                                             <tr key={u._id}>
-                                                <td className="emp-id">{u.employeeId}</td>
-                                                <td>{u.department}</td>
-                                                <td>{u.lastLogin ? (() => {
+                                                <td style={{ fontSize: '0.95rem', color: '#2d3748', textAlign: 'center' }}>{index + 1}</td>
+                                                <td className="emp-id" style={{ fontSize: '1.25rem', color: '#000000', letterSpacing: '0.5px', textAlign: 'center' }}>{u.employeeId}</td>
+                                                <td style={{ fontSize: '0.95rem', color: '#2d3748', textAlign: 'center' }}>{u.department}</td>
+                                                <td style={{ fontSize: '0.95rem', color: '#2d3748', textAlign: 'center' }}>{u.lastLogin ? (() => {
                                                     const date = new Date(u.lastLogin);
                                                     const day = String(date.getDate()).padStart(2, '0');
                                                     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -259,7 +261,7 @@ const AdminDashboard = () => {
                                                     hours = hours % 12 || 12;
                                                     return `${day}/${month}/${year} - ${hours}:${minutes} ${ampm}`;
                                                 })() : 'Never'}</td>
-                                                <td className="actions">
+                                                <td className="actions" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px' }}>
                                                     {u.role !== 'admin' && (
                                                         <>
                                                             <button 
