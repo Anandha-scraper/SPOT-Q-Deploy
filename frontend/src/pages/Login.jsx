@@ -63,37 +63,6 @@ const Login = () => {
     };
   }, []);
 
-  // Server connection status
-  const [serverStatus, setServerStatus] = useState('connecting'); // 'connecting' | 'connected' | 'failed'
-  const retryRef = useRef(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const pingServer = async () => {
-      try {
-        const res = await fetch(`${API_URL}/api/health`, { method: 'GET' });
-        if (!cancelled && res.ok) {
-          setServerStatus('connected');
-        } else if (!cancelled) {
-          throw new Error('Not OK');
-        }
-      } catch {
-        if (!cancelled) {
-          // Retry every 3 seconds during cold start
-          retryRef.current = setTimeout(pingServer, 3000);
-        }
-      }
-    };
-
-    pingServer();
-
-    return () => {
-      cancelled = true;
-      if (retryRef.current) clearTimeout(retryRef.current);
-    };
-  }, []);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
