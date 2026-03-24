@@ -13,6 +13,18 @@ const Tensile = () => {
   const { isOpen, openModal, closeModal } = useInfoModal();
 
   // ====================== Validation Ranges ======================
+  // VALIDATION RANGES CONFIGURATION
+  // ================================
+  // Each field configuration supports:
+  // - required: true/false (default: false if not specified)
+  // - type: 'Text', 'Number', 'Integer', 'Select', 'Date', etc.
+  // - min/max: for numeric validation
+  // - unit: display unit for the field
+  // - allowedValues: array for Select type fields
+  //
+  // DEFAULT VALUE BEHAVIOR:
+  // - If required: true -> field must be filled, validation error if empty
+  // - If required: false OR not specified -> empty fields are stored as "-" in database
   const validationRanges = [
     {
       field: 'Date Of Inspection',
@@ -116,6 +128,24 @@ const Tensile = () => {
     }
   ];
 
+  // Field mapping - maps display names to form data property names
+  const fieldMapping = {
+    'Date Of Inspection': 'dateOfInspection',
+    'Item': 'item',
+    'Date Code': 'dateCode',
+    'Heat Code': 'heatCode',
+    'Dia': 'dia',
+    'Lo': 'lo',
+    'Li': 'li',
+    'Breaking Load': 'breakingLoad',
+    'Yield Load': 'yieldLoad',
+    'UTS': 'uts',
+    'YS': 'ys',
+    'Elongation': 'elongation',
+    'Tested By': 'testedBy',
+    'Remarks': 'remarks'
+  };
+
   // Get current date in YYYY-MM-DD format
   const getCurrentDate = () => {
     const today = new Date();
@@ -166,6 +196,24 @@ const Tensile = () => {
   const [testedByValid, setTestedByValid] = useState(null);
   const [remarksValid, setRemarksValid] = useState(null);
 
+  // Validation state setters mapping
+  const validationSetters = {
+    'dateOfInspection': setDateValid,
+    'item': setItemValid,
+    'dateCode': setDateCodeValid,
+    'heatCode': setHeatCodeValid,
+    'dia': setDiaValid,
+    'lo': setLoValid,
+    'li': setLiValid,
+    'breakingLoad': setBreakingLoadValid,
+    'yieldLoad': setYieldLoadValid,
+    'uts': setUtsValid,
+    'ys': setYsValid,
+    'elongation': setElongationValid,
+    'testedBy': setTestedByValid,
+    'remarks': setRemarksValid
+  };
+
   const inputRefs = useRef({});
   const submitButtonRef = useRef(null);
 
@@ -173,10 +221,131 @@ const Tensile = () => {
    * Returns the appropriate CSS class for an input field based on validation state:
    * - Red border (invalid-input) when field is invalid/empty after submit
    * - Neutral (no color) otherwise
+   *
+   * @param {string} fieldName - The name of the field
+   * @param {boolean|null} validationState - null=neutral, false=invalid
    */
-  const getInputClassName = (validationState) => {
+  const getInputClassName = (fieldName, validationState) => {
+    // Show red border if invalid (validationState === false)
     if (validationState === false) return 'invalid-input';
+    // Otherwise show neutral (no color)
     return '';
+  };
+
+  /**
+   * Dynamic field validation function that supports multiple validation types
+   * @param {Object} rule - Validation rule from validationRanges
+   * @param {string|Array} mappedFields - Field name(s) from fieldMapping
+   * @param {Object} formData - Current form data
+   * @returns {Object} - { isValid: boolean, message?: string }
+   */
+  const validateField = (rule, mappedFields, formData) => {
+    // Handle range fields (arrays) - not used in Tensile but kept for consistency
+    if (Array.isArray(mappedFields)) {
+      const [minField, maxField] = mappedFields;
+      const minValue = formData[minField];
+      const maxValue = formData[maxField];
+
+      // For range fields, check if both values exist when required
+      if (rule.required) {
+        if (!minValue || !maxValue) {
+          return { isValid: false, message: `${rule.field} is required` };
+        }
+      }
+
+      // Validate range values if they exist
+      if (minValue && maxValue) {
+        const min = parseFloat(minValue);
+        const max = parseFloat(maxValue);
+
+        if (isNaN(min) || isNaN(max)) {
+          return { isValid: false, message: `${rule.field} must contain valid numbers` };
+        }
+
+        if (min >= max) {
+          return { isValid: false, message: `${rule.field} minimum must be less than maximum` };
+        }
+      }
+
+      return { isValid: true };
+    }
+
+    // Handle single fields
+    const fieldName = mappedFields;
+    const value = formData[fieldName];
+
+    // Check required fields
+    if (rule.required) {
+      if (!value || (typeof value === 'string' && value.trim() === '')) {
+        return { isValid: false, message: `${rule.field} is required` };
+      }
+    }
+
+    // If field is empty and not required, it's valid
+    if (!value || (typeof value === 'string' && value.trim() === '')) {
+      return { isValid: true };
+    }
+
+    // Type-specific validation
+    switch (rule.type) {
+      case 'Number':
+      case 'Integer':
+        const num = parseFloat(value);
+        if (isNaN(num) || !isFinite(num)) {
+          return { isValid: false, message: `${rule.field} must be a valid number` };
+        }
+
+        // Check min/max constraints
+        if (rule.min !== undefined && num < rule.min) {
+          return { isValid: false, message: `${rule.field} must be at least ${rule.min}` };
+        }
+        if (rule.max !== undefined && num > rule.max) {
+          return { isValid: false, message: `${rule.field} must be no more than ${rule.max}` };
+        }
+
+        // For Integer type, check if it's actually an integer
+        if (rule.type === 'Integer' && !Number.isInteger(num)) {
+          return { isValid: false, message: `${rule.field} must be a whole number` };
+        }
+        break;
+
+      case 'Text':
+        const textValue = String(value).trim();
+        if (textValue === '') {
+          return rule.required ? { isValid: false, message: `${rule.field} is required` } : { isValid: true };
+        }
+
+        // Special validation for Date Code pattern (1 digit, 1 letter, 2 digits)
+        if (rule.field === 'Date Code') {
+          const dateCodePattern = /^[0-9][A-Z][0-9]{2}$/;
+          if (!dateCodePattern.test(textValue)) {
+            return { isValid: false, message: `${rule.field} must be in format: 1 digit, 1 letter, 2 digits (e.g., 6F25)` };
+          }
+        }
+        break;
+
+      case 'Select':
+        if (rule.allowedValues && !rule.allowedValues.includes(value)) {
+          return { isValid: false, message: `${rule.field} must be one of: ${rule.allowedValues.join(', ')}` };
+        }
+        break;
+
+      case 'Date':
+        // Basic date validation - could be enhanced based on specific requirements
+        if (value && typeof value === 'string' && value.trim() !== '') {
+          const dateValue = new Date(value);
+          if (isNaN(dateValue.getTime())) {
+            return { isValid: false, message: `${rule.field} must be a valid date` };
+          }
+        }
+        break;
+
+      default:
+        // For any other types, just check if it's not empty when required
+        break;
+    }
+
+    return { isValid: true };
   };
 
   // Format date for display
@@ -193,53 +362,14 @@ const Tensile = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    // Reset validation to neutral when user starts typing
-    switch (name) {
-      case 'dateOfInspection':
-        setDateValid(null);
-        break;
-      case 'item':
-        setItemValid(null);
-        break;
-      case 'dateCode':
-        setDateCodeValid(null);
-        break;
-      case 'heatCode':
-        setHeatCodeValid(null);
-        break;
-      case 'dia':
-        setDiaValid(null);
-        break;
-      case 'lo':
-        setLoValid(null);
-        break;
-      case 'li':
-        setLiValid(null);
-        break;
-      case 'breakingLoad':
-        setBreakingLoadValid(null);
-        break;
-      case 'yieldLoad':
-        setYieldLoadValid(null);
-        break;
-      case 'uts':
-        setUtsValid(null);
-        break;
-      case 'ys':
-        setYsValid(null);
-        break;
-      case 'elongation':
-        setElongationValid(null);
-        break;
-      case 'testedBy':
-        setTestedByValid(null);
-        break;
-      case 'remarks':
-        setRemarksValid(null);
-        break;
-      default:
-        break;
+    // Reset validation to neutral when user starts typing using dynamic system
+    const setter = validationSetters[name];
+    if (setter) {
+      setter(null);
     }
+
+    // Clear any submit error message when user starts typing
+    setSubmitErrorMessage('');
 
     // Auto-uppercase dateCode
     const finalValue = name === 'dateCode' ? value.toUpperCase() : value;
@@ -285,215 +415,51 @@ const Tensile = () => {
     }
   };
 
-  /*
-   * Handle form submission with validation
-   * 
-   * Validation Flow:
-   * 1. Check each required field for empty/invalid values
-   * 2. If invalid, set validation state to false (shows red border)
-   * 3. If valid, set validation state to null (neutral, no color)
-   * 4. If any errors exist, show error message and stop submission
-   * 5. On successful submission, reset all validation states to null
-   */
-  /*
-   * Handle form submission with validation
-   * 
-   * Validation Flow:
-   * 1. Check each required field for empty/invalid values
-   * 2. If invalid, set validation state to false (shows red border)
-   * 3. If valid, set validation state to null (neutral, no color)
-   * 4. If any errors exist, show error message and stop submission
-   * 5. On successful submission, reset all validation states to null
-   * 
-   * ============================================================
-   * AUTO-NAVIGATION TO FIRST ERROR PATTERN:
-   * ============================================================
-   * This pattern ensures the cursor automatically focuses on the 
-   * FIRST error field immediately when the user clicks Submit.
-   * 
-   * HOW IT WORKS:
-   * 1. Initialize a tracking variable BEFORE validation loop:
-   *    let firstErrorField = null;
-   * 
-   * 2. In EACH validation check, set firstErrorField ONLY if it's 
-   *    still null (this captures only the first error):
-   *    if (!formData.fieldName || validation_fails) {
-   *      setFieldValid(false);
-   *      hasErrors = true;
-   *      if (!firstErrorField) firstErrorField = 'fieldName'; // Capture first error
-   *    }
-   * 
-   * 3. AFTER all validations, focus immediately using the tracking variable:
-   *    if (hasErrors) {
-   *      if (firstErrorField) {
-   *        inputRefs.current[firstErrorField]?.focus();
-   *      }
-   *      return;
-   *    }
-   * 
-   * WHY THIS WORKS ON FIRST CLICK:
-   * - Uses a plain variable (not state) to track synchronously
-   * - Doesn't depend on state updates (which are async)
-   * - Focus happens immediately in the same execution cycle
-   * 
-   * TO IMPLEMENT IN ANOTHER PAGE:
-   * - Add: let firstErrorField = null; at start of submit handler
-   * - Add: if (!firstErrorField) firstErrorField = 'refName'; in each validation
-   * - Add: if (firstErrorField) inputRefs.current[firstErrorField]?.focus(); before return
-   * ============================================================
-   */
   const handleSubmit = async () => {
     let hasErrors = false;
-    // AUTO-NAVIGATION: Track the first field that fails validation (see comment block above)
     let firstErrorField = null;
 
-    const dateCodePattern = /^[0-9][A-Z][0-9]{2}$/;
-    const numericPattern = /^\d+$/;
+    // Clear any previous error messages
+    setSubmitErrorMessage('');
 
-    // Validate Date
-    if (!formData.dateOfInspection || !formData.dateOfInspection.trim()) {
-      setDateValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'dateOfInspection';
-    } else {
-      setDateValid(null);
-    }
+    // Dynamic validation based on validationRanges
+    for (const rule of validationRanges) {
+      const mappedFields = fieldMapping[rule.field];
 
-    // Validate Item
-    if (!formData.item || !formData.item.trim()) {
-      setItemValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'item';
-    } else {
-      setItemValid(null);
-    }
+      // Skip if no field mapping found
+      if (!mappedFields) continue;
 
-    // Validate Date Code
-    if (!formData.dateCode || !formData.dateCode.trim() || !dateCodePattern.test(formData.dateCode)) {
-      setDateCodeValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'dateCode';
-    } else {
-      setDateCodeValid(null);
-    }
+      // Validate using dynamic system
+      const result = validateField(rule, mappedFields, formData);
 
-    // Validate Heat Code
-    if (!formData.heatCode || !formData.heatCode.trim() || !numericPattern.test(formData.heatCode)) {
-      setHeatCodeValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'heatCode';
-    } else {
-      setHeatCodeValid(null);
-    }
+      // Get the setter for this field
+      const setter = validationSetters[mappedFields];
 
-    // Validate Dia
-    if (!formData.dia || formData.dia.toString().trim() === '' || isNaN(formData.dia) || parseFloat(formData.dia) <= 0) {
-      setDiaValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'dia';
-    } else {
-      setDiaValid(null);
-    }
-
-    // Validate Lo
-    if (!formData.lo || formData.lo.toString().trim() === '' || isNaN(formData.lo) || parseFloat(formData.lo) <= 0) {
-      setLoValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'lo';
-    } else {
-      setLoValid(null);
-    }
-
-    // Validate Li
-    if (!formData.li || formData.li.toString().trim() === '' || isNaN(formData.li) || parseFloat(formData.li) <= 0) {
-      setLiValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'li';
-    } else {
-      setLiValid(null);
-    }
-
-    // Validate Breaking Load
-    if (!formData.breakingLoad || formData.breakingLoad.toString().trim() === '' || isNaN(formData.breakingLoad) || parseFloat(formData.breakingLoad) <= 0) {
-      setBreakingLoadValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'breakingLoad';
-    } else {
-      setBreakingLoadValid(null);
-    }
-
-    // Validate Yield Load
-    if (!formData.yieldLoad || formData.yieldLoad.toString().trim() === '' || isNaN(formData.yieldLoad) || parseFloat(formData.yieldLoad) <= 0) {
-      setYieldLoadValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'yieldLoad';
-    } else {
-      setYieldLoadValid(null);
-    }
-
-    // Validate UTS
-    if (!formData.uts || formData.uts.toString().trim() === '' || isNaN(formData.uts) || parseFloat(formData.uts) <= 0) {
-      setUtsValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'uts';
-    } else {
-      setUtsValid(null);
-    }
-
-    // Validate YS
-    if (!formData.ys || formData.ys.toString().trim() === '' || isNaN(formData.ys) || parseFloat(formData.ys) <= 0) {
-      setYsValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'ys';
-    } else {
-      setYsValid(null);
-    }
-
-    // Validate Elongation
-    if (!formData.elongation || formData.elongation.toString().trim() === '') {
-      setElongationValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'elongation';
-    } else {
-      const num = parseFloat(formData.elongation);
-      if (isNaN(num) || num < 0 || num > 100) {
-        setElongationValid(false);
-        hasErrors = true;
-        if (!firstErrorField) firstErrorField = 'elongation';
-      } else {
-        setElongationValid(null);
+      if (setter) {
+        if (!result.isValid) {
+          setter(false);
+          hasErrors = true;
+          if (!firstErrorField) firstErrorField = mappedFields;
+          if (result.message) setSubmitErrorMessage(result.message);
+        } else {
+          setter(null);
+        }
       }
     }
 
-    // Validate Tested By (required)
-    if (!formData.testedBy || !formData.testedBy.trim()) {
-      setTestedByValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'testedBy';
-    } else {
-      setTestedByValid(null);
-    }
-
-    // Validate Remarks (required)
-    if (!formData.remarks || !formData.remarks.trim()) {
-      setRemarksValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'remarks';
-    } else {
-      setRemarksValid(null);
-    }
-
-    // If there are errors, show error message and stop submission
+    // Handle error state
     if (hasErrors) {
-      setSubmitErrorMessage('Enter data in correct Format');
-      
+      if (!submitErrorMessage) {
+        setSubmitErrorMessage('Enter data in correct Format');
+      }
+
       // AUTO-NAVIGATION: Focus on the first field that failed validation
-      // This happens immediately (synchronously) because firstErrorField 
+      // This happens immediately (synchronously) because firstErrorField
       // is a plain variable, not state. Works on FIRST submit click.
       if (firstErrorField) {
         inputRefs.current[firstErrorField]?.focus();
       }
-      
+
       return;
     }
 
@@ -520,13 +486,52 @@ const Tensile = () => {
         testedBy: formData.testedBy
       };
 
+      // Standard default value handling: non-required fields default to "-" when empty
+      for (const rule of validationRanges) {
+        const mappedField = fieldMapping[rule.field];
+        if (!mappedField || Array.isArray(mappedField)) continue; // Skip range fields and unmapped fields
+
+        // If field is not required (no required property OR required: false), set empty values to "-"
+        const isRequired = rule.required === true; // Only true if explicitly set to true
+        if (!isRequired && (!payload[mappedField] || payload[mappedField].toString().trim() === '')) {
+          payload[mappedField] = '-';
+        }
+      }
+
       const response = await fetch(API_ENDPOINTS.tensile, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify(payload)
       });
-      const data = await response.json();
+
+      const rawResponse = await response.text();
+      let data = null;
+
+      if (rawResponse) {
+        try {
+          data = JSON.parse(rawResponse);
+        } catch (parseError) {
+          console.error('Failed to parse server response:', rawResponse);
+          throw new Error('Invalid server response');
+        }
+      } else {
+        data = { success: false, message: 'Empty response from server' };
+      }
+
+      // Enhanced error handling for HTTP errors
+      if (!response.ok) {
+        console.error('HTTP Error:', response.status, response.statusText);
+        console.error('Response data:', data);
+        console.error('Payload sent:', payload);
+
+        if (response.status === 400) {
+          const errorMessage = data?.message || `Bad Request (${response.status}): Please check your input data format`;
+          throw new Error(errorMessage);
+        } else {
+          throw new Error(data?.message || `HTTP ${response.status}: ${response.statusText}`);
+        }
+      }
 
       if (data.success) {
         // Show success popup
@@ -573,7 +578,14 @@ const Tensile = () => {
       }
     } catch (error) {
       console.error('Error creating tensile test:', error);
-      alert('Failed to create entry: ' + error.message);
+
+      // Show error message to user through the validation system
+      setSubmitErrorMessage(error.message || 'Failed to save data. Please check your input and try again.');
+
+      // Focus on first field if available
+      if (inputRefs.current.dateOfInspection) {
+        inputRefs.current.dateOfInspection.focus();
+      }
     } finally {
       setSubmitLoading(false);
     }
@@ -628,7 +640,7 @@ const Tensile = () => {
             placeholder="e.g: Steel Rod"
             autoComplete="off"
             disabled={!isDateSelected}
-            className={getInputClassName(itemValid)}
+            className={getInputClassName('item', itemValid)}
           />
         </div>
 
@@ -644,7 +656,7 @@ const Tensile = () => {
             placeholder="e.g: 6F25"
             autoComplete="off"
             disabled={!isDateSelected}
-            className={getInputClassName(dateCodeValid)}
+            className={getInputClassName('dateCode', dateCodeValid)}
           />
         </div>
 
@@ -660,7 +672,7 @@ const Tensile = () => {
             placeholder="Enter number only"
             autoComplete="off"
             disabled={!isDateSelected}
-            className={getInputClassName(heatCodeValid)}
+            className={getInputClassName('heatCode', heatCodeValid)}
           />
         </div>
 
@@ -676,7 +688,7 @@ const Tensile = () => {
             placeholder="e.g: 10.5"
             autoComplete="off"
             disabled={!isDateSelected}
-            className={getInputClassName(diaValid)}
+            className={getInputClassName('dia', diaValid)}
           />
         </div>
 
@@ -692,7 +704,7 @@ const Tensile = () => {
             placeholder="e.g: 50.0"
             autoComplete="off"
             disabled={!isDateSelected}
-            className={getInputClassName(loValid)}
+            className={getInputClassName('lo', loValid)}
           />
         </div>
 
@@ -708,7 +720,7 @@ const Tensile = () => {
             placeholder="e.g: 52.5"
             autoComplete="off"
             disabled={!isDateSelected}
-            className={getInputClassName(liValid)}
+            className={getInputClassName('li', liValid)}
           />
         </div>
 
@@ -724,7 +736,7 @@ const Tensile = () => {
             placeholder="e.g: 45.5"
             autoComplete="off"
             disabled={!isDateSelected}
-            className={getInputClassName(breakingLoadValid)}
+            className={getInputClassName('breakingLoad', breakingLoadValid)}
           />
         </div>
 
@@ -740,7 +752,7 @@ const Tensile = () => {
             placeholder="e.g: 38.2"
             autoComplete="off"
             disabled={!isDateSelected}
-            className={getInputClassName(yieldLoadValid)}
+            className={getInputClassName('yieldLoad', yieldLoadValid)}
           />
         </div>
 
@@ -756,7 +768,7 @@ const Tensile = () => {
             placeholder="e.g: 550"
             autoComplete="off"
             disabled={!isDateSelected}
-            className={getInputClassName(utsValid)}
+            className={getInputClassName('uts', utsValid)}
           />
         </div>
 
@@ -774,7 +786,7 @@ const Tensile = () => {
             placeholder="e.g: 460"
             autoComplete="off"
             disabled={!isDateSelected}
-            className={getInputClassName(ysValid)}
+            className={getInputClassName('ys', ysValid)}
           />
         </div>
 
@@ -792,7 +804,7 @@ const Tensile = () => {
             placeholder="e.g: 18.5"
             autoComplete="off"
             disabled={!isDateSelected}
-            className={getInputClassName(elongationValid)}
+            className={getInputClassName('elongation', elongationValid)}
           />
         </div>
 
@@ -808,7 +820,7 @@ const Tensile = () => {
             placeholder="e.g: John Doe"
             autoComplete="off"
             disabled={!isDateSelected}
-            className={getInputClassName(testedByValid)}
+            className={getInputClassName('testedBy', testedByValid)}
           />
         </div>
 
@@ -825,7 +837,7 @@ const Tensile = () => {
             maxLength={200}
             autoComplete="off"
             disabled={!isDateSelected}
-            className={getInputClassName(remarksValid)}
+            className={getInputClassName('remarks', remarksValid)}
           />
         </div>
       </form>

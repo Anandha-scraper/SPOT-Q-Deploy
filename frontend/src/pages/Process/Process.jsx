@@ -115,6 +115,18 @@ import '../../styles/PageStyles/Process/Process.css';
 export default function ProcessControl() {
   const { isOpen, openModal, closeModal } = useInfoModal();
 
+  // VALIDATION RANGES CONFIGURATION
+  // ================================
+  // Each field configuration supports:
+  // - required: true/false (default: false if not specified)
+  // - type: 'Text', 'Number', 'Integer', 'Select', 'Date', etc.
+  // - min/max: for numeric validation
+  // - unit: display unit for the field
+  // - allowedValues: array for Select type fields
+  //
+  // DEFAULT VALUE BEHAVIOR:
+  // - If required: true -> field must be filled, validation error if empty
+  // - If required: false OR not specified -> empty fields are stored as "-" in database
   const validationRanges = [
     {
       field: 'Date',
@@ -153,6 +165,7 @@ export default function ProcessControl() {
     },
     {
       field: 'Metal Composition - C',
+      required: true,
       type: 'Number',
       min: 0,
       max: 100,
@@ -214,7 +227,6 @@ export default function ProcessControl() {
     },
     {
       field: 'Pouring Temp',
-      required: true,
       type: 'Number Range',
       min: 0,
       unit: '°C',
@@ -222,33 +234,27 @@ export default function ProcessControl() {
     },
     {
       field: 'PP Code',
-      required: true,
       type: 'Integer'
     },
     {
       field: 'Treatment No',
-      required: true,
       type: 'Integer'
     },
     {
       field: 'F/C No.',
-      required: true,
       type: 'Select',
       allowedValues: ['I', 'II', 'III', 'IV', 'V', 'VI']
     },
     {
       field: 'Heat No',
-      required: true,
       type: 'Text'
     },
     {
       field: 'Con No',
-      required: false,
       type: 'Number'
     },
     {
       field: 'Tapping Time',
-      required: false,
       type: 'Time',
       pattern: 'HH:MM'
     },
@@ -302,14 +308,12 @@ export default function ProcessControl() {
     },
     {
       field: 'Mg',
-      required: false,
       type: 'Number',
       min: 0,
       unit: 'Kgs'
     },
     {
       field: 'Res. Mg. Convertor',
-      required: false,
       type: 'Number',
       min: 0,
       max: 100,
@@ -317,7 +321,6 @@ export default function ProcessControl() {
     },
     {
       field: 'Rec. Of Mg',
-      required: false,
       type: 'Number',
       min: 0,
       max: 100,
@@ -325,7 +328,6 @@ export default function ProcessControl() {
     },
     {
       field: 'Stream Inoculant',
-      required: true,
       type: 'Number',
       min: 0,
       unit: 'gm/Sec',
@@ -333,7 +335,6 @@ export default function ProcessControl() {
     },
     {
       field: 'P.Time',
-      required: false,
       type: 'Number',
       min: 0,
       unit: 'sec',
@@ -341,7 +342,6 @@ export default function ProcessControl() {
     },
     {
       field: 'Remarks',
-      required: true,
       type: 'Text'
     }
   ];
@@ -576,6 +576,21 @@ export default function ProcessControl() {
     switch (rule.type) {
       case 'Number':
       case 'Integer':
+        // Enhanced number validation to catch edge cases that type="number" allows
+        const stringValue = String(value).trim();
+
+        // Check for invalid characters that browsers allow in number inputs
+        // but aren't valid for our use case
+        const invalidNumberPattern = /[eE+]|\..*\.|--|\+\+/; // e, E, +, multiple dots, multiple signs
+        if (invalidNumberPattern.test(stringValue)) {
+          return { isValid: false, message: `${rule.field} must be a valid number` };
+        }
+
+        // Additional check for values ending with invalid characters
+        if (/[eE.+-]$/.test(stringValue)) {
+          return { isValid: false, message: `${rule.field} must be a valid number` };
+        }
+
         const num = parseFloat(value);
         if (isNaN(num) || !isFinite(num)) {
           return { isValid: false, message: `${rule.field} must be a valid number` };
@@ -600,7 +615,14 @@ export default function ProcessControl() {
         if (textValue === '') {
           return rule.required ? { isValid: false, message: `${rule.field} is required` } : { isValid: true };
         }
-        // Additional pattern validation could be added here if needed
+
+        // Special validation for Date Code pattern (1 digit, 1 letter, 2 digits)
+        if (rule.field === 'Date Code') {
+          const dateCodePattern = /^[0-9][A-Z][0-9]{2}$/;
+          if (!dateCodePattern.test(textValue)) {
+            return { isValid: false, message: `${rule.field} must be in format: 1 digit, 1 letter, 2 digits (e.g., 6F25)` };
+          }
+        }
         break;
 
       case 'Select':
@@ -975,7 +997,8 @@ export default function ProcessControl() {
       setFormData(prev => ({...prev, [fieldName]: '0' + value}));
     }
   };
-  
+
+
   const handleKeyDown = (e, field) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -1223,7 +1246,7 @@ export default function ProcessControl() {
         if (!result.isValid) {
           setter(false);
           hasErrors = true;
-          if (!firstErrorField) firstErrorField = result.errorField;
+          if (!firstErrorField) firstErrorField = Array.isArray(mappedFields) ? mappedFields[0] : mappedFields;
           if (result.message) setSubmitErrorMessage(result.message);
         } else {
           setter(null);
@@ -1269,11 +1292,32 @@ export default function ProcessControl() {
         tappingTimeStr = `${hour}:${minute} ${period}`;
       }
 
-      // Prepare payload
+      // Prepare payload with proper formatting for optional fields
       const payload = { ...formData };
-      
-      payload.timeOfPouring = timeOfPouring;
-      payload.tappingTime = tappingTimeStr;
+
+      // Format time fields
+      payload.timeOfPouring = timeOfPouring || '-';
+      payload.tappingTime = tappingTimeStr || '-';
+
+      // Format non-required fields to use "-" when empty based on validationRanges
+      for (const rule of validationRanges) {
+        const mappedField = fieldMapping[rule.field];
+        if (!mappedField || Array.isArray(mappedField)) continue; // Skip range fields and unmapped fields
+
+        // If field is not required (no required property OR required: false), set empty values to "-"
+        const isRequired = rule.required === true; // Only true if explicitly set to true
+        if (!isRequired && (!payload[mappedField] || payload[mappedField].toString().trim() === '')) {
+          payload[mappedField] = '-';
+        }
+      }
+
+      // Handle special time fields that aren't in validationRanges
+      if (!payload.timeOfPouring || payload.timeOfPouring.trim() === '') {
+        payload.timeOfPouring = '-';
+      }
+      if (!payload.tappingTime || payload.tappingTime.trim() === '') {
+        payload.tappingTime = '-';
+      }
 
       // Send all data (primary + other fields) combined to backend
       // Backend will find existing document by date+disa and update it, or create new one
@@ -1287,14 +1331,30 @@ export default function ProcessControl() {
       });
       const rawResponse = await response.text();
       let data = null;
+
       if (rawResponse) {
         try {
           data = JSON.parse(rawResponse);
         } catch (parseError) {
+          console.error('Failed to parse server response:', rawResponse);
           throw new Error('Invalid server response');
         }
       } else {
         data = { success: false, message: 'Empty response from server' };
+      }
+
+      // Enhanced error handling for 400 Bad Request
+      if (!response.ok) {
+        console.error('HTTP Error:', response.status, response.statusText);
+        console.error('Response data:', data);
+        console.error('Payload sent:', payload);
+
+        if (response.status === 400) {
+          const errorMessage = data?.message || `Bad Request (${response.status}): Please check your input data format`;
+          throw new Error(errorMessage);
+        } else {
+          throw new Error(data?.message || `HTTP ${response.status}: ${response.statusText}`);
+        }
       }
 
       if (data.success) {
@@ -1375,6 +1435,14 @@ export default function ProcessControl() {
       }
     } catch (error) {
       console.error('Error saving process control entry:', error);
+
+      // Show error message to user
+      setSubmitErrorMessage(error.message || 'Failed to save data. Please check your input and try again.');
+
+      // Focus on first field if available
+      if (inputRefs.current.partName) {
+        inputRefs.current.partName.focus();
+      }
     } finally {
       setSubmitLoading(false);
     }
@@ -1590,13 +1658,13 @@ export default function ProcessControl() {
             <div className="metal-composition-row" style={{ gridColumn: '1 / -1', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
               <div className="process-form-group" style={{ flex: '1', minWidth: '100px' }}>
                 <label>C</label>
-                <input 
-                  ref={r => inputRefs.current.metalCompositionC = r} 
-                  type="number" 
-                  name="metalCompositionC" 
-                  step="0.001" 
-                  value={formData.metalCompositionC} 
-                  onChange={handleChange} 
+                <input
+                  ref={r => inputRefs.current.metalCompositionC = r}
+                  type="number"
+                  name="metalCompositionC"
+                  step="0.001"
+                  value={formData.metalCompositionC}
+                  onChange={handleChange}
                   onKeyDown={e => handleKeyDown(e, 'metalCompositionC')}
                   placeholder="%"
                   disabled={!isPrimarySaved}
@@ -1605,13 +1673,12 @@ export default function ProcessControl() {
               </div>
               <div className="process-form-group" style={{ flex: '1', minWidth: '100px' }}>
                 <label>Si</label>
-                <input 
-                  ref={r => inputRefs.current.metalCompositionSi = r} 
-                  type="number" 
-                  name="metalCompositionSi" 
-                  step="0.001" 
-                  value={formData.metalCompositionSi} 
-                  onChange={handleChange} 
+                <input
+                  ref={r => inputRefs.current.metalCompositionSi = r}
+                  type="number"
+                  name="metalCompositionSi"
+                  value={formData.metalCompositionSi}
+                  onChange={handleChange}
                   onKeyDown={e => handleKeyDown(e, 'metalCompositionSi')}
                   placeholder="%"
                   disabled={!isPrimarySaved}
@@ -1620,13 +1687,13 @@ export default function ProcessControl() {
               </div>
               <div className="process-form-group" style={{ flex: '1', minWidth: '100px' }}>
                 <label>Mn</label>
-                <input 
-                  ref={r => inputRefs.current.metalCompositionMn = r} 
-                  type="number" 
-                  name="metalCompositionMn" 
-                  step="0.001" 
-                  value={formData.metalCompositionMn} 
-                  onChange={handleChange} 
+                <input
+                  ref={r => inputRefs.current.metalCompositionMn = r}
+                  type="number"
+                  name="metalCompositionMn"
+                  step="0.001"
+                  value={formData.metalCompositionMn}
+                  onChange={handleChange}
                   onKeyDown={e => handleKeyDown(e, 'metalCompositionMn')}
                   placeholder="%"
                   disabled={!isPrimarySaved}
@@ -1635,13 +1702,13 @@ export default function ProcessControl() {
               </div>
               <div className="process-form-group" style={{ flex: '1', minWidth: '100px' }}>
                 <label>P</label>
-                <input 
-                  ref={r => inputRefs.current.metalCompositionP = r} 
-                  type="number" 
-                  name="metalCompositionP" 
-                  step="0.001" 
-                  value={formData.metalCompositionP} 
-                  onChange={handleChange} 
+                <input
+                  ref={r => inputRefs.current.metalCompositionP = r}
+                  type="number"
+                  name="metalCompositionP"
+                  step="0.001"
+                  value={formData.metalCompositionP}
+                  onChange={handleChange}
                   onKeyDown={e => handleKeyDown(e, 'metalCompositionP')}
                   placeholder="%"
                   disabled={!isPrimarySaved}
@@ -1650,13 +1717,13 @@ export default function ProcessControl() {
               </div>
               <div className="process-form-group" style={{ flex: '1', minWidth: '100px' }}>
                 <label>S</label>
-                <input 
-                  ref={r => inputRefs.current.metalCompositionS = r} 
-                  type="number" 
-                  name="metalCompositionS" 
-                  step="0.001" 
-                  value={formData.metalCompositionS} 
-                  onChange={handleChange} 
+                <input
+                  ref={r => inputRefs.current.metalCompositionS = r}
+                  type="number"
+                  name="metalCompositionS"
+                  step="0.001"
+                  value={formData.metalCompositionS}
+                  onChange={handleChange}
                   onKeyDown={e => handleKeyDown(e, 'metalCompositionS')}
                   placeholder="%"
                   disabled={!isPrimarySaved}
@@ -1665,13 +1732,13 @@ export default function ProcessControl() {
               </div>
               <div className="process-form-group" style={{ flex: '1', minWidth: '100px' }}>
                 <label>Mg F/L</label>
-                <input 
-                  ref={r => inputRefs.current.metalCompositionMgFL = r} 
-                  type="number" 
-                  name="metalCompositionMgFL" 
-                  step="0.001" 
-                  value={formData.metalCompositionMgFL} 
-                  onChange={handleChange} 
+                <input
+                  ref={r => inputRefs.current.metalCompositionMgFL = r}
+                  type="number"
+                  name="metalCompositionMgFL"
+                  step="0.001"
+                  value={formData.metalCompositionMgFL}
+                  onChange={handleChange}
                   onKeyDown={e => handleKeyDown(e, 'metalCompositionMgFL')}
                   placeholder="%"
                   disabled={!isPrimarySaved}
@@ -1680,13 +1747,13 @@ export default function ProcessControl() {
               </div>
               <div className="process-form-group" style={{ flex: '1', minWidth: '100px' }}>
                 <label>Cu</label>
-                <input 
-                  ref={r => inputRefs.current.metalCompositionCu = r} 
-                  type="number" 
-                  name="metalCompositionCu" 
-                  step="0.001" 
-                  value={formData.metalCompositionCu} 
-                  onChange={handleChange} 
+                <input
+                  ref={r => inputRefs.current.metalCompositionCu = r}
+                  type="number"
+                  name="metalCompositionCu"
+                  step="0.001"
+                  value={formData.metalCompositionCu}
+                  onChange={handleChange}
                   onKeyDown={e => handleKeyDown(e, 'metalCompositionCu')}
                   placeholder="%"
                   disabled={!isPrimarySaved}
@@ -1695,13 +1762,13 @@ export default function ProcessControl() {
               </div>
               <div className="process-form-group" style={{ flex: '1', minWidth: '100px' }}>
                 <label>Cr</label>
-                <input 
-                  ref={r => inputRefs.current.metalCompositionCr = r} 
-                  type="number" 
-                  name="metalCompositionCr" 
-                  step="0.001" 
-                  value={formData.metalCompositionCr} 
-                  onChange={handleChange} 
+                <input
+                  ref={r => inputRefs.current.metalCompositionCr = r}
+                  type="number"
+                  name="metalCompositionCr"
+                  step="0.001"
+                  value={formData.metalCompositionCr}
+                  onChange={handleChange}
                   onKeyDown={e => handleKeyDown(e, 'metalCompositionCr')}
                   placeholder="%"
                   disabled={!isPrimarySaved}
@@ -1872,13 +1939,13 @@ export default function ProcessControl() {
             <div className="corrective-additions-row" style={{ gridColumn: '1 / -1', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
               <div className="process-form-group" style={{ flex: '1', minWidth: '100px' }}>
                 <label>C</label>
-                <input 
-                  ref={r => inputRefs.current.correctiveAdditionC = r} 
-                  type="number" 
-                  name="correctiveAdditionC" 
-                  step="0.01" 
-                  value={formData.correctiveAdditionC} 
-                  onChange={handleChange} 
+                <input
+                  ref={r => inputRefs.current.correctiveAdditionC = r}
+                  type="number"
+                  name="correctiveAdditionC"
+                  step="0.01"
+                  value={formData.correctiveAdditionC}
+                  onChange={handleChange}
                   onKeyDown={e => handleKeyDown(e, 'correctiveAdditionC')}
                   placeholder="Kgs"
                   disabled={!isPrimarySaved}
@@ -1887,13 +1954,13 @@ export default function ProcessControl() {
               </div>
               <div className="process-form-group" style={{ flex: '1', minWidth: '100px' }}>
                 <label>Si</label>
-                <input 
-                  ref={r => inputRefs.current.correctiveAdditionSi = r} 
-                  type="number" 
-                  name="correctiveAdditionSi" 
-                  step="0.01" 
-                  value={formData.correctiveAdditionSi} 
-                  onChange={handleChange} 
+                <input
+                  ref={r => inputRefs.current.correctiveAdditionSi = r}
+                  type="number"
+                  name="correctiveAdditionSi"
+                  step="0.01"
+                  value={formData.correctiveAdditionSi}
+                  onChange={handleChange}
                   onKeyDown={e => handleKeyDown(e, 'correctiveAdditionSi')}
                   placeholder="Kgs"
                   disabled={!isPrimarySaved}
@@ -1902,13 +1969,13 @@ export default function ProcessControl() {
               </div>
               <div className="process-form-group" style={{ flex: '1', minWidth: '100px' }}>
                 <label>Mn</label>
-                <input 
-                  ref={r => inputRefs.current.correctiveAdditionMn = r} 
-                  type="number" 
-                  name="correctiveAdditionMn" 
-                  step="0.01" 
-                  value={formData.correctiveAdditionMn} 
-                  onChange={handleChange} 
+                <input
+                  ref={r => inputRefs.current.correctiveAdditionMn = r}
+                  type="number"
+                  name="correctiveAdditionMn"
+                  step="0.01"
+                  value={formData.correctiveAdditionMn}
+                  onChange={handleChange}
                   onKeyDown={e => handleKeyDown(e, 'correctiveAdditionMn')}
                   placeholder="Kgs"
                   disabled={!isPrimarySaved}
@@ -1917,13 +1984,13 @@ export default function ProcessControl() {
               </div>
               <div className="process-form-group" style={{ flex: '1', minWidth: '100px' }}>
                 <label>S</label>
-                <input 
-                  ref={r => inputRefs.current.correctiveAdditionS = r} 
-                  type="number" 
-                  name="correctiveAdditionS" 
-                  step="0.01" 
-                  value={formData.correctiveAdditionS} 
-                  onChange={handleChange} 
+                <input
+                  ref={r => inputRefs.current.correctiveAdditionS = r}
+                  type="number"
+                  name="correctiveAdditionS"
+                  step="0.01"
+                  value={formData.correctiveAdditionS}
+                  onChange={handleChange}
                   onKeyDown={e => handleKeyDown(e, 'correctiveAdditionS')}
                   placeholder="Kgs"
                   disabled={!isPrimarySaved}
@@ -1932,13 +1999,13 @@ export default function ProcessControl() {
               </div>
               <div className="process-form-group" style={{ flex: '1', minWidth: '100px' }}>
                 <label>Cr</label>
-                <input 
-                  ref={r => inputRefs.current.correctiveAdditionCr = r} 
-                  type="number" 
-                  name="correctiveAdditionCr" 
-                  step="0.01" 
-                  value={formData.correctiveAdditionCr} 
-                  onChange={handleChange} 
+                <input
+                  ref={r => inputRefs.current.correctiveAdditionCr = r}
+                  type="number"
+                  name="correctiveAdditionCr"
+                  step="0.01"
+                  value={formData.correctiveAdditionCr}
+                  onChange={handleChange}
                   onKeyDown={e => handleKeyDown(e, 'correctiveAdditionCr')}
                   placeholder="Kgs"
                   disabled={!isPrimarySaved}
@@ -1947,13 +2014,13 @@ export default function ProcessControl() {
               </div>
               <div className="process-form-group" style={{ flex: '1', minWidth: '100px' }}>
                 <label>Cu</label>
-                <input 
-                  ref={r => inputRefs.current.correctiveAdditionCu = r} 
-                  type="number" 
-                  name="correctiveAdditionCu" 
-                  step="0.01" 
-                  value={formData.correctiveAdditionCu} 
-                  onChange={handleChange} 
+                <input
+                  ref={r => inputRefs.current.correctiveAdditionCu = r}
+                  type="number"
+                  name="correctiveAdditionCu"
+                  step="0.01"
+                  value={formData.correctiveAdditionCu}
+                  onChange={handleChange}
                   onKeyDown={e => handleKeyDown(e, 'correctiveAdditionCu')}
                   placeholder="Kgs"
                   disabled={!isPrimarySaved}
@@ -1962,13 +2029,13 @@ export default function ProcessControl() {
               </div>
               <div className="process-form-group" style={{ flex: '1', minWidth: '100px' }}>
                 <label>Sn</label>
-                <input 
-                  ref={r => inputRefs.current.correctiveAdditionSn = r} 
-                  type="number" 
-                  name="correctiveAdditionSn" 
-                  step="0.01" 
-                  value={formData.correctiveAdditionSn} 
-                  onChange={handleChange} 
+                <input
+                  ref={r => inputRefs.current.correctiveAdditionSn = r}
+                  type="number"
+                  name="correctiveAdditionSn"
+                  step="0.01"
+                  value={formData.correctiveAdditionSn}
+                  onChange={handleChange}
                   onKeyDown={e => handleKeyDown(e, 'correctiveAdditionSn')}
                   placeholder="Kgs"
                   disabled={!isPrimarySaved}
@@ -1983,13 +2050,13 @@ export default function ProcessControl() {
             <div className="additional-fields-row" style={{ gridColumn: '1 / -1', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
               <div className="process-form-group" style={{ flex: '1', minWidth: '150px' }}>
                 <label>Tapping Wt (Kgs) </label>
-                <input 
-                  ref={el => inputRefs.current.tappingWt = el} 
-                  type="number" 
-                  name="tappingWt" 
-                  step="0.01" 
-                  value={formData.tappingWt} 
-                  onChange={handleChange} 
+                <input
+                  ref={el => inputRefs.current.tappingWt = el}
+                  type="number"
+                  name="tappingWt"
+                  step="0.01"
+                  value={formData.tappingWt}
+                  onChange={handleChange}
                   onKeyDown={e => handleKeyDown(e, 'tappingWt')}
                   placeholder="Enter weight"
                   disabled={!isPrimarySaved}
@@ -1998,13 +2065,13 @@ export default function ProcessControl() {
               </div>
               <div className="process-form-group" style={{ flex: '1', minWidth: '150px' }}>
                 <label>Mg (Kgs)</label>
-                <input 
-                  ref={el => inputRefs.current.mg = el} 
-                  type="number" 
-                  name="mg" 
-                  step="0.01" 
-                  value={formData.mg} 
-                  onChange={handleChange} 
+                <input
+                  ref={el => inputRefs.current.mg = el}
+                  type="number"
+                  name="mg"
+                  step="0.01"
+                  value={formData.mg}
+                  onChange={handleChange}
                   onKeyDown={e => handleKeyDown(e, 'mg')}
                   placeholder="Enter Mg"
                   disabled={!isPrimarySaved}
@@ -2013,13 +2080,13 @@ export default function ProcessControl() {
               </div>
               <div className="process-form-group" style={{ flex: '1', minWidth: '150px' }}>
                 <label>Res. Mg. Convertor (%)</label>
-                <input 
-                  ref={el => inputRefs.current.resMgConvertor = el} 
-                  type="number" 
-                  name="resMgConvertor" 
-                  step="0.01" 
-                  value={formData.resMgConvertor} 
-                  onChange={handleChange} 
+                <input
+                  ref={el => inputRefs.current.resMgConvertor = el}
+                  type="number"
+                  name="resMgConvertor"
+                  step="0.01"
+                  value={formData.resMgConvertor}
+                  onChange={handleChange}
                   onKeyDown={e => handleKeyDown(e, 'resMgConvertor')}
                   placeholder="Enter %"
                   disabled={!isPrimarySaved}
@@ -2028,13 +2095,13 @@ export default function ProcessControl() {
               </div>
               <div className="process-form-group" style={{ flex: '1', minWidth: '150px' }}>
                 <label>Rec. Of Mg (%)</label>
-                <input 
-                  ref={el => inputRefs.current.recOfMg = el} 
-                  type="number" 
-                  name="recOfMg" 
-                  step="0.01" 
-                  value={formData.recOfMg} 
-                  onChange={handleChange} 
+                <input
+                  ref={el => inputRefs.current.recOfMg = el}
+                  type="number"
+                  name="recOfMg"
+                  step="0.01"
+                  value={formData.recOfMg}
+                  onChange={handleChange}
                   onKeyDown={e => handleKeyDown(e, 'recOfMg')}
                   placeholder="Enter %"
                   disabled={!isPrimarySaved}
@@ -2043,7 +2110,7 @@ export default function ProcessControl() {
               </div>
               <div className="process-form-group" style={{ flex: '1', minWidth: '150px' }}>
                 <label>Stream Inoculant (gm/Sec) </label>
-                <input 
+                <input
                   ref={el => inputRefs.current.streamInoculant = el}
                   type="number"
                   name="streamInoculant"
@@ -2058,7 +2125,7 @@ export default function ProcessControl() {
               </div>
               <div className="process-form-group" style={{ flex: '1', minWidth: '150px' }}>
                 <label>P.Time (sec)</label>
-                <input 
+                <input
                   ref={el => inputRefs.current.pTime = el}
                   type="number"
                   name="pTime"
