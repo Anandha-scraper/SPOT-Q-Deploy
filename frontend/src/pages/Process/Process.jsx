@@ -506,6 +506,126 @@ export default function ProcessControl() {
     'remarks': setRemarksValid
   };
 
+  /*
+   * Returns the appropriate CSS class for an input field based on validation state:
+   * - Red border (invalid-input) when field is invalid/empty after submit
+   * - Neutral (no color) otherwise
+   * 
+   * Flow:
+   * 1. After submit, if invalid -> red border (invalid-input)
+   * 2. When user starts typing/entering data -> resets to neutral via handleChange
+   * 
+   * @param {string} fieldName - The name of the field
+   * @param {boolean|null} validationState - null=neutral, false=invalid
+   */
+  const getInputClassName = (fieldName, validationState) => {
+    // Show red border if invalid (validationState === false)
+    if (validationState === false) return 'invalid-input';
+    // Otherwise show neutral (no color)
+    return '';
+  };
+
+  const validateField = (rule, mappedFields, formData) => {
+    // Handle range fields (arrays)
+    if (Array.isArray(mappedFields)) {
+      const [minField, maxField] = mappedFields;
+      const minValue = formData[minField];
+      const maxValue = formData[maxField];
+
+      // For range fields, check if both values exist when required
+      if (rule.required) {
+        if (!minValue || !maxValue) {
+          return { isValid: false, message: `${rule.field} is required` };
+        }
+      }
+
+      // Validate range values if they exist
+      if (minValue && maxValue) {
+        const min = parseFloat(minValue);
+        const max = parseFloat(maxValue);
+
+        if (isNaN(min) || isNaN(max)) {
+          return { isValid: false, message: `${rule.field} must contain valid numbers` };
+        }
+
+        if (min >= max) {
+          return { isValid: false, message: `${rule.field} minimum must be less than maximum` };
+        }
+      }
+
+      return { isValid: true };
+    }
+
+    // Handle single fields
+    const fieldName = mappedFields;
+    const value = formData[fieldName];
+
+    // Check required fields
+    if (rule.required) {
+      if (!value || (typeof value === 'string' && value.trim() === '')) {
+        return { isValid: false, message: `${rule.field} is required` };
+      }
+    }
+
+    // If field is empty and not required, it's valid
+    if (!value || (typeof value === 'string' && value.trim() === '')) {
+      return { isValid: true };
+    }
+
+    // Type-specific validation
+    switch (rule.type) {
+      case 'Number':
+      case 'Integer':
+        const num = parseFloat(value);
+        if (isNaN(num) || !isFinite(num)) {
+          return { isValid: false, message: `${rule.field} must be a valid number` };
+        }
+
+        // Check min/max constraints
+        if (rule.min !== undefined && num < rule.min) {
+          return { isValid: false, message: `${rule.field} must be at least ${rule.min}` };
+        }
+        if (rule.max !== undefined && num > rule.max) {
+          return { isValid: false, message: `${rule.field} must be no more than ${rule.max}` };
+        }
+
+        // For Integer type, check if it's actually an integer
+        if (rule.type === 'Integer' && !Number.isInteger(num)) {
+          return { isValid: false, message: `${rule.field} must be a whole number` };
+        }
+        break;
+
+      case 'Text':
+        const textValue = String(value).trim();
+        if (textValue === '') {
+          return rule.required ? { isValid: false, message: `${rule.field} is required` } : { isValid: true };
+        }
+        // Additional pattern validation could be added here if needed
+        break;
+
+      case 'Select':
+        if (rule.allowedValues && !rule.allowedValues.includes(value)) {
+          return { isValid: false, message: `${rule.field} must be one of: ${rule.allowedValues.join(', ')}` };
+        }
+        break;
+
+      case 'Date':
+        // Basic date validation - could be enhanced based on specific requirements
+        if (value && typeof value === 'string' && value.trim() !== '') {
+          const dateValue = new Date(value);
+          if (isNaN(dateValue.getTime())) {
+            return { isValid: false, message: `${rule.field} must be a valid date` };
+          }
+        }
+        break;
+
+      default:
+        // For any other types, just check if it's not empty when required
+        break;
+    }
+
+    return { isValid: true };
+  };
 
   // Set current date and load previous DISA on mount as default
   useEffect(() => {
