@@ -1,3 +1,107 @@
+/*
+ * =====================================================================================
+ * DYNAMIC FORM VALIDATION SYSTEM - TECHNICAL REFERENCE
+ * =====================================================================================
+ *
+ * This component implements a comprehensive dynamic validation system that can be
+ * adapted to any form. The system consists of three core components working together:
+ *
+ * 1. VALIDATION RANGES - Configuration-driven field definitions
+ * 2. FIELD MAPPING - Links display names to form data property names
+ * 3. VALIDATION SETTERS - Maps form fields to their validation state setters
+ * 4. DYNAMIC VALIDATION FUNCTION - Processes rules and validates fields
+ *
+ * =====================================================================================
+ * IMPLEMENTATION GUIDE FOR OTHER PAGES:
+ * =====================================================================================
+ *
+ * STEP 1: Define validationRanges array
+ * -------------------------------------
+ * const validationRanges = [
+ *   {
+ *     field: 'Display Name',        // Exact label shown to user
+ *     required: true/false,         // Whether field is required
+ *     type: 'Text|Number|Select|Integer|Date|Time Range|Number Range',
+ *     min: 0,                      // Optional: minimum value for numbers
+ *     max: 100,                    // Optional: maximum value for numbers
+ *     unit: '%',                   // Optional: display unit
+ *     pattern: 'regex or example', // Optional: validation pattern
+ *     allowedValues: ['A','B','C'] // Required for Select type
+ *   }
+ * ];
+ *
+ * STEP 2: Create fieldMapping object
+ * ----------------------------------
+ * const fieldMapping = {
+ *   'Display Name': 'formDataPropertyName',           // Single field
+ *   'Temperature Range': ['minTemp', 'maxTemp']       // Range fields (array)
+ * };
+ *
+ * STEP 3: Set up useState for all validation states
+ * -----------------------------------------------
+ * const [fieldNameValid, setFieldNameValid] = useState(null);
+ * // null = neutral, false = invalid (red border), true = valid (not used)
+ *
+ * STEP 4: Create validationSetters mapping (AFTER useState declarations)
+ * -------------------------------------------------------------------
+ * const validationSetters = {
+ *   'formDataPropertyName': setFieldNameValid,
+ *   'anotherField': setAnotherFieldValid
+ * };
+ *
+ * STEP 5: Implement validateField function (copy from this file)
+ * ------------------------------------------------------------
+ * This handles single fields, range fields, and different validation types.
+ *
+ * STEP 6: Add validation in submit handler
+ * ---------------------------------------
+ * for (const rule of validationRanges) {
+ *   const mappedFields = fieldMapping[rule.field];
+ *   const result = validateField(rule, mappedFields, formData);
+ *   const setter = Array.isArray(mappedFields) ?
+ *     setRangeFieldValid : validationSetters[mappedFields];
+ *   if (setter) {
+ *     setter(result.isValid ? null : false);
+ *   }
+ * }
+ *
+ * STEP 7: Add getInputClassName function
+ * -------------------------------------
+ * const getInputClassName = (fieldName, validationState) => {
+ *   return validationState === false ? 'invalid-input' : '';
+ * };
+ *
+ * STEP 8: Apply validation classes to inputs
+ * ----------------------------------------
+ * <input className={getInputClassName('fieldName', fieldNameValid)} />
+ *
+ * =====================================================================================
+ * KEY PATTERNS:
+ * =====================================================================================
+ *
+ * • Field names in validationRanges must EXACTLY match display labels
+ * • validationSetters object must be defined AFTER all useState declarations
+ * • Use null for neutral state, false for invalid (red border)
+ * • Range fields use arrays in fieldMapping: ['minField', 'maxField']
+ * • Always reset validation states to null when user starts typing
+ * • Special cases (custom time/date fields) need separate handling in submit
+ *
+ * =====================================================================================
+ * VALIDATION STATES:
+ * =====================================================================================
+ *
+ * null  = Neutral/default state (no border color)
+ * false = Invalid state (red border) - shown after submit when field fails validation
+ * true  = Valid state (green border) - NOT USED, kept for backwards compatibility
+ *
+ * The validation state changes:
+ * - On submit: Set to false if invalid, null if valid
+ * - On user input: Reset to null (neutral) in handleChange
+ * - On focus/blur: Remains null during input, only changes after submit attempts
+ *
+ * =====================================================================================
+ */
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Loader2, FileText } from 'lucide-react';
 import { SubmitButton, LockPrimaryButton, DisaDropdown, CustomTimeInput, Time } from '../../Components/Buttons';
@@ -9,10 +113,8 @@ import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Process/Process.css';
 
 export default function ProcessControl() {
-  // Info modal hook
   const { isOpen, openModal, closeModal } = useInfoModal();
 
-  // ====================== Validation Ranges ======================
   const validationRanges = [
     {
       field: 'Date',
@@ -51,7 +153,6 @@ export default function ProcessControl() {
     },
     {
       field: 'Metal Composition - C',
-      required: true,
       type: 'Number',
       min: 0,
       max: 100,
@@ -59,7 +160,6 @@ export default function ProcessControl() {
     },
     {
       field: 'Metal Composition - Si',
-      required: true,
       type: 'Number',
       min: 0,
       max: 100,
@@ -67,7 +167,6 @@ export default function ProcessControl() {
     },
     {
       field: 'Metal Composition - Mn',
-      required: true,
       type: 'Number',
       min: 0,
       max: 100,
@@ -75,7 +174,6 @@ export default function ProcessControl() {
     },
     {
       field: 'Metal Composition - P',
-      required: true,
       type: 'Number',
       min: 0,
       max: 100,
@@ -83,7 +181,6 @@ export default function ProcessControl() {
     },
     {
       field: 'Metal Composition - S',
-      required: true,
       type: 'Number',
       min: 0,
       max: 100,
@@ -91,7 +188,6 @@ export default function ProcessControl() {
     },
     {
       field: 'Metal Composition - Mg F/L',
-      required: true,
       type: 'Number',
       min: 0,
       max: 100,
@@ -99,7 +195,6 @@ export default function ProcessControl() {
     },
     {
       field: 'Metal Composition - Cu',
-      required: true,
       type: 'Number',
       min: 0,
       max: 100,
@@ -107,7 +202,6 @@ export default function ProcessControl() {
     },
     {
       field: 'Metal Composition - Cr',
-      required: true,
       type: 'Number',
       min: 0,
       max: 100,
@@ -115,7 +209,6 @@ export default function ProcessControl() {
     },
     {
       field: 'Time of Pouring (Range)',
-      required: true,
       type: 'Time Range',
       pattern: 'HH:MM - HH:MM'
     },
@@ -161,56 +254,48 @@ export default function ProcessControl() {
     },
     {
       field: 'Corrective Addition - C',
-      required: true,
       type: 'Number',
       min: 0,
       unit: 'Kgs'
     },
     {
       field: 'Corrective Addition - Si',
-      required: true,
       type: 'Number',
       min: 0,
       unit: 'Kgs'
     },
     {
       field: 'Corrective Addition - Mn',
-      required: true,
       type: 'Number',
       min: 0,
       unit: 'Kgs'
     },
     {
       field: 'Corrective Addition - S',
-      required: true,
       type: 'Number',
       min: 0,
       unit: 'Kgs'
     },
     {
       field: 'Corrective Addition - Cr',
-      required: true,
       type: 'Number',
       min: 0,
       unit: 'Kgs'
     },
     {
       field: 'Corrective Addition - Cu',
-      required: true,
       type: 'Number',
       min: 0,
       unit: 'Kgs'
     },
     {
       field: 'Corrective Addition - Sn',
-      required: true,
       type: 'Number',
       min: 0,
       unit: 'Kgs'
     },
     {
       field: 'Tapping Wt',
-      required: true,
       type: 'Number',
       min: 0,
       unit: 'Kgs'
@@ -261,6 +346,45 @@ export default function ProcessControl() {
     }
   ];
 
+  const fieldMapping = {
+    'Date': 'date',
+    'DISA': 'disa',
+    'Part Name': 'partName',
+    'Date Code': 'datecode',
+    'Heat Code': 'heatcode',
+    'Qty. Of Moulds': 'quantityOfMoulds',
+    'Metal Composition - C': 'metalCompositionC',
+    'Metal Composition - Si': 'metalCompositionSi',
+    'Metal Composition - Mn': 'metalCompositionMn',
+    'Metal Composition - P': 'metalCompositionP',
+    'Metal Composition - S': 'metalCompositionS',
+    'Metal Composition - Mg F/L': 'metalCompositionMgFL',
+    'Metal Composition - Cu': 'metalCompositionCu',
+    'Metal Composition - Cr': 'metalCompositionCr',
+    'Pouring Temp': ['pouringTemperatureMin', 'pouringTemperatureMax'],
+    'PP Code': 'ppCode',
+    'Treatment No': 'treatmentNo',
+    'F/C No.': 'fcNo',
+    'Heat No': 'heatNo',
+    'Con No': 'conNo',
+    'Corrective Addition - C': 'correctiveAdditionC',
+    'Corrective Addition - Si': 'correctiveAdditionSi',
+    'Corrective Addition - Mn': 'correctiveAdditionMn',
+    'Corrective Addition - S': 'correctiveAdditionS',
+    'Corrective Addition - Cr': 'correctiveAdditionCr',
+    'Corrective Addition - Cu': 'correctiveAdditionCu',
+    'Corrective Addition - Sn': 'correctiveAdditionSn',
+    'Tapping Wt': 'tappingWt',
+    'Mg': 'mg',
+    'Res. Mg. Convertor': 'resMgConvertor',
+    'Rec. Of Mg': 'recOfMg',
+    'Stream Inoculant': 'streamInoculant',
+    'P.Time': 'pTime',
+    'Remarks': 'remarks'
+  };
+
+
+
   const [formData, setFormData] = useState({
     date: '', disa: '', partName: '', datecode: '', heatcode: '', quantityOfMoulds: '', metalCompositionC: '', metalCompositionSi: '',
     metalCompositionMn: '', metalCompositionP: '', metalCompositionS: '', metalCompositionMgFL: '',
@@ -299,6 +423,8 @@ export default function ProcessControl() {
    * false = invalid (red border) - shown after submit when field is empty/invalid
    */
   // Basic fields
+  const [dateValid, setDateValid] = useState(null);
+  const [disaValid, setDisaValid] = useState(null);
   const [partNameValid, setPartNameValid] = useState(null);
   const [datecodeValid, setDatecodeValid] = useState(null);
   const [heatcodeValid, setHeatcodeValid] = useState(null);
@@ -308,7 +434,7 @@ export default function ProcessControl() {
   const [fcNoValid, setFcNoValid] = useState(null);
   const [heatNoValid, setHeatNoValid] = useState(null);
   const [pouringTempValid, setPouringTempValid] = useState(null);
-  const [pouringTimeValid, setPouringTimeValid] = useState(null);
+  const [pouringTimeValid, setPouringTimeValid] = useState(null)
   const [tappingWtValid, setTappingWtValid] = useState(null);
   const [streamInoculantValid, setStreamInoculantValid] = useState(null);
   const [remarksValid, setRemarksValid] = useState(null);
@@ -343,33 +469,43 @@ export default function ProcessControl() {
   // Submit error message state
   const [submitErrorMessage, setSubmitErrorMessage] = useState('');
 
-  /*
-   * Returns the appropriate CSS class for an input field based on validation state:
-   * - Red border (invalid-input) when field is invalid/empty after submit
-   * - Neutral (no color) otherwise
-   * 
-   * Flow:
-   * 1. After submit, if invalid -> red border (invalid-input)
-   * 2. When user starts typing/entering data -> resets to neutral via handleChange
-   * 
-   * @param {string} fieldName - The name of the field
-   * @param {boolean|null} validationState - null=neutral, false=invalid
-   */
-  const getInputClassName = (fieldName, validationState) => {
-    // Show red border if invalid (validationState === false)
-    if (validationState === false) return 'invalid-input';
-    // Otherwise show neutral (no color)
-    return '';
+  // Validation state setters mapping
+  const validationSetters = {
+    'date': setDateValid,
+    'disa': setDisaValid,
+    'partName': setPartNameValid,
+    'datecode': setDatecodeValid,
+    'heatcode': setHeatcodeValid,
+    'quantityOfMoulds': setQuantityOfMouldsValid,
+    'metalCompositionC': setMetalCValid,
+    'metalCompositionSi': setMetalSiValid,
+    'metalCompositionMn': setMetalMnValid,
+    'metalCompositionP': setMetalPValid,
+    'metalCompositionS': setMetalSValid,
+    'metalCompositionMgFL': setMetalMgFLValid,
+    'metalCompositionCu': setMetalCuValid,
+    'metalCompositionCr': setMetalCrValid,
+    'ppCode': setPpCodeValid,
+    'treatmentNo': setTreatmentNoValid,
+    'fcNo': setFcNoValid,
+    'heatNo': setHeatNoValid,
+    'conNo': setConNoValid,
+    'correctiveAdditionC': setCorrCValid,
+    'correctiveAdditionSi': setCorrSiValid,
+    'correctiveAdditionMn': setCorrMnValid,
+    'correctiveAdditionS': setCorrSValid,
+    'correctiveAdditionCr': setCorrCrValid,
+    'correctiveAdditionCu': setCorrCuValid,
+    'correctiveAdditionSn': setCorrSnValid,
+    'tappingWt': setTappingWtValid,
+    'mg': setMgValid,
+    'resMgConvertor': setResMgConvertorValid,
+    'recOfMg': setRecOfMgValid,
+    'streamInoculant': setStreamInoculantValid,
+    'pTime': setPTimeValid,
+    'remarks': setRemarksValid
   };
 
-  /**
-   * Legacy validation class getter for backwards compatibility
-   */
-  const getValidationClass = (isValid) => {
-    if (isValid === true) return 'valid-input';
-    if (isValid === false) return 'invalid-input';
-    return '';
-  };
 
   // Set current date and load previous DISA on mount as default
   useEffect(() => {
@@ -458,19 +594,31 @@ export default function ProcessControl() {
   useEffect(() => {
     const handleDisabledClick = (e) => {
       const target = e.target;
-      
+
       // Check if clicked element is a disabled input or select
       if ((target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA') && target.disabled) {
         handleDisabledFieldClick(e);
         return;
       }
-      
+
+      // Check if clicked on a label that's associated with a disabled field
+      if (target.tagName === 'LABEL') {
+        let formGroup = target.closest('.process-form-group');
+        if (formGroup) {
+          const input = formGroup.querySelector('input, select, textarea');
+          if (input && input.disabled) {
+            handleDisabledFieldClick(e);
+            return;
+          }
+        }
+      }
+
       // Check if clicked on process-form-grid (the main grid container)
       if (target.classList && target.classList.contains('process-form-grid') && !isPrimarySaved) {
         handleDisabledFieldClick(e);
         return;
       }
-      
+
       // Check if clicked on a form-group div that contains a disabled field
       let formGroup = null;
       if (target.classList && target.classList.contains('process-form-group')) {
@@ -478,12 +626,24 @@ export default function ProcessControl() {
       } else {
         formGroup = target.closest('.process-form-group');
       }
-      
+
       if (formGroup) {
         const input = formGroup.querySelector('input, select, textarea');
         if (input && input.disabled) {
           handleDisabledFieldClick(e);
           return;
+        }
+      }
+
+      // Handle clicks on any child elements of a form group with disabled fields
+      if (!isPrimarySaved) {
+        const closestFormGroup = target.closest('.process-form-group');
+        if (closestFormGroup) {
+          const input = closestFormGroup.querySelector('input, select, textarea');
+          if (input && input.disabled) {
+            handleDisabledFieldClick(e);
+            return;
+          }
         }
       }
     };
@@ -726,16 +886,16 @@ export default function ProcessControl() {
     if (!isPrimarySaved) {
       e.preventDefault();
       e.stopPropagation();
-      
+
       // Show warning
       setShowPrimaryWarning(true);
       setHighlightPrimaryFields(true);
-      
+
       // Scroll to primary section
       if (primarySectionRef.current) {
         primarySectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
-      
+
       // Hide warning and remove highlight after 3 seconds
       setTimeout(() => {
         setShowPrimaryWarning(false);
@@ -873,340 +1033,97 @@ export default function ProcessControl() {
    */
   const handleSubmit = async () => {
     let hasErrors = false;
-    // AUTO-NAVIGATION: Track the first field that fails validation (see comment block above)
     let firstErrorField = null;
 
-    const datecodePattern = /^[0-9][A-Z][0-9]{2}$/;
-    const numericPattern = /^\d+$/;
+    // Clear any previous error messages
+    setSubmitErrorMessage('');
 
-    // Example validation with auto-navigation tracking:
-    // 1. Check if field is invalid
-    // 2. Set validation state to false (red border)
-    // 3. Mark hasErrors flag
-    // 4. Save field name in firstErrorField ONLY if it's the first error
-    if (!formData.partName || !formData.partName.trim()) {
-      setPartNameValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'partName'; // Only set if this is the FIRST error
-    } else {
-      setPartNameValid(null);
-    }
+    // Dynamic validation based on validationRanges
+    for (const rule of validationRanges) {
+      const mappedFields = fieldMapping[rule.field];
 
-    if (!formData.datecode || !formData.datecode.trim() || !datecodePattern.test(formData.datecode)) {
-      setDatecodeValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'datecode';
-    } else {
-      setDatecodeValid(null);
-    }
+      // Skip special cases that need custom logic
+      if (rule.field === 'Time of Pouring (Range)') {
+        // Custom validation for pouring time range
+        if (rule.required && (!pouringFromTime || !pouringToTime)) {
+          setPouringTimeValid(false);
+          hasErrors = true;
+          if (!firstErrorField) firstErrorField = 'pouringFromTime';
+        } else if (pouringFromTime && pouringToTime) {
+          const fromMinutes = pouringFromTime.hour * 60 + pouringFromTime.minute;
+          const toMinutes = pouringToTime.hour * 60 + pouringToTime.minute;
 
-    if (!formData.heatcode || !formData.heatcode.trim() || !numericPattern.test(formData.heatcode)) {
-      setHeatcodeValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'heatcode';
-    } else {
-      setHeatcodeValid(null);
-    }
+          if (fromMinutes >= toMinutes) {
+            setPouringTimeValid(false);
+            setSubmitErrorMessage('Time of Pouring: Start time must be less than end time');
+            hasErrors = true;
+            if (!firstErrorField) firstErrorField = 'pouringFromTime';
+          } else if ((toMinutes - fromMinutes) > 60) {
+            setPouringTimeValid(false);
+            setSubmitErrorMessage('Time of Pouring: Maximum allowed difference is 1 hour');
+            hasErrors = true;
+            if (!firstErrorField) firstErrorField = 'pouringFromTime';
+          } else {
+            setPouringTimeValid(null);
+          }
+        } else {
+          setPouringTimeValid(null);
+        }
+        continue;
+      }
 
-    if (!formData.quantityOfMoulds || formData.quantityOfMoulds.trim() === '' || isNaN(formData.quantityOfMoulds) || parseFloat(formData.quantityOfMoulds) < 0) {
-      setQuantityOfMouldsValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'quantityOfMoulds';
-    } else {
-      setQuantityOfMouldsValid(null);
-    }
+      if (rule.field === 'Tapping Time') {
+        // Custom validation for tapping time
+        if (rule.required && !tappingTime) {
+          setTappingTimeValid(false);
+          hasErrors = true;
+          if (!firstErrorField) firstErrorField = 'tappingTime';
+        } else {
+          setTappingTimeValid(null);
+        }
+        continue;
+      }
 
-    if (!formData.metalCompositionC || formData.metalCompositionC.trim() === '' || isNaN(formData.metalCompositionC) || parseFloat(formData.metalCompositionC) < 0 || parseFloat(formData.metalCompositionC) > 100) {
-      setMetalCValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'metalCompositionC';
-    } else {
-      setMetalCValid(null);
-    }
+      // Skip if no field mapping found
+      if (!mappedFields) continue;
 
-    if (!formData.metalCompositionSi || formData.metalCompositionSi.trim() === '' || isNaN(formData.metalCompositionSi) || parseFloat(formData.metalCompositionSi) < 0 || parseFloat(formData.metalCompositionSi) > 100) {
-      setMetalSiValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'metalCompositionSi';
-    } else {
-      setMetalSiValid(null);          
-    }
+      // Validate using dynamic system
+      const result = validateField(rule, mappedFields, formData);
 
-    if (!formData.metalCompositionMn || formData.metalCompositionMn.trim() === '' || isNaN(formData.metalCompositionMn) || parseFloat(formData.metalCompositionMn) < 0 || parseFloat(formData.metalCompositionMn) > 100) {
-      setMetalMnValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'metalCompositionMn';
-    } else {
-      setMetalMnValid(null);
-    }
-
-    if (!formData.metalCompositionP || formData.metalCompositionP.trim() === '' || isNaN(formData.metalCompositionP) || parseFloat(formData.metalCompositionP) < 0 || parseFloat(formData.metalCompositionP) > 100) {
-      setMetalPValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'metalCompositionP';
-    } else {
-      setMetalPValid(null);
-    }
-
-    if (!formData.metalCompositionS || formData.metalCompositionS.trim() === '' || isNaN(formData.metalCompositionS) || parseFloat(formData.metalCompositionS) < 0 || parseFloat(formData.metalCompositionS) > 100) {
-      setMetalSValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'metalCompositionS';
-    } else {
-      setMetalSValid(null);
-    }
-
-    if (!formData.metalCompositionMgFL || formData.metalCompositionMgFL.trim() === '' || isNaN(formData.metalCompositionMgFL) || parseFloat(formData.metalCompositionMgFL) < 0 || parseFloat(formData.metalCompositionMgFL) > 100) {
-      setMetalMgFLValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'metalCompositionMgFL';
-    } else {
-      setMetalMgFLValid(null);
-    }
-
-    if (!formData.metalCompositionCu || formData.metalCompositionCu.trim() === '' || isNaN(formData.metalCompositionCu) || parseFloat(formData.metalCompositionCu) < 0 || parseFloat(formData.metalCompositionCu) > 100) {
-      setMetalCuValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'metalCompositionCu';
-    } else {
-      setMetalCuValid(null);
-    }
-
-    if (!formData.metalCompositionCr || formData.metalCompositionCr.trim() === '' || isNaN(formData.metalCompositionCr) || parseFloat(formData.metalCompositionCr) < 0 || parseFloat(formData.metalCompositionCr) > 100) {
-      setMetalCrValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'metalCompositionCr';
-    } else {
-      setMetalCrValid(null);
-    }
-
-    if (!formData.ppCode || !formData.ppCode.trim() || !numericPattern.test(formData.ppCode)) {
-      setPpCodeValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'ppCode';
-    } else {
-      setPpCodeValid(null);
-    }
-
-    if (!formData.treatmentNo || !formData.treatmentNo.trim() || !numericPattern.test(formData.treatmentNo)) {
-      setTreatmentNoValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'treatmentNo';
-    } else {
-      setTreatmentNoValid(null);
-    }
-
-    if (!formData.fcNo || !formData.fcNo.trim()) {
-      setFcNoValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'fcNo';
-    } else {
-      setFcNoValid(null);
-    }
-
-    if (!formData.heatNo || !formData.heatNo.trim()) {
-      setHeatNoValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'heatNo';
-    } else {
-      setHeatNoValid(null);
-    }
-
-    if (!formData.conNo || formData.conNo.trim() === '' || isNaN(formData.conNo) || parseFloat(formData.conNo) < 0) {
-      setConNoValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'conNo';
-    } else {
-      setConNoValid(null);
-    }
-
-    // Validate Pouring Temperature Min and Max
-    const tempMin = formData.pouringTemperatureMin ? parseFloat(formData.pouringTemperatureMin) : null;
-    const tempMax = formData.pouringTemperatureMax ? parseFloat(formData.pouringTemperatureMax) : null;
-    
-    if (!formData.pouringTemperatureMin || isNaN(tempMin) || tempMin < 0) {
-      setPouringTempValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'pouringTemperatureMin';
-    } else if (formData.pouringTemperatureMax === '' || isNaN(tempMax)) {
-      setPouringTempValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'pouringTemperatureMax';
-    } else if (tempMax < 0) {
-      setPouringTempValid(false);
-      setSubmitErrorMessage('Pouring Temp: Max cannot be negative');
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'pouringTemperatureMax';
-    } else if (tempMax !== 0 && tempMin >= tempMax) {
-      setPouringTempValid(false);
-      setSubmitErrorMessage('Pouring Temp: Min must be less than Max');
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'pouringTemperatureMin';
-    } else {
-      setPouringTempValid(null);
-    }
-
-    if (!pouringFromTime || !pouringToTime) {
-      setPouringTimeValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'pouringFromTime';
-    } else {
-      // Convert Time objects to minutes for comparison
-      const fromMinutes = pouringFromTime.hour * 60 + pouringFromTime.minute;
-      const toMinutes = pouringToTime.hour * 60 + pouringToTime.minute;
-      
-      // Check if from time is greater than to time
-      if (fromMinutes >= toMinutes) {
-        setPouringTimeValid(false);
-        setSubmitErrorMessage('Time of Pouring: Start time must be less than end time');
-        hasErrors = true;
-        if (!firstErrorField) firstErrorField = 'pouringFromTime';
-      } 
-      // Check if difference is more than 1 hour (60 minutes)
-      else if ((toMinutes - fromMinutes) > 60) {
-        setPouringTimeValid(false);
-        setSubmitErrorMessage('Time of Pouring: Maximum allowed difference is 1 hour');
-        hasErrors = true;
-        if (!firstErrorField) firstErrorField = 'pouringFromTime';
+      // Handle setter for range fields vs single fields
+      let setter;
+      if (Array.isArray(mappedFields)) {
+        // For pouring temperature range - use pouringTempValid setter
+        setter = setPouringTempValid;
       } else {
-        setPouringTimeValid(null);
+        setter = validationSetters[mappedFields];
+      }
+
+      if (setter) {
+        if (!result.isValid) {
+          setter(false);
+          hasErrors = true;
+          if (!firstErrorField) firstErrorField = result.errorField;
+          if (result.message) setSubmitErrorMessage(result.message);
+        } else {
+          setter(null);
+        }
       }
     }
 
-    if (!tappingTime) {
-      setTappingTimeValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'tappingTime';
-    } else {
-      setTappingTimeValid(null);
-    }
-
-    if (!formData.correctiveAdditionC || formData.correctiveAdditionC.trim() === '' || isNaN(formData.correctiveAdditionC) || parseFloat(formData.correctiveAdditionC) < 0) {
-      setCorrCValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'correctiveAdditionC';
-    } else {
-      setCorrCValid(null);
-    }
-
-    if (!formData.correctiveAdditionSi || formData.correctiveAdditionSi.trim() === '' || isNaN(formData.correctiveAdditionSi) || parseFloat(formData.correctiveAdditionSi) < 0) {
-      setCorrSiValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'correctiveAdditionSi';
-    } else {
-      setCorrSiValid(null);
-    }
-
-    if (!formData.correctiveAdditionMn || formData.correctiveAdditionMn.trim() === '' || isNaN(formData.correctiveAdditionMn) || parseFloat(formData.correctiveAdditionMn) < 0) {
-      setCorrMnValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'correctiveAdditionMn';
-    } else {
-      setCorrMnValid(null);
-    }
-
-    if (!formData.correctiveAdditionS || formData.correctiveAdditionS.trim() === '' || isNaN(formData.correctiveAdditionS) || parseFloat(formData.correctiveAdditionS) < 0) {
-      setCorrSValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'correctiveAdditionS';
-    } else {
-      setCorrSValid(null);
-    }
-
-    if (!formData.correctiveAdditionCr || formData.correctiveAdditionCr.trim() === '' || isNaN(formData.correctiveAdditionCr) || parseFloat(formData.correctiveAdditionCr) < 0) {
-      setCorrCrValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'correctiveAdditionCr';
-    } else {
-      setCorrCrValid(null);
-    }
-
-    if (!formData.correctiveAdditionCu || formData.correctiveAdditionCu.trim() === '' || isNaN(formData.correctiveAdditionCu) || parseFloat(formData.correctiveAdditionCu) < 0) {
-      setCorrCuValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'correctiveAdditionCu';
-    } else {
-      setCorrCuValid(null);
-    }
-
-    if (!formData.correctiveAdditionSn || formData.correctiveAdditionSn.trim() === '' || isNaN(formData.correctiveAdditionSn) || parseFloat(formData.correctiveAdditionSn) < 0) {
-      setCorrSnValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'correctiveAdditionSn';
-    } else {
-      setCorrSnValid(null);
-    }
-
-    if (!formData.tappingWt || isNaN(formData.tappingWt) || parseFloat(formData.tappingWt) <= 0) {
-      setTappingWtValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'tappingWt';
-    } else {
-      setTappingWtValid(null);
-    }
-
-    if (!formData.mg || formData.mg.trim() === '' || isNaN(formData.mg) || parseFloat(formData.mg) < 0) {
-      setMgValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'mg';
-    } else {
-      setMgValid(null);
-    }
-
-    if (!formData.resMgConvertor || formData.resMgConvertor.trim() === '' || isNaN(formData.resMgConvertor) || parseFloat(formData.resMgConvertor) < 0) {
-      setResMgConvertorValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'resMgConvertor';
-    } else {
-      setResMgConvertorValid(null);
-    }
-
-    if (!formData.recOfMg || formData.recOfMg.trim() === '' || isNaN(formData.recOfMg) || parseFloat(formData.recOfMg) < 0) {
-      setRecOfMgValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'recOfMg';
-    } else {
-      setRecOfMgValid(null);
-    }
-
-    if (!formData.streamInoculant || isNaN(formData.streamInoculant) || parseFloat(formData.streamInoculant) < 0) {
-      setStreamInoculantValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'streamInoculant';
-    } else {
-      setStreamInoculantValid(null);
-    }
-
-    if (!formData.pTime || formData.pTime.trim() === '' || isNaN(formData.pTime) || parseFloat(formData.pTime) < 0) {
-      setPTimeValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'pTime';
-    } else {
-      setPTimeValid(null);
-    }
-
-    if (!formData.remarks || !formData.remarks.trim()) {
-      setRemarksValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'remarks';
-    } else {
-      setRemarksValid(null);
-    }
-
+    // Handle error state
     if (hasErrors) {
-      setSubmitErrorMessage('Enter data in correct Format');
-      
-      // AUTO-NAVIGATION: Focus on the first field that failed validation
-      // This happens immediately (synchronously) because firstErrorField 
-      // is a plain variable, not state. Works on FIRST submit click.
+      if (!submitErrorMessage) {
+        setSubmitErrorMessage('Enter data in correct Format');
+      }
+
+      // Auto-focus on first error field
       if (firstErrorField) {
         inputRefs.current[firstErrorField]?.focus();
       }
-      
+
       return;
     }
-
-    setSubmitErrorMessage('');
 
     try {
       setSubmitLoading(true);
@@ -1489,12 +1406,12 @@ export default function ProcessControl() {
 
             <div className="process-form-group">
               <label>Part Name </label>
-              <input 
-                ref={el => inputRefs.current.partName = el} 
-                type="text" 
-                name="partName" 
-                value={formData.partName} 
-                onChange={handleChange} 
+              <input
+                ref={el => inputRefs.current.partName = el}
+                type="text"
+                name="partName"
+                value={formData.partName}
+                onChange={handleChange}
                 onKeyDown={e => handleKeyDown(e, 'partName')}
                 placeholder="e.g., ABC-123"
                 disabled={!isPrimarySaved}

@@ -292,19 +292,31 @@ const MicroStructure = () => {
   useEffect(() => {
     const handleDisabledClick = (e) => {
       const target = e.target;
-      
+
       // Check if clicked element is a disabled input or select
       if ((target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA') && target.disabled) {
         handleDisabledFieldClick(e);
         return;
       }
-      
+
+      // Check if clicked on a label that's associated with a disabled field
+      if (target.tagName === 'LABEL') {
+        let fieldDiv = target.closest('.microstructure-field');
+        if (fieldDiv) {
+          const input = fieldDiv.querySelector('input, select, textarea');
+          if (input && input.disabled) {
+            handleDisabledFieldClick(e);
+            return;
+          }
+        }
+      }
+
       // Check if clicked on microstructure-form-row (the main row container)
       if (target.classList && target.classList.contains('microstructure-form-row') && !isPrimarySaved) {
         handleDisabledFieldClick(e);
         return;
       }
-      
+
       // Check if clicked on a field div that contains a disabled field
       let fieldDiv = null;
       if (target.classList && target.classList.contains('microstructure-field')) {
@@ -312,12 +324,24 @@ const MicroStructure = () => {
       } else {
         fieldDiv = target.closest('.microstructure-field');
       }
-      
+
       if (fieldDiv) {
         const input = fieldDiv.querySelector('input, select, textarea');
         if (input && input.disabled) {
           handleDisabledFieldClick(e);
           return;
+        }
+      }
+
+      // Handle clicks on any child elements of a field div with disabled fields
+      if (!isPrimarySaved) {
+        const closestFieldDiv = target.closest('.microstructure-field');
+        if (closestFieldDiv) {
+          const input = closestFieldDiv.querySelector('input, select, textarea');
+          if (input && input.disabled) {
+            handleDisabledFieldClick(e);
+            return;
+          }
         }
       }
     };

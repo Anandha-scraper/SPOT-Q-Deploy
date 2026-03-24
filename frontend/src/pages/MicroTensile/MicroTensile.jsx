@@ -245,19 +245,31 @@ const MicroTensile = () => {
   useEffect(() => {
     const handleDisabledClick = (e) => {
       const target = e.target;
-      
+
       // Check if clicked element is a disabled input or select
       if ((target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA') && target.disabled) {
         handleDisabledFieldClick(e);
         return;
       }
-      
+
+      // Check if clicked on a label that's associated with a disabled field
+      if (target.tagName === 'LABEL') {
+        let formGroup = target.closest('.microtensile-form-group');
+        if (formGroup) {
+          const input = formGroup.querySelector('input, select, textarea');
+          if (input && input.disabled) {
+            handleDisabledFieldClick(e);
+            return;
+          }
+        }
+      }
+
       // Check if clicked on microtensile-form-grid (the main grid container)
       if (target.classList && target.classList.contains('microtensile-form-grid') && !isPrimarySaved) {
         handleDisabledFieldClick(e);
         return;
       }
-      
+
       // Check if clicked on a form-group div that contains a disabled field
       let formGroup = null;
       if (target.classList && target.classList.contains('microtensile-form-group')) {
@@ -265,12 +277,24 @@ const MicroTensile = () => {
       } else {
         formGroup = target.closest('.microtensile-form-group');
       }
-      
+
       if (formGroup) {
         const input = formGroup.querySelector('input, select, textarea');
         if (input && input.disabled) {
           handleDisabledFieldClick(e);
           return;
+        }
+      }
+
+      // Handle clicks on any child elements of a form group with disabled fields
+      if (!isPrimarySaved) {
+        const closestFormGroup = target.closest('.microtensile-form-group');
+        if (closestFormGroup) {
+          const input = closestFormGroup.querySelector('input, select, textarea');
+          if (input && input.disabled) {
+            handleDisabledFieldClick(e);
+            return;
+          }
         }
       }
     };
