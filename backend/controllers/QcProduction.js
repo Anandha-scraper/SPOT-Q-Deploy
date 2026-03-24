@@ -13,10 +13,28 @@ exports.initializeTodayEntry = async () => {
 exports.getAllEntries = async (req, res) => {
     try {
         const documents = await QcProduction.find().sort({ date: -1 });
-        
+
         res.status(200).json({ success: true, count: documents.length, data: documents });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Error fetching QC production records.' });
+    }
+};
+
+// Get unique part names for autocomplete
+exports.getPartNames = async (req, res) => {
+    try {
+        // Get distinct part names from the database, excluding empty/null values
+        const partNames = await QcProduction.distinct('partName', {
+            partName: { $exists: true, $ne: '', $ne: null }
+        });
+
+        // Sort alphabetically for better UX
+        partNames.sort();
+
+        res.status(200).json({ success: true, partNames });
+    } catch (error) {
+        console.error('Error fetching part names:', error);
+        res.status(500).json({ success: false, message: 'Error fetching part names.' });
     }
 };
 

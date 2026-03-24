@@ -143,7 +143,38 @@ exports.checkDateDisaEntries = async (req, res) => {
     }
 };
 
-/** 5. SAVE PRIMARY (Date + DISA) - Creates document if not exists **/
+/** 5. GET DISTINCT PART NAMES **/
+exports.getPartNames = async (req, res) => {
+    try {
+        const documents = await Process.find({}, { 'entries.partName': 1 });
+
+        // Extract unique part names from all entries
+        const partNamesSet = new Set();
+        documents.forEach(doc => {
+            if (doc.entries && doc.entries.length > 0) {
+                doc.entries.forEach(entry => {
+                    if (entry.partName && entry.partName.trim() !== '' && entry.partName !== '-') {
+                        partNamesSet.add(entry.partName.trim());
+                    }
+                });
+            }
+        });
+
+        // Convert to sorted array
+        const partNames = Array.from(partNamesSet).sort();
+
+        res.status(200).json({
+            success: true,
+            count: partNames.length,
+            data: partNames
+        });
+    } catch (error) {
+        console.error('Error fetching part names:', error);
+        res.status(500).json({ success: false, message: 'Error fetching part names.' });
+    }
+};
+
+/** 6. SAVE PRIMARY (Date + DISA) - Creates document if not exists **/
 exports.savePrimary = async (req, res) => {
     try {
         const { date, disa } = req.body;

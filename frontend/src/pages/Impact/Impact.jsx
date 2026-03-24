@@ -5,6 +5,7 @@ import CustomDatePicker from '../../Components/CustomDatePicker';
 import Sakthi from '../../Components/Sakthi';
 import { InlineLoader } from '../../Components/Alert';
 import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
+import { useImpactContext } from '../../../app.jsx';
 import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Impact/Impact.css';
 
@@ -35,17 +36,13 @@ const Impact = () => {
     {
       field: 'Specification',
       required: true,
-      type: 'Number',
-      max: 100,
-      unit: 'Joules',
-      pattern: 'e.g., 15'
+      type: 'Text',
+      pattern: 'e.g., 12.5 J, 30° unnotch'
     },
     {
       field: 'Observed Value',
       required: true,
-      type: 'Number',
-      min: 0,
-      unit: 'Joules',
+      type: 'Text',
       pattern: 'e.g., 12 or 12.5 or 12, 34 or 12.5, 34.6'
     },
     {
@@ -56,40 +53,39 @@ const Impact = () => {
     }
   ];
 
+  // ====================== Field Mapping ======================
+  // Maps display field names to formData property names
+  const fieldMapping = {
+    'Date': 'date',
+    'Part Name': 'partName',
+    'Date Code': 'dateCode',
+    'Specification': 'specification',
+    'Observed Value': 'observedValue',
+    'Remarks': 'remarks'
+  };
+
   // Get current date in YYYY-MM-DD format
   const getCurrentDate = () => {
     const today = new Date();
     return today.toISOString().split('T')[0];
   };
 
-  // ====================== State ======================
-  const [formData, setFormData] = useState({
-    date: getCurrentDate(),
-    partName: '',
-    dateCode: '',
-    specification: '',
-    observedValue: '',
-    remarks: ''
-  });
-
-  /* 
-   * VALIDATION STATES
-   * null = neutral/default (no border color)
-   * false = invalid (red border) - shown after submit when field is empty/invalid
-   */
-  const [dateValid, setDateValid] = useState(null);
-  const [partNameValid, setPartNameValid] = useState(null);
-  const [dateCodeValid, setDateCodeValid] = useState(null);
-  const [specificationValid, setSpecificationValid] = useState(null);
-  const [observedValueValid, setObservedValueValid] = useState(null);
-  const [remarksValid, setRemarksValid] = useState(null);
+  // ====================== Context State ======================
+  const {
+    formData,
+    setFormData,
+    validationStates,
+    setValidation,
+    resetValidation,
+    submitErrorMessage,
+    setSubmitErrorMessage,
+    resetFormData
+  } = useImpactContext();
 
   // Check if date is selected (for locking other inputs)
   const isDateSelected = formData.date && formData.date.trim() !== '';
 
   const [submitLoading, setSubmitLoading] = useState(false);
-  // Submit error message state
-  const [submitErrorMessage, setSubmitErrorMessage] = useState('');
 
   // Success popup state
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
@@ -97,6 +93,98 @@ const Impact = () => {
   // Refs
   const submitButtonRef = useRef(null);
   const inputRefs = useRef({});
+
+  // ====================== Validation Setters Mapping ======================
+  // Maps formData field names to their validation state setters
+  const validationSetters = {
+    'date': (val) => setValidation('date', val),
+    'partName': (val) => setValidation('partName', val),
+    'dateCode': (val) => setValidation('dateCode', val),
+    'specification': (val) => setValidation('specification', val),
+    'observedValue': (val) => setValidation('observedValue', val),
+    'remarks': (val) => setValidation('remarks', val)
+  };
+
+  /*
+   * ====================== DYNAMIC VALIDATION FUNCTION ======================
+   * Validates a field based on its validation rule
+   * @param {Object} rule - The validation rule from validationRanges
+   * @param {string} mappedFields - The formData field name(s) from fieldMapping
+   * @param {Object} formData - The current form data
+   * @returns {Object} - { isValid: boolean, message: string }
+   */
+  const validateField = (rule, mappedFields, formData) => {
+    // Handle single fields
+    const fieldName = mappedFields;
+    const value = formData[fieldName];
+
+    // Check required fields
+    if (rule.required) {
+      if (!value || (typeof value === 'string' && value.trim() === '')) {
+        return { isValid: false, message: `${rule.field} is required` };
+      }
+    }
+
+    // If field is empty and not required, it's valid
+    if (!value || (typeof value === 'string' && value.trim() === '')) {
+      return { isValid: true };
+    }
+
+    // Type-specific validation
+    switch (rule.type) {
+      case 'Text':
+        const textValue = String(value).trim();
+        if (textValue === '') {
+          return rule.required ? { isValid: false, message: `${rule.field} is required` } : { isValid: true };
+        }
+
+        // Special validation for Date Code pattern (1 digit, 1 letter, 2 digits)
+        if (rule.field === 'Date Code') {
+          const dateCodePattern = /^[0-9][A-Z][0-9]{2}$/;
+          if (!dateCodePattern.test(textValue)) {
+            return { isValid: false, message: `${rule.field} must be in format: 1 digit, 1 letter, 2 digits (e.g., 6F25)` };
+          }
+        }
+
+        // Special validation for Part Name (letters and spaces only)
+        if (rule.field === 'Part Name') {
+          const partNamePattern = /^[A-Za-z\s]+$/;
+          if (!partNamePattern.test(textValue)) {
+            return { isValid: false, message: `${rule.field} must contain only letters and spaces` };
+          }
+        }
+
+        // Special validation for Observed Value (number with comma or decimal)
+        if (rule.field === 'Observed Value') {
+          const observedValuePattern = /^(\d+([.,]\d+)?)(\s*,\s*\d+([.,]\d+)?)*$/;
+          if (!observedValuePattern.test(textValue)) {
+            return { isValid: false, message: `${rule.field} must be valid numbers (e.g., 12 or 12.5 or 12, 34)` };
+          }
+        }
+
+        // Check maxLength if specified
+        if (rule.maxLength && textValue.length > rule.maxLength) {
+          return { isValid: false, message: `${rule.field} must be no more than ${rule.maxLength} characters` };
+        }
+        break;
+
+      case 'Date':
+        // Basic date validation
+        if (value && typeof value === 'string' && value.trim() !== '') {
+          const dateValue = new Date(value);
+          if (isNaN(dateValue.getTime())) {
+            return { isValid: false, message: `${rule.field} must be a valid date` };
+          }
+        }
+        break;
+
+      default:
+        // For any other types, just check if it's not empty when required
+        break;
+    }
+
+    return { isValid: true };
+  };
 
   /*
    * Returns the appropriate CSS class for an input field based on validation state:
@@ -124,28 +212,7 @@ const Impact = () => {
     const { name, value } = e.target;
 
     // Reset validation to neutral when user starts typing
-    switch (name) {
-      case 'date':
-        setDateValid(null);
-        break;
-      case 'partName':
-        setPartNameValid(null);
-        break;
-      case 'dateCode':
-        setDateCodeValid(null);
-        break;
-      case 'specification':
-        setSpecificationValid(null);
-        break;
-      case 'observedValue':
-        setObservedValueValid(null);
-        break;
-      case 'remarks':
-        setRemarksValid(null);
-        break;
-      default:
-        break;
-    }
+    setValidation(name, null);
 
     // Auto-uppercase dateCode
     const finalValue = name === 'dateCode' ? value.toUpperCase() : value;
@@ -233,77 +300,49 @@ const Impact = () => {
     let hasErrors = false;
     // AUTO-NAVIGATION: Track the first field that fails validation (see comment block above)
     let firstErrorField = null;
+    const errorMessages = [];
 
-    const dateCodePattern = /^[0-9][A-Z][0-9]{2}$/;
-    const partNamePattern = /^[A-Za-z\s]+$/;
-    // Allows: "12" or "12.5" or "12,5" or "12, 34" or "12.5, 34.6"
-    const observedValuePattern = /^(\d+([.,]\d+)?)(\s*,\s*\d+([.,]\d+)?)*$/;
+    // ====================== DYNAMIC VALIDATION LOOP ======================
+    // Iterate through all validation rules and validate each field dynamically
+    for (const rule of validationRanges) {
+      const mappedField = fieldMapping[rule.field];
+      const validationSetter = validationSetters[mappedField];
 
-    // Validate Date
-    if (!formData.date || !formData.date.trim()) {
-      setDateValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'date';
-    } else {
-      setDateValid(null);
-    }
+      if (!mappedField || !validationSetter) {
+        console.warn(`No mapping or setter found for field: ${rule.field}`);
+        continue;
+      }
 
-    // Validate Part Name
-    if (!formData.partName || !formData.partName.trim() || !partNamePattern.test(formData.partName)) {
-      setPartNameValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'partName';
-    } else {
-      setPartNameValid(null);
-    }
+      // Validate the field using the dynamic validateField function
+      const result = validateField(rule, mappedField, formData);
 
-    // Validate Date Code
-    if (!formData.dateCode || !formData.dateCode.trim() || !dateCodePattern.test(formData.dateCode)) {
-      setDateCodeValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'dateCode';
-    } else {
-      setDateCodeValid(null);
-    }
+      if (!result.isValid) {
+        // Set validation state to false (red border)
+        validationSetter(false);
+        hasErrors = true;
+        errorMessages.push(result.message);
 
-    // Validate Specification
-    if (!formData.specification || !formData.specification.trim()) {
-      setSpecificationValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'specification';
-    } else {
-      setSpecificationValid(null);
-    }
-
-    // Validate Observed Value
-    if (!formData.observedValue || !formData.observedValue.trim() || !observedValuePattern.test(formData.observedValue)) {
-      setObservedValueValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'observedValue';
-    } else {
-      setObservedValueValid(null);
-    }
-
-    // Validate Remarks
-    if (!formData.remarks || !formData.remarks.trim()) {
-      setRemarksValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'remarks';
-    } else {
-      setRemarksValid(null);
+        // Capture only the first error field for auto-navigation
+        if (!firstErrorField) {
+          firstErrorField = mappedField;
+        }
+      } else {
+        // Set validation state to null (neutral, no color)
+        validationSetter(null);
+      }
     }
 
     // If there are errors, show error message and stop submission
     if (hasErrors) {
       setSubmitErrorMessage('Enter data in correct Format');
-      
+
       // AUTO-NAVIGATION: Focus on the first field that failed validation
-      // This happens immediately (synchronously) because firstErrorField 
+      // This happens immediately (synchronously) because firstErrorField
       // is a plain variable, not state. Works on FIRST submit click.
       if (firstErrorField) {
         inputRefs.current[firstErrorField]?.focus();
       }
-      
+
       return;
     }
 
@@ -326,24 +365,8 @@ const Impact = () => {
         // Show success popup
         setShowSuccessPopup(true);
 
-        // Reset form
-        setFormData({
-          date: getCurrentDate(),
-          partName: '',
-          dateCode: '',
-          specification: '',
-          observedValue: '',
-          remarks: ''
-        });
-
-        // Reset validation states
-        setDateValid(null);
-        setPartNameValid(null);
-        setDateCodeValid(null);
-        setSpecificationValid(null);
-        setObservedValueValid(null);
-        setRemarksValid(null);
-        setSubmitErrorMessage('');
+        // Reset form using context
+        resetFormData();
 
         setTimeout(() => {
           inputRefs.current.date?.focus();
@@ -395,7 +418,7 @@ const Impact = () => {
             onKeyDown={handleKeyDown}
             max={new Date().toISOString().split('T')[0]}
             style={{
-              border: dateValid === false ? '2px solid #ef4444' : '2px solid #cbd5e1',
+              border: validationStates.date === false ? '2px solid #ef4444' : '2px solid #cbd5e1',
               width: '100%',
               padding: '0.625rem 0.875rem',
               borderRadius: '8px',
@@ -418,7 +441,7 @@ const Impact = () => {
             placeholder="e.g: Crankshaft"
             autoComplete="off"
             disabled={!isDateSelected}
-            className={getInputClassName(partNameValid)}
+            className={getInputClassName(validationStates.partName)}
           />
         </div>
 
@@ -435,7 +458,7 @@ const Impact = () => {
             placeholder="e.g: 6F25"
             autoComplete="off"
             disabled={!isDateSelected}
-            className={getInputClassName(dateCodeValid)}
+            className={getInputClassName(validationStates.dateCode)}
           />
         </div>
 
@@ -452,7 +475,7 @@ const Impact = () => {
             placeholder="e.g: 12.5 J, 30° unnotch"
             autoComplete="off"
             disabled={!isDateSelected}
-            className={getInputClassName(specificationValid)}
+            className={getInputClassName(validationStates.specification)}
           />
         </div>
 
@@ -469,7 +492,7 @@ const Impact = () => {
             placeholder="e.g: 12 or 12.5 or 12, 34"
             autoComplete="off"
             disabled={!isDateSelected}
-            className={getInputClassName(observedValueValid)}
+            className={getInputClassName(validationStates.observedValue)}
           />
         </div>
 
@@ -487,7 +510,7 @@ const Impact = () => {
             maxLength={80}
             autoComplete="off"
             disabled={!isDateSelected}
-            className={getInputClassName(remarksValid)}
+            className={getInputClassName(validationStates.remarks)}
           />
         </div>
 

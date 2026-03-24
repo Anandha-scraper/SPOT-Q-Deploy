@@ -1,10 +1,11 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Save, Loader2, FileText } from 'lucide-react';
 import { SubmitButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { InlineLoader } from '../../Components/Alert';
 import Sakthi from '../../Components/Sakthi';
 import { useInfoModal, InfoIcon, InfoCard } from '../../Components/Info';
+import { useQcProductionContext } from '../../../app.jsx';
 import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/QcProduction/QcProductionDetails.css';
 
@@ -160,84 +161,86 @@ const QcProductionDetails = () => {
     return `${year}-${month}-${day}`;
   };
 
-  const [formData, setFormData] = useState({
-    date: getCurrentDate(),
-    partName: '',
-    noOfMoulds: '',
-    cPercentMin: '',
-    cPercentMax: '',
-    siPercentMin: '',
-    siPercentMax: '',
-    mnPercentMin: '',
-    mnPercentMax: '',
-    pPercentMin: '',
-    pPercentMax: '',
-    sPercentMin: '',
-    sPercentMax: '',
-    mgPercentMin: '',
-    mgPercentMax: '',
-    cuPercentMin: '',
-    cuPercentMax: '',
-    crPercentMin: '',
-    crPercentMax: '',
-    nodularityMin: '',
-    nodularityMax: '',
-    graphiteTypeMin: '',
-    graphiteTypeMax: '',
-    pearliteFertiteMin: '',
-    pearliteFertiteMax: '',
-    hardnessBHNMin: '',
-    hardnessBHNMax: '',
-    tsMin: '',
-    tsMax: '',
-    ysMin: '',
-    ysMax: '',
-    elMin: '',
-    elMax: ''
-  });
+  // ====================== Context State ======================
+  const {
+    formData,
+    setFormData,
+    validationStates,
+    setValidation,
+    resetValidation,
+    submitErrorMessage,
+    setSubmitErrorMessage,
+    resetFormData
+  } = useQcProductionContext();
 
   const [submitLoading, setSubmitLoading] = useState(false);
-  const [submitErrorMessage, setSubmitErrorMessage] = useState('');
   const [showSakthi, setShowSakthi] = useState(false);
 
-  /* 
-   * VALIDATION STATES
-   * null = neutral/default (no border color)
-   * false = invalid (red border) - shown after submit when field is empty/invalid
-   */
-  const [dateValid, setDateValid] = useState(null);
-  const [partNameValid, setPartNameValid] = useState(null);
-  const [noOfMouldsValid, setNoOfMouldsValid] = useState(null);
-  const [cPercentMinValid, setCPercentMinValid] = useState(null);
-  const [cPercentMaxValid, setCPercentMaxValid] = useState(null);
-  const [siPercentMinValid, setSiPercentMinValid] = useState(null);
-  const [siPercentMaxValid, setSiPercentMaxValid] = useState(null);
-  const [mnPercentMinValid, setMnPercentMinValid] = useState(null);
-  const [mnPercentMaxValid, setMnPercentMaxValid] = useState(null);
-  const [pPercentMinValid, setPPercentMinValid] = useState(null);
-  const [pPercentMaxValid, setPPercentMaxValid] = useState(null);
-  const [sPercentMinValid, setSPercentMinValid] = useState(null);
-  const [sPercentMaxValid, setSPercentMaxValid] = useState(null);
-  const [mgPercentMinValid, setMgPercentMinValid] = useState(null);
-  const [mgPercentMaxValid, setMgPercentMaxValid] = useState(null);
-  const [cuPercentMinValid, setCuPercentMinValid] = useState(null);
-  const [cuPercentMaxValid, setCuPercentMaxValid] = useState(null);
-  const [crPercentMinValid, setCrPercentMinValid] = useState(null);
-  const [crPercentMaxValid, setCrPercentMaxValid] = useState(null);
-  const [nodularityMinValid, setNodularityMinValid] = useState(null);
-  const [nodularityMaxValid, setNodularityMaxValid] = useState(null);
-  const [graphiteTypeMinValid, setGraphiteTypeMinValid] = useState(null);
-  const [graphiteTypeMaxValid, setGraphiteTypeMaxValid] = useState(null);
-  const [pearliteFertiteMinValid, setPearliteFertiteMinValid] = useState(null);
-  const [pearliteFertiteMaxValid, setPearliteFertiteMaxValid] = useState(null);
-  const [hardnessBHNMinValid, setHardnessBHNMinValid] = useState(null);
-  const [hardnessBHNMaxValid, setHardnessBHNMaxValid] = useState(null);
-  const [tsMinValid, setTsMinValid] = useState(null);
-  const [tsMaxValid, setTsMaxValid] = useState(null);
-  const [ysMinValid, setYsMinValid] = useState(null);
-  const [ysMaxValid, setYsMaxValid] = useState(null);
-  const [elMinValid, setElMinValid] = useState(null);
-  const [elMaxValid, setElMaxValid] = useState(null);
+  // ====================== Autocomplete States ======================
+  const [partNames, setPartNames] = useState([]); // All part names from database
+  const [showPartDropdown, setShowPartDropdown] = useState(false); // Show/hide dropdown
+  const [filteredPartNames, setFilteredPartNames] = useState([]); // Filtered suggestions
+
+  // ====================== Field Mapping ======================
+  // Maps display field names from validationRanges to formData property names
+  const fieldMapping = {
+    'Date': 'date',
+    'Part Name': 'partName',
+    'No. of Moulds': 'noOfMoulds',
+    'C % (Carbon)': ['cPercentMin', 'cPercentMax'],
+    'Si % (Silicon)': ['siPercentMin', 'siPercentMax'],
+    'Mn % (Manganese)': ['mnPercentMin', 'mnPercentMax'],
+    'P % (Phosphorus)': ['pPercentMin', 'pPercentMax'],
+    'S % (Sulfur)': ['sPercentMin', 'sPercentMax'],
+    'Mg % (Magnesium)': ['mgPercentMin', 'mgPercentMax'],
+    'Cu % (Copper)': ['cuPercentMin', 'cuPercentMax'],
+    'Cr % (Chromium)': ['crPercentMin', 'crPercentMax'],
+    'Nodularity': ['nodularityMin', 'nodularityMax'],
+    'Graphite Type': ['graphiteTypeMin', 'graphiteTypeMax'],
+    'Pearlite Ferrite': ['pearliteFertiteMin', 'pearliteFertiteMax'],
+    'Hardness BHN': ['hardnessBHNMin', 'hardnessBHNMax'],
+    'TS (Tensile Strength)': ['tsMin', 'tsMax'],
+    'YS (Yield Strength)': ['ysMin', 'ysMax'],
+    'EL (Elongation)': ['elMin', 'elMax']
+  };
+
+  // ====================== Validation Setters ======================
+  // Maps formData property names to their validation state setters
+  const validationSetters = {
+    'date': (val) => setValidation('date', val),
+    'partName': (val) => setValidation('partName', val),
+    'noOfMoulds': (val) => setValidation('noOfMoulds', val),
+    'cPercentMin': (val) => setValidation('cPercentMin', val),
+    'cPercentMax': (val) => setValidation('cPercentMax', val),
+    'siPercentMin': (val) => setValidation('siPercentMin', val),
+    'siPercentMax': (val) => setValidation('siPercentMax', val),
+    'mnPercentMin': (val) => setValidation('mnPercentMin', val),
+    'mnPercentMax': (val) => setValidation('mnPercentMax', val),
+    'pPercentMin': (val) => setValidation('pPercentMin', val),
+    'pPercentMax': (val) => setValidation('pPercentMax', val),
+    'sPercentMin': (val) => setValidation('sPercentMin', val),
+    'sPercentMax': (val) => setValidation('sPercentMax', val),
+    'mgPercentMin': (val) => setValidation('mgPercentMin', val),
+    'mgPercentMax': (val) => setValidation('mgPercentMax', val),
+    'cuPercentMin': (val) => setValidation('cuPercentMin', val),
+    'cuPercentMax': (val) => setValidation('cuPercentMax', val),
+    'crPercentMin': (val) => setValidation('crPercentMin', val),
+    'crPercentMax': (val) => setValidation('crPercentMax', val),
+    'nodularityMin': (val) => setValidation('nodularityMin', val),
+    'nodularityMax': (val) => setValidation('nodularityMax', val),
+    'graphiteTypeMin': (val) => setValidation('graphiteTypeMin', val),
+    'graphiteTypeMax': (val) => setValidation('graphiteTypeMax', val),
+    'pearliteFertiteMin': (val) => setValidation('pearliteFertiteMin', val),
+    'pearliteFertiteMax': (val) => setValidation('pearliteFertiteMax', val),
+    'hardnessBHNMin': (val) => setValidation('hardnessBHNMin', val),
+    'hardnessBHNMax': (val) => setValidation('hardnessBHNMax', val),
+    'tsMin': (val) => setValidation('tsMin', val),
+    'tsMax': (val) => setValidation('tsMax', val),
+    'ysMin': (val) => setValidation('ysMin', val),
+    'ysMax': (val) => setValidation('ysMax', val),
+    'elMin': (val) => setValidation('elMin', val),
+    'elMax': (val) => setValidation('elMax', val)
+  };
 
   // Refs for navigation and auto-focus on first error
   const submitButtonRef = useRef(null);
@@ -258,6 +261,151 @@ const QcProductionDetails = () => {
     if (!value || value.trim() === '') return false;
     return !isNaN(parseFloat(value)) && isFinite(value);
   };
+
+  // ====================== Dynamic Validation Function ======================
+  /**
+   * Validates a single field or range field based on its validation rule
+   * @param {Object} rule - Validation rule from validationRanges
+   * @param {string|Array} mappedFields - Single field name or array of [minField, maxField]
+   * @param {Object} formData - Current form data
+   * @returns {Object} { isValid: boolean, message: string }
+   */
+  const validateField = (rule, mappedFields, formData) => {
+    // Handle range fields (arrays)
+    if (Array.isArray(mappedFields)) {
+      const [minField, maxField] = mappedFields;
+      const minValue = formData[minField];
+      const maxValue = formData[maxField];
+
+      // For range fields, check if both values exist when required
+      if (rule.required) {
+        if (!minValue || !maxValue) {
+          return { isValid: false, message: `${rule.field} is required` };
+        }
+      }
+
+      // Validate range values if they exist
+      if (minValue && maxValue) {
+        const min = parseFloat(minValue);
+        const max = parseFloat(maxValue);
+
+        if (isNaN(min) || isNaN(max)) {
+          return { isValid: false, message: `${rule.field} must contain valid numbers` };
+        }
+
+        // Allow max to be 0 (special case - means single value)
+        if (max !== 0 && min >= max) {
+          return { isValid: false, message: `${rule.field} minimum must be less than maximum` };
+        }
+
+        // Check min/max constraints from rule
+        if (rule.min !== undefined && (min < rule.min || max < rule.min)) {
+          return { isValid: false, message: `${rule.field} values must be at least ${rule.min}` };
+        }
+        if (rule.max !== undefined && (min > rule.max || max > rule.max)) {
+          return { isValid: false, message: `${rule.field} values must be no more than ${rule.max}` };
+        }
+      }
+
+      return { isValid: true };
+    }
+
+    // Handle single fields
+    const fieldName = mappedFields;
+    const value = formData[fieldName];
+
+    // Check required fields
+    if (rule.required) {
+      if (!value || (typeof value === 'string' && value.trim() === '')) {
+        return { isValid: false, message: `${rule.field} is required` };
+      }
+    }
+
+    // If field is empty and not required, it's valid
+    if (!value || (typeof value === 'string' && value.trim() === '')) {
+      return { isValid: true };
+    }
+
+    // Type-specific validation
+    switch (rule.type) {
+      case 'Number':
+      case 'Integer':
+        // Enhanced number validation
+        const stringValue = String(value).trim();
+
+        // Check for invalid characters
+        const invalidNumberPattern = /[eE+]|\..*\.|--|\+\+/;
+        if (invalidNumberPattern.test(stringValue)) {
+          return { isValid: false, message: `${rule.field} must be a valid number` };
+        }
+
+        if (/[eE.+-]$/.test(stringValue)) {
+          return { isValid: false, message: `${rule.field} must be a valid number` };
+        }
+
+        const num = parseFloat(value);
+        if (isNaN(num) || !isFinite(num)) {
+          return { isValid: false, message: `${rule.field} must be a valid number` };
+        }
+
+        // Check min/max constraints
+        if (rule.min !== undefined && num < rule.min) {
+          return { isValid: false, message: `${rule.field} must be at least ${rule.min}` };
+        }
+        if (rule.max !== undefined && num > rule.max) {
+          return { isValid: false, message: `${rule.field} must be no more than ${rule.max}` };
+        }
+
+        // For Integer type, check if it's actually an integer
+        if (rule.type === 'Integer' && !Number.isInteger(num)) {
+          return { isValid: false, message: `${rule.field} must be a whole number` };
+        }
+        break;
+
+      case 'Text':
+        const textValue = String(value).trim();
+        if (textValue === '') {
+          return rule.required ? { isValid: false, message: `${rule.field} is required` } : { isValid: true };
+        }
+        break;
+
+      case 'Date':
+        // Basic date validation
+        if (value && typeof value === 'string' && value.trim() !== '') {
+          const dateValue = new Date(value);
+          if (isNaN(dateValue.getTime())) {
+            return { isValid: false, message: `${rule.field} must be a valid date` };
+          }
+        }
+        break;
+
+      default:
+        // For any other types, just check if it's not empty when required
+        break;
+    }
+
+    return { isValid: true };
+  };
+
+  // ====================== Fetch Part Names from Database ======================
+  useEffect(() => {
+    const fetchPartNames = async () => {
+      try {
+        const response = await fetch(`${API_ENDPOINTS.qcReports}/part-names`, {
+          method: 'GET',
+          credentials: 'include'
+        });
+        const data = await response.json();
+        if (data.success && data.partNames) {
+          setPartNames(data.partNames);
+        }
+      } catch (error) {
+        console.error('Error fetching part names:', error);
+      }
+    };
+
+    fetchPartNames();
+  }, []);
 
   /*
    * Handle input change
@@ -305,95 +453,47 @@ const QcProductionDetails = () => {
       }
     }
 
+    // Handle Part Name - uppercase letters, numbers and spaces only
+    if (name === 'partName') {
+      // Filter to allow only letters, numbers, and spaces, then convert to uppercase
+      filteredValue = value.replace(/[^a-zA-Z0-9 ]/g, '').toUpperCase();
+
+      // Filter part names for autocomplete dropdown
+      if (filteredValue.trim() === '') {
+        setFilteredPartNames([]);
+        setShowPartDropdown(false);
+      } else {
+        const filtered = partNames.filter(part =>
+          part.toUpperCase().includes(filteredValue.toUpperCase())
+        );
+        setFilteredPartNames(filtered);
+        setShowPartDropdown(filtered.length > 0);
+      }
+    }
+
     // Reset validation to neutral when user starts typing
     // For min/max pairs, clear both when either is edited
-    switch (name) {
-      case 'date':
-        setDateValid(null);
-        break;
-      case 'partName':
-        setPartNameValid(null);
-        break;
-      case 'noOfMoulds':
-        setNoOfMouldsValid(null);
-        break;
-      case 'cPercentMin':
-      case 'cPercentMax':
-        setCPercentMinValid(null);
-        setCPercentMaxValid(null);
-        break;
-      case 'siPercentMin':
-      case 'siPercentMax':
-        setSiPercentMinValid(null);
-        setSiPercentMaxValid(null);
-        break;
-      case 'mnPercentMin':
-      case 'mnPercentMax':
-        setMnPercentMinValid(null);
-        setMnPercentMaxValid(null);
-        break;
-      case 'pPercentMin':
-      case 'pPercentMax':
-        setPPercentMinValid(null);
-        setPPercentMaxValid(null);
-        break;
-      case 'sPercentMin':
-      case 'sPercentMax':
-        setSPercentMinValid(null);
-        setSPercentMaxValid(null);
-        break;
-      case 'mgPercentMin':
-      case 'mgPercentMax':
-        setMgPercentMinValid(null);
-        setMgPercentMaxValid(null);
-        break;
-      case 'cuPercentMin':
-      case 'cuPercentMax':
-        setCuPercentMinValid(null);
-        setCuPercentMaxValid(null);
-        break;
-      case 'crPercentMin':
-      case 'crPercentMax':
-        setCrPercentMinValid(null);
-        setCrPercentMaxValid(null);
-        break;
-      case 'nodularityMin':
-      case 'nodularityMax':
-        setNodularityMinValid(null);
-        setNodularityMaxValid(null);
-        break;
-      case 'graphiteTypeMin':
-      case 'graphiteTypeMax':
-        setGraphiteTypeMinValid(null);
-        setGraphiteTypeMaxValid(null);
-        break;
-      case 'pearliteFertiteMin':
-      case 'pearliteFertiteMax':
-        setPearliteFertiteMinValid(null);
-        setPearliteFertiteMaxValid(null);
-        break;
-      case 'hardnessBHNMin':
-      case 'hardnessBHNMax':
-        setHardnessBHNMinValid(null);
-        setHardnessBHNMaxValid(null);
-        break;
-      case 'tsMin':
-      case 'tsMax':
-        setTsMinValid(null);
-        setTsMaxValid(null);
-        break;
-      case 'ysMin':
-      case 'ysMax':
-        setYsMinValid(null);
-        setYsMaxValid(null);
-        break;
-      case 'elMin':
-      case 'elMax':
-        setElMinValid(null);
-        setElMaxValid(null);
-        break;
-      default:
-        break;
+    const minMaxPairs = {
+      'cPercentMin': 'cPercentMax', 'cPercentMax': 'cPercentMin',
+      'siPercentMin': 'siPercentMax', 'siPercentMax': 'siPercentMin',
+      'mnPercentMin': 'mnPercentMax', 'mnPercentMax': 'mnPercentMin',
+      'pPercentMin': 'pPercentMax', 'pPercentMax': 'pPercentMin',
+      'sPercentMin': 'sPercentMax', 'sPercentMax': 'sPercentMin',
+      'mgPercentMin': 'mgPercentMax', 'mgPercentMax': 'mgPercentMin',
+      'cuPercentMin': 'cuPercentMax', 'cuPercentMax': 'cuPercentMin',
+      'crPercentMin': 'crPercentMax', 'crPercentMax': 'crPercentMin',
+      'nodularityMin': 'nodularityMax', 'nodularityMax': 'nodularityMin',
+      'graphiteTypeMin': 'graphiteTypeMax', 'graphiteTypeMax': 'graphiteTypeMin',
+      'pearliteFertiteMin': 'pearliteFertiteMax', 'pearliteFertiteMax': 'pearliteFertiteMin',
+      'hardnessBHNMin': 'hardnessBHNMax', 'hardnessBHNMax': 'hardnessBHNMin',
+      'tsMin': 'tsMax', 'tsMax': 'tsMin',
+      'ysMin': 'ysMax', 'ysMax': 'ysMin',
+      'elMin': 'elMax', 'elMax': 'elMin'
+    };
+
+    setValidation(name, null);
+    if (minMaxPairs[name]) {
+      setValidation(minMaxPairs[name], null);
     }
 
     setFormData(prev => ({
@@ -460,6 +560,28 @@ const QcProductionDetails = () => {
       }
     }
   };
+
+  // ====================== Autocomplete Handlers ======================
+  const handlePartNameSelect = (selectedPart) => {
+    setFormData(prev => ({
+      ...prev,
+      partName: selectedPart
+    }));
+    setShowPartDropdown(false);
+    setFilteredPartNames([]);
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showPartDropdown && !event.target.closest('.part-name-autocomplete')) {
+        setShowPartDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showPartDropdown]);
 
   const handleBlur = (e) => {
     const { name, value } = e.target;
@@ -553,428 +675,69 @@ const QcProductionDetails = () => {
    * ============================================================
    */
   const handleSubmit = async () => {
-    // Check all required fields and set validation states
+    // ====================== Dynamic Validation Loop ======================
+    // Uses validationRanges, fieldMapping, and validationSetters for clean validation
     let hasErrors = false;
-    // AUTO-NAVIGATION: Track the first field that fails validation (see comment block above)
     let firstErrorField = null;
 
-    if (!formData.date || formData.date.trim() === '') {
-      setDateValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'date';
-    }
-    if (!formData.partName || formData.partName.trim() === '') {
-      setPartNameValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'partName';
-    }
-    if (!formData.noOfMoulds || isNaN(formData.noOfMoulds) || parseFloat(formData.noOfMoulds) < 1) {
-      setNoOfMouldsValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'noOfMoulds';
-    }
+    // Loop through each validation rule
+    for (const rule of validationRanges) {
+      const mappedFields = fieldMapping[rule.field];
 
-    // Validate C % min/max
-    if (!formData.cPercentMin || isNaN(formData.cPercentMin)) {
-      setCPercentMinValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'cPercentMin';
-    }
-    if (!formData.cPercentMax || isNaN(formData.cPercentMax)) {
-      setCPercentMaxValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'cPercentMax';
-    }
-    if (formData.cPercentMin && formData.cPercentMax && !isNaN(formData.cPercentMin) && !isNaN(formData.cPercentMax)) {
-      const min = parseFloat(formData.cPercentMin);
-      const max = parseFloat(formData.cPercentMax);
-      if (max !== 0 && min >= max) {
-        setCPercentMinValid(false);
-        setCPercentMaxValid(false);
-        hasErrors = true;
-        if (!firstErrorField) firstErrorField = 'cPercentMin';
+      // Skip if no field mapping found
+      if (!mappedFields) continue;
+
+      // Validate using dynamic system
+      const result = validateField(rule, mappedFields, formData);
+
+      // Handle setter for range fields vs single fields
+      if (Array.isArray(mappedFields)) {
+        // For range fields, set both min and max validation states
+        const [minField, maxField] = mappedFields;
+        const minSetter = validationSetters[minField];
+        const maxSetter = validationSetters[maxField];
+
+        if (!result.isValid) {
+          if (minSetter) minSetter(false);
+          if (maxSetter) maxSetter(false);
+          hasErrors = true;
+          if (!firstErrorField) firstErrorField = minField;
+          if (result.message) setSubmitErrorMessage(result.message);
+        } else {
+          if (minSetter) minSetter(null);
+          if (maxSetter) maxSetter(null);
+        }
+      } else {
+        // For single fields
+        const setter = validationSetters[mappedFields];
+        if (setter) {
+          if (!result.isValid) {
+            setter(false);
+            hasErrors = true;
+            if (!firstErrorField) firstErrorField = mappedFields;
+            if (result.message) setSubmitErrorMessage(result.message);
+          } else {
+            setter(null);
+          }
+        }
       }
     }
 
-    // Validate Si % min/max
-    if (!formData.siPercentMin || isNaN(formData.siPercentMin)) {
-      setSiPercentMinValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'siPercentMin';
-    }
-    if (!formData.siPercentMax || isNaN(formData.siPercentMax)) {
-      setSiPercentMaxValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'siPercentMax';
-    }
-    if (formData.siPercentMin && formData.siPercentMax && !isNaN(formData.siPercentMin) && !isNaN(formData.siPercentMax)) {
-      const min = parseFloat(formData.siPercentMin);
-      const max = parseFloat(formData.siPercentMax);
-      if (max !== 0 && min >= max) {
-        setSiPercentMinValid(false);
-        setSiPercentMaxValid(false);
-        hasErrors = true;
-        if (!firstErrorField) firstErrorField = 'siPercentMin';
-      }
-    }
-
-    // Validate Mn % min/max
-    if (!formData.mnPercentMin || isNaN(formData.mnPercentMin)) {
-      setMnPercentMinValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'mnPercentMin';
-    }
-    if (!formData.mnPercentMax || isNaN(formData.mnPercentMax)) {
-      setMnPercentMaxValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'mnPercentMax';
-    }
-    if (formData.mnPercentMin && formData.mnPercentMax && !isNaN(formData.mnPercentMin) && !isNaN(formData.mnPercentMax)) {
-      const min = parseFloat(formData.mnPercentMin);
-      const max = parseFloat(formData.mnPercentMax);
-      if (max !== 0 && min >= max) {
-        setMnPercentMinValid(false);
-        setMnPercentMaxValid(false);
-        hasErrors = true;
-        if (!firstErrorField) firstErrorField = 'mnPercentMin';
-      }
-    }
-
-    // Validate P % min/max
-    if (!formData.pPercentMin || isNaN(formData.pPercentMin)) {
-      setPPercentMinValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'pPercentMin';
-    }
-    if (!formData.pPercentMax || isNaN(formData.pPercentMax)) {
-      setPPercentMaxValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'pPercentMax';
-    }
-    if (formData.pPercentMin && formData.pPercentMax && !isNaN(formData.pPercentMin) && !isNaN(formData.pPercentMax)) {
-      const min = parseFloat(formData.pPercentMin);
-      const max = parseFloat(formData.pPercentMax);
-      if (max !== 0 && min >= max) {
-        setPPercentMinValid(false);
-        setPPercentMaxValid(false);
-        hasErrors = true;
-        if (!firstErrorField) firstErrorField = 'pPercentMin';
-      }
-    }
-
-    // Validate S % min/max
-    if (!formData.sPercentMin || isNaN(formData.sPercentMin)) {
-      setSPercentMinValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'sPercentMin';
-    }
-    if (!formData.sPercentMax || isNaN(formData.sPercentMax)) {
-      setSPercentMaxValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'sPercentMax';
-    }
-    if (formData.sPercentMin && formData.sPercentMax && !isNaN(formData.sPercentMin) && !isNaN(formData.sPercentMax)) {
-      const min = parseFloat(formData.sPercentMin);
-      const max = parseFloat(formData.sPercentMax);
-      if (max !== 0 && min >= max) {
-        setSPercentMinValid(false);
-        setSPercentMaxValid(false);
-        hasErrors = true;
-        if (!firstErrorField) firstErrorField = 'sPercentMin';
-      }
-    }
-
-    // Validate Mg % min/max
-    if (!formData.mgPercentMin || isNaN(formData.mgPercentMin)) {
-      setMgPercentMinValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'mgPercentMin';
-    }
-    if (!formData.mgPercentMax || isNaN(formData.mgPercentMax)) {
-      setMgPercentMaxValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'mgPercentMax';
-    }
-    if (formData.mgPercentMin && formData.mgPercentMax && !isNaN(formData.mgPercentMin) && !isNaN(formData.mgPercentMax)) {
-      const min = parseFloat(formData.mgPercentMin);
-      const max = parseFloat(formData.mgPercentMax);
-      if (max !== 0 && min >= max) {
-        setMgPercentMinValid(false);
-        setMgPercentMaxValid(false);
-        hasErrors = true;
-        if (!firstErrorField) firstErrorField = 'mgPercentMin';
-      }
-    }
-
-    // Validate Cu % min/max
-    if (!formData.cuPercentMin || isNaN(formData.cuPercentMin)) {
-      setCuPercentMinValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'cuPercentMin';
-    }
-    if (!formData.cuPercentMax || isNaN(formData.cuPercentMax)) {
-      setCuPercentMaxValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'cuPercentMax';
-    }
-    if (formData.cuPercentMin && formData.cuPercentMax && !isNaN(formData.cuPercentMin) && !isNaN(formData.cuPercentMax)) {
-      const min = parseFloat(formData.cuPercentMin);
-      const max = parseFloat(formData.cuPercentMax);
-      if (max !== 0 && min >= max) {
-        setCuPercentMinValid(false);
-        setCuPercentMaxValid(false);
-        hasErrors = true;
-        if (!firstErrorField) firstErrorField = 'cuPercentMin';
-      }
-    }
-
-    // Validate Cr % min/max
-    if (!formData.crPercentMin || isNaN(formData.crPercentMin)) {
-      setCrPercentMinValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'crPercentMin';
-    }
-    if (!formData.crPercentMax || isNaN(formData.crPercentMax)) {
-      setCrPercentMaxValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'crPercentMax';
-    }
-    if (formData.crPercentMin && formData.crPercentMax && !isNaN(formData.crPercentMin) && !isNaN(formData.crPercentMax)) {
-      const min = parseFloat(formData.crPercentMin);
-      const max = parseFloat(formData.crPercentMax);
-      if (max !== 0 && min >= max) {
-        setCrPercentMinValid(false);
-        setCrPercentMaxValid(false);
-        hasErrors = true;
-        if (!firstErrorField) firstErrorField = 'crPercentMin';
-      }
-    }
-
-    // Validate Nodularity min/max
-    if (!formData.nodularityMin || isNaN(formData.nodularityMin)) {
-      setNodularityMinValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'nodularityMin';
-    }
-    if (!formData.nodularityMax || isNaN(formData.nodularityMax)) {
-      setNodularityMaxValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'nodularityMax';
-    }
-    if (formData.nodularityMin && formData.nodularityMax && !isNaN(formData.nodularityMin) && !isNaN(formData.nodularityMax)) {
-      const min = parseFloat(formData.nodularityMin);
-      const max = parseFloat(formData.nodularityMax);
-      if (max !== 0 && min >= max) {
-        setNodularityMinValid(false);
-        setNodularityMaxValid(false);
-        hasErrors = true;
-        if (!firstErrorField) firstErrorField = 'nodularityMin';
-      }
-    }
-
-    // Validate Graphite Type min/max
-    if (!formData.graphiteTypeMin || isNaN(formData.graphiteTypeMin)) {
-      setGraphiteTypeMinValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'graphiteTypeMin';
-    }
-    if (!formData.graphiteTypeMax || isNaN(formData.graphiteTypeMax)) {
-      setGraphiteTypeMaxValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'graphiteTypeMax';
-    }
-    if (formData.graphiteTypeMin && formData.graphiteTypeMax && !isNaN(formData.graphiteTypeMin) && !isNaN(formData.graphiteTypeMax)) {
-      const min = parseFloat(formData.graphiteTypeMin);
-      const max = parseFloat(formData.graphiteTypeMax);
-      if (max !== 0 && min >= max) {
-        setGraphiteTypeMinValid(false);
-        setGraphiteTypeMaxValid(false);
-        hasErrors = true;
-        if (!firstErrorField) firstErrorField = 'graphiteTypeMin';
-      }
-    }
-
-    // Validate Pearlite Ferrite min/max
-    if (!formData.pearliteFertiteMin || isNaN(formData.pearliteFertiteMin)) {
-      setPearliteFertiteMinValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'pearliteFertiteMin';
-    }
-    if (!formData.pearliteFertiteMax || isNaN(formData.pearliteFertiteMax)) {
-      setPearliteFertiteMaxValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'pearliteFertiteMax';
-    }
-    if (formData.pearliteFertiteMin && formData.pearliteFertiteMax && !isNaN(formData.pearliteFertiteMin) && !isNaN(formData.pearliteFertiteMax)) {
-      const min = parseFloat(formData.pearliteFertiteMin);
-      const max = parseFloat(formData.pearliteFertiteMax);
-      if (max !== 0 && min >= max) {
-        setPearliteFertiteMinValid(false);
-        setPearliteFertiteMaxValid(false);
-        hasErrors = true;
-        if (!firstErrorField) firstErrorField = 'pearliteFertiteMin';
-      }
-    }
-
-    // Validate Hardness BHN min/max
-    if (!formData.hardnessBHNMin || isNaN(formData.hardnessBHNMin)) {
-      setHardnessBHNMinValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'hardnessBHNMin';
-    }
-    if (!formData.hardnessBHNMax || isNaN(formData.hardnessBHNMax)) {
-      setHardnessBHNMaxValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'hardnessBHNMax';
-    }
-    if (formData.hardnessBHNMin && formData.hardnessBHNMax && !isNaN(formData.hardnessBHNMin) && !isNaN(formData.hardnessBHNMax)) {
-      const min = parseFloat(formData.hardnessBHNMin);
-      const max = parseFloat(formData.hardnessBHNMax);
-      if (max !== 0 && min >= max) {
-        setHardnessBHNMinValid(false);
-        setHardnessBHNMaxValid(false);
-        hasErrors = true;
-        if (!firstErrorField) firstErrorField = 'hardnessBHNMin';
-      }
-    }
-
-    // Validate TS min/max
-    if (!formData.tsMin || isNaN(formData.tsMin)) {
-      setTsMinValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'tsMin';
-    }
-    if (!formData.tsMax || isNaN(formData.tsMax)) {
-      setTsMaxValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'tsMax';
-    }
-    if (formData.tsMin && formData.tsMax && !isNaN(formData.tsMin) && !isNaN(formData.tsMax)) {
-      const min = parseFloat(formData.tsMin);
-      const max = parseFloat(formData.tsMax);
-      if (max !== 0 && min >= max) {
-        setTsMinValid(false);
-        setTsMaxValid(false);
-        hasErrors = true;
-        if (!firstErrorField) firstErrorField = 'tsMin';
-      }
-    }
-
-    // Validate YS min/max
-    if (!formData.ysMin || isNaN(formData.ysMin)) {
-      setYsMinValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'ysMin';
-    }
-    if (!formData.ysMax || isNaN(formData.ysMax)) {
-      setYsMaxValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'ysMax';
-    }
-    if (formData.ysMin && formData.ysMax && !isNaN(formData.ysMin) && !isNaN(formData.ysMax)) {
-      const min = parseFloat(formData.ysMin);
-      const max = parseFloat(formData.ysMax);
-      if (max !== 0 && min >= max) {
-        setYsMinValid(false);
-        setYsMaxValid(false);
-        hasErrors = true;
-        if (!firstErrorField) firstErrorField = 'ysMin';
-      }
-    }
-
-    // Validate EL min/max
-    if (!formData.elMin || isNaN(formData.elMin)) {
-      setElMinValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'elMin';
-    }
-    if (!formData.elMax || isNaN(formData.elMax)) {
-      setElMaxValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'elMax';
-    }
-    if (formData.elMin && formData.elMax && !isNaN(formData.elMin) && !isNaN(formData.elMax)) {
-      const min = parseFloat(formData.elMin);
-      const max = parseFloat(formData.elMax);
-      if (max !== 0 && min >= max) {
-        setElMinValid(false);
-        setElMaxValid(false);
-        hasErrors = true;
-        if (!firstErrorField) firstErrorField = 'elMin';
-      }
-    }
-
-    // Validate from/to pairs - ensure from <= to when to > 0
-    const validateRange = (fromVal, toVal, fromSetter, toSetter, label) => {
-      const from = parseFloat(fromVal);
-      const to = parseFloat(toVal);
-      if (!isNaN(from) && !isNaN(to) && to > 0 && from > to) {
-        fromSetter(false);
-        toSetter(false);
-        hasErrors = true;
-      }
-    };
-
-    validateRange(formData.cPercentFrom, formData.cPercentTo, setCPercentFromValid, setCPercentToValid, 'C %');
-    validateRange(formData.siPercentFrom, formData.siPercentTo, setSiPercentFromValid, setSiPercentToValid, 'Si %');
-    validateRange(formData.mnPercentFrom, formData.mnPercentTo, setMnPercentFromValid, setMnPercentToValid, 'Mn %');
-    validateRange(formData.pPercentFrom, formData.pPercentTo, setPPercentFromValid, setPPercentToValid, 'P %');
-    validateRange(formData.sPercentFrom, formData.sPercentTo, setSPercentFromValid, setSPercentToValid, 'S %');
-    validateRange(formData.mgPercentFrom, formData.mgPercentTo, setMgPercentFromValid, setMgPercentToValid, 'Mg %');
-    validateRange(formData.cuPercentFrom, formData.cuPercentTo, setCuPercentFromValid, setCuPercentToValid, 'Cu %');
-    validateRange(formData.crPercentFrom, formData.crPercentTo, setCrPercentFromValid, setCrPercentToValid, 'Cr %');
-    validateRange(formData.graphiteTypeFrom, formData.graphiteTypeTo, setGraphiteTypeFromValid, setGraphiteTypeToValid, 'Graphite Type');
-    validateRange(formData.hardnessBHNFrom, formData.hardnessBHNTo, setHardnessBHNFromValid, setHardnessBHNToValid, 'Hardness BHN');
-
+    // Handle error state
     if (hasErrors) {
-      setSubmitErrorMessage('Enter data in correct Format');
-      
+      if (!submitErrorMessage) {
+        setSubmitErrorMessage('Enter data in correct Format');
+      }
+
       // AUTO-NAVIGATION: Focus on the first field that failed validation
-      // This happens immediately (synchronously) because firstErrorField 
-      // is a plain variable, not state. Works on FIRST submit click.
       if (firstErrorField) {
         inputRefs.current[firstErrorField]?.focus();
       }
-      
+
       return;
     }
 
     setSubmitErrorMessage('');
-
-    // Clear all validation states on successful validation
-    setDateValid(null);
-    setPartNameValid(null);
-    setNoOfMouldsValid(null);
-    setCPercentMinValid(null);
-    setCPercentMaxValid(null);
-    setSiPercentMinValid(null);
-    setSiPercentMaxValid(null);
-    setMnPercentMinValid(null);
-    setMnPercentMaxValid(null);
-    setPPercentMinValid(null);
-    setPPercentMaxValid(null);
-    setSPercentMinValid(null);
-    setSPercentMaxValid(null);
-    setMgPercentMinValid(null);
-    setMgPercentMaxValid(null);
-    setCuPercentMinValid(null);
-    setCuPercentMaxValid(null);
-    setCrPercentMinValid(null);
-    setCrPercentMaxValid(null);
-    setNodularityMinValid(null);
-    setNodularityMaxValid(null);
-    setGraphiteTypeMinValid(null);
-    setGraphiteTypeMaxValid(null);
-    setPearliteFertiteMinValid(null);
-    setPearliteFertiteMaxValid(null);
-    setHardnessBHNMinValid(null);
-    setHardnessBHNMaxValid(null);
-    setTsMinValid(null);
-    setTsMaxValid(null);
-    setYsMinValid(null);
-    setYsMaxValid(null);
-    setElMinValid(null);
-    setElMaxValid(null);
 
     // Helper: save entry locally if backend fails
     const saveLocalEntry = () => {
@@ -1039,64 +802,10 @@ const QcProductionDetails = () => {
       if (data.success) {
         // Show Sakthi loader
         setShowSakthi(true);
-        
-        // Reset form and validation states
-        setFormData({
-          date: getCurrentDate(),
-          partName: '',
-          noOfMoulds: '',
-          cPercentMin: '', cPercentMax: '',
-          siPercentMin: '', siPercentMax: '',
-          mnPercentMin: '', mnPercentMax: '',
-          pPercentMin: '', pPercentMax: '',
-          sPercentMin: '', sPercentMax: '',
-          mgPercentMin: '', mgPercentMax: '',
-          cuPercentMin: '', cuPercentMax: '',
-          crPercentMin: '', crPercentMax: '',
-          nodularityMin: '', nodularityMax: '',
-          graphiteTypeMin: '', graphiteTypeMax: '',
-          pearliteFertiteMin: '', pearliteFertiteMax: '',
-          hardnessBHNMin: '', hardnessBHNMax: '',
-          tsMin: '', tsMax: '',
-          ysMin: '', ysMax: '',
-          elMin: '', elMax: ''
-        });
-        
-        // Reset all validation states
-        setDateValid(null);
-        setPartNameValid(null);
-        setNoOfMouldsValid(null);
-        setCPercentMinValid(null);
-        setCPercentMaxValid(null);
-        setSiPercentMinValid(null);
-        setSiPercentMaxValid(null);
-        setMnPercentMinValid(null);
-        setMnPercentMaxValid(null);
-        setPPercentMinValid(null);
-        setPPercentMaxValid(null);
-        setSPercentMinValid(null);
-        setSPercentMaxValid(null);
-        setMgPercentMinValid(null);
-        setMgPercentMaxValid(null);
-        setCuPercentMinValid(null);
-        setCuPercentMaxValid(null);
-        setCrPercentMinValid(null);
-        setCrPercentMaxValid(null);
-        setNodularityMinValid(null);
-        setNodularityMaxValid(null);
-        setGraphiteTypeMinValid(null);
-        setGraphiteTypeMaxValid(null);
-        setPearliteFertiteMinValid(null);
-        setPearliteFertiteMaxValid(null);
-        setHardnessBHNMinValid(null);
-        setHardnessBHNMaxValid(null);
-        setTsMinValid(null);
-        setTsMaxValid(null);
-        setYsMinValid(null);
-        setYsMaxValid(null);
-        setElMinValid(null);
-        setElMaxValid(null);
-        
+
+        // Reset form and validation states using context
+        resetFormData();
+
         // Focus first input after Sakthi animation completes
         setTimeout(() => {
           inputRefs.current.date?.focus();
@@ -1166,7 +875,7 @@ const QcProductionDetails = () => {
                 onKeyDown={handleKeyDown}
                 max={new Date().toISOString().split('T')[0]}
                 style={{
-                  border: dateValid === false ? '2px solid #ef4444' : '2px solid #cbd5e1',
+                  border: validationStates.date === false ? '2px solid #ef4444' : '2px solid #cbd5e1',
                   width: '100%',
                   padding: '0.625rem 0.875rem',
                   borderRadius: '8px',
@@ -1176,7 +885,7 @@ const QcProductionDetails = () => {
               />
             </div>
 
-            <div className="qcproduction-form-group">
+            <div className="qcproduction-form-group part-name-autocomplete" style={{ position: 'relative' }}>
               <label>Part Name</label>
               <input
                 ref={(el) => inputRefs.current.partName = el}
@@ -1185,9 +894,46 @@ const QcProductionDetails = () => {
                 value={formData.partName}
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
-                placeholder="e.g: Brake Disc"
-                className={getInputClassName(partNameValid)}
+                placeholder="e.g: BRAKE DISC 123"
+                className={getInputClassName(validationStates.partName)}
+                autoComplete="off"
               />
+              {showPartDropdown && filteredPartNames.length > 0 && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  right: 0,
+                  backgroundColor: '#fff',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '4px',
+                  maxHeight: '200px',
+                  overflowY: 'auto',
+                  zIndex: 1000,
+                  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                  marginTop: '2px'
+                }}>
+                  {filteredPartNames.map((part, index) => (
+                    <div
+                      key={index}
+                      onClick={() => handlePartNameSelect(part)}
+                      style={{
+                        padding: '0.625rem 0.875rem',
+                        cursor: 'pointer',
+                        borderBottom: index < filteredPartNames.length - 1 ? '1px solid #e2e8f0' : 'none',
+                        fontSize: '0.875rem',
+                        color: '#334155',
+                        backgroundColor: '#fff',
+                        transition: 'background-color 0.15s ease'
+                      }}
+                      onMouseEnter={(e) => e.target.style.backgroundColor = '#f1f5f9'}
+                      onMouseLeave={(e) => e.target.style.backgroundColor = '#fff'}
+                    >
+                      {part}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="qcproduction-form-group">
@@ -1201,7 +947,7 @@ const QcProductionDetails = () => {
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g: 5"
-                className={getInputClassName(noOfMouldsValid)}
+                className={getInputClassName(validationStates.noOfMoulds)}
               />
             </div>
 
@@ -1217,7 +963,7 @@ const QcProductionDetails = () => {
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
                   placeholder="Min"
-                  className={getInputClassName(cPercentMinValid)}
+                  className={getInputClassName(validationStates.cPercentMin)}
                   style={{ flex: 1, maxWidth: '100px' }}
                 />
                 <span style={{ color: '#64748b', fontWeight: '500' }}>-</span>
@@ -1230,7 +976,7 @@ const QcProductionDetails = () => {
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
                   placeholder="Max"
-                  className={getInputClassName(cPercentMaxValid)}
+                  className={getInputClassName(validationStates.cPercentMax)}
                   style={{ flex: 1, maxWidth: '100px' }}
                 />
               </div>
@@ -1248,7 +994,7 @@ const QcProductionDetails = () => {
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
                   placeholder="Min"
-                  className={getInputClassName(siPercentMinValid)}
+                  className={getInputClassName(validationStates.siPercentMin)}
                   style={{ flex: 1, maxWidth: '100px' }}
                 />
                 <span style={{ color: '#64748b', fontWeight: '500' }}>-</span>
@@ -1261,7 +1007,7 @@ const QcProductionDetails = () => {
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
                   placeholder="Max"
-                  className={getInputClassName(siPercentMaxValid)}
+                  className={getInputClassName(validationStates.siPercentMax)}
                   style={{ flex: 1, maxWidth: '100px' }}
                 />
               </div>
@@ -1279,7 +1025,7 @@ const QcProductionDetails = () => {
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
                   placeholder="Min"
-                  className={getInputClassName(mnPercentMinValid)}
+                  className={getInputClassName(validationStates.mnPercentMin)}
                   style={{ flex: 1, maxWidth: '100px' }}
                 />
                 <span style={{ color: '#64748b', fontWeight: '500' }}>-</span>
@@ -1292,7 +1038,7 @@ const QcProductionDetails = () => {
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
                   placeholder="Max"
-                  className={getInputClassName(mnPercentMaxValid)}
+                  className={getInputClassName(validationStates.mnPercentMax)}
                   style={{ flex: 1, maxWidth: '100px' }}
                 />
               </div>
@@ -1310,7 +1056,7 @@ const QcProductionDetails = () => {
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
                   placeholder="Min"
-                  className={getInputClassName(pPercentMinValid)}
+                  className={getInputClassName(validationStates.pPercentMin)}
                   style={{ flex: 1, maxWidth: '100px' }}
                 />
                 <span style={{ color: '#64748b', fontWeight: '500' }}>-</span>
@@ -1323,7 +1069,7 @@ const QcProductionDetails = () => {
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
                   placeholder="Max"
-                  className={getInputClassName(pPercentMaxValid)}
+                  className={getInputClassName(validationStates.pPercentMax)}
                   style={{ flex: 1, maxWidth: '100px' }}
                 />
               </div>
@@ -1341,7 +1087,7 @@ const QcProductionDetails = () => {
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
                   placeholder="Min"
-                  className={getInputClassName(sPercentMinValid)}
+                  className={getInputClassName(validationStates.sPercentMin)}
                   style={{ flex: 1, maxWidth: '100px' }}
                 />
                 <span style={{ color: '#64748b', fontWeight: '500' }}>-</span>
@@ -1354,7 +1100,7 @@ const QcProductionDetails = () => {
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
                   placeholder="Max"
-                  className={getInputClassName(sPercentMaxValid)}
+                  className={getInputClassName(validationStates.sPercentMax)}
                   style={{ flex: 1, maxWidth: '100px' }}
                 />
               </div>
@@ -1372,7 +1118,7 @@ const QcProductionDetails = () => {
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
                   placeholder="Min"
-                  className={getInputClassName(mgPercentMinValid)}
+                  className={getInputClassName(validationStates.mgPercentMin)}
                   style={{ flex: 1, maxWidth: '100px' }}
                 />
                 <span style={{ color: '#64748b', fontWeight: '500' }}>-</span>
@@ -1385,7 +1131,7 @@ const QcProductionDetails = () => {
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
                   placeholder="Max"
-                  className={getInputClassName(mgPercentMaxValid)}
+                  className={getInputClassName(validationStates.mgPercentMax)}
                   style={{ flex: 1, maxWidth: '100px' }}
                 />
               </div>
@@ -1403,7 +1149,7 @@ const QcProductionDetails = () => {
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
                   placeholder="Min"
-                  className={getInputClassName(cuPercentMinValid)}
+                  className={getInputClassName(validationStates.cuPercentMin)}
                   style={{ flex: 1, maxWidth: '100px' }}
                 />
                 <span style={{ color: '#64748b', fontWeight: '500' }}>-</span>
@@ -1416,7 +1162,7 @@ const QcProductionDetails = () => {
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
                   placeholder="Max"
-                  className={getInputClassName(cuPercentMaxValid)}
+                  className={getInputClassName(validationStates.cuPercentMax)}
                   style={{ flex: 1, maxWidth: '100px' }}
                 />
               </div>
@@ -1434,7 +1180,7 @@ const QcProductionDetails = () => {
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
                   placeholder="Min"
-                  className={getInputClassName(crPercentMinValid)}
+                  className={getInputClassName(validationStates.crPercentMin)}
                   style={{ flex: 1, maxWidth: '100px' }}
                 />
                 <span style={{ color: '#64748b', fontWeight: '500' }}>-</span>
@@ -1447,7 +1193,7 @@ const QcProductionDetails = () => {
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
                   placeholder="Max"
-                  className={getInputClassName(crPercentMaxValid)}
+                  className={getInputClassName(validationStates.crPercentMax)}
                   style={{ flex: 1, maxWidth: '100px' }}
                 />
               </div>
@@ -1465,7 +1211,7 @@ const QcProductionDetails = () => {
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
                   placeholder="Min"
-                  className={getInputClassName(nodularityMinValid)}
+                  className={getInputClassName(validationStates.nodularityMin)}
                   style={{ flex: 1, maxWidth: '100px' }}
                 />
                 <span style={{ color: '#64748b', fontWeight: '500' }}>-</span>
@@ -1478,7 +1224,7 @@ const QcProductionDetails = () => {
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
                   placeholder="Max"
-                  className={getInputClassName(nodularityMaxValid)}
+                  className={getInputClassName(validationStates.nodularityMax)}
                   style={{ flex: 1, maxWidth: '100px' }}
                 />
               </div>
@@ -1496,7 +1242,7 @@ const QcProductionDetails = () => {
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
                   placeholder="Min"
-                  className={getInputClassName(graphiteTypeMinValid)}
+                  className={getInputClassName(validationStates.graphiteTypeMin)}
                   style={{ flex: 1, maxWidth: '100px' }}
                 />
                 <span style={{ color: '#64748b', fontWeight: '500' }}>-</span>
@@ -1509,7 +1255,7 @@ const QcProductionDetails = () => {
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
                   placeholder="Max"
-                  className={getInputClassName(graphiteTypeMaxValid)}
+                  className={getInputClassName(validationStates.graphiteTypeMax)}
                   style={{ flex: 1, maxWidth: '100px' }}
                 />
               </div>
@@ -1527,7 +1273,7 @@ const QcProductionDetails = () => {
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
                   placeholder="Min"
-                  className={getInputClassName(pearliteFertiteMinValid)}
+                  className={getInputClassName(validationStates.pearliteFertiteMin)}
                   style={{ flex: 1, maxWidth: '100px' }}
                 />
                 <span style={{ color: '#64748b', fontWeight: '500' }}>-</span>
@@ -1540,7 +1286,7 @@ const QcProductionDetails = () => {
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
                   placeholder="Max"
-                  className={getInputClassName(pearliteFertiteMaxValid)}
+                  className={getInputClassName(validationStates.pearliteFertiteMax)}
                   style={{ flex: 1, maxWidth: '100px' }}
                 />
               </div>
@@ -1558,7 +1304,7 @@ const QcProductionDetails = () => {
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
                   placeholder="Min"
-                  className={getInputClassName(hardnessBHNMinValid)}
+                  className={getInputClassName(validationStates.hardnessBHNMin)}
                   style={{ flex: 1, maxWidth: '100px' }}
                 />
                 <span style={{ color: '#64748b', fontWeight: '500' }}>-</span>
@@ -1571,7 +1317,7 @@ const QcProductionDetails = () => {
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
                   placeholder="Max"
-                  className={getInputClassName(hardnessBHNMaxValid)}
+                  className={getInputClassName(validationStates.hardnessBHNMax)}
                   style={{ flex: 1, maxWidth: '100px' }}
                 />
               </div>
@@ -1589,7 +1335,7 @@ const QcProductionDetails = () => {
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
                   placeholder="Min"
-                  className={getInputClassName(tsMinValid)}
+                  className={getInputClassName(validationStates.tsMin)}
                   style={{ flex: 1, maxWidth: '100px' }}
                 />
                 <span style={{ color: '#64748b', fontWeight: '500' }}>-</span>
@@ -1602,7 +1348,7 @@ const QcProductionDetails = () => {
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
                   placeholder="Max"
-                  className={getInputClassName(tsMaxValid)}
+                  className={getInputClassName(validationStates.tsMax)}
                   style={{ flex: 1, maxWidth: '100px' }}
                 />
               </div>
@@ -1620,7 +1366,7 @@ const QcProductionDetails = () => {
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
                   placeholder="Min"
-                  className={getInputClassName(ysMinValid)}
+                  className={getInputClassName(validationStates.ysMin)}
                   style={{ flex: 1, maxWidth: '100px' }}
                 />
                 <span style={{ color: '#64748b', fontWeight: '500' }}>-</span>
@@ -1633,7 +1379,7 @@ const QcProductionDetails = () => {
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
                   placeholder="Max"
-                  className={getInputClassName(ysMaxValid)}
+                  className={getInputClassName(validationStates.ysMax)}
                   style={{ flex: 1, maxWidth: '100px' }}
                 />
               </div>
@@ -1651,7 +1397,7 @@ const QcProductionDetails = () => {
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
                   placeholder="Min"
-                  className={getInputClassName(elMinValid)}
+                  className={getInputClassName(validationStates.elMin)}
                   style={{ flex: 1, maxWidth: '100px' }}
                 />
                 <span style={{ color: '#64748b', fontWeight: '500' }}>-</span>
@@ -1664,7 +1410,7 @@ const QcProductionDetails = () => {
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
                   placeholder="Max"
-                  className={getInputClassName(elMaxValid)}
+                  className={getInputClassName(validationStates.elMax)}
                   style={{ flex: 1, maxWidth: '100px' }}
                 />
               </div>

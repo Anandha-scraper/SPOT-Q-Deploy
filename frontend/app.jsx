@@ -1,4 +1,4 @@
-import React, { useContext, useMemo } from 'react';
+import React, { createContext, useContext, useMemo, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 
 // Context & Layout
@@ -11,7 +11,7 @@ import Loader from './src/Components/Loader';
 // Pages
 import Login from './src/pages/Login';
 import UserProfile from './src/Components/UserProfile';
-import AdminDashboard from './src/Components/AdminDashboard'; 
+import AdminDashboard from './src/Components/AdminDashboard';
 
 // Feature Pages
 import MicroTensile from './src/pages/MicroTensile/MicroTensile';
@@ -39,9 +39,343 @@ import DmmSettingParametersReport from './src/pages/Moulding/DmmSettingParameter
 import Impact from './src/pages/Impact/Impact';
 import ImpactReport from './src/pages/Impact/ImpactReport';
 
-/**
- * Helper: Redirects user to their department homepage
- */
+// ====================== Helper Functions ======================
+const getCurrentDate = () => {
+  const today = new Date();
+  return today.toISOString().split('T')[0];
+};
+
+// ====================== Impact Context ======================
+const ImpactContext = createContext();
+
+const initialImpactFormData = {
+  date: '',
+  partName: '',
+  dateCode: '',
+  specification: '',
+  observedValue: '',
+  remarks: ''
+};
+
+const initialImpactValidation = {
+  date: null,
+  partName: null,
+  dateCode: null,
+  specification: null,
+  observedValue: null,
+  remarks: null
+};
+
+export const ImpactProvider = ({ children }) => {
+  const [formData, setFormData] = useState(initialImpactFormData);
+  const [validationStates, setValidationStates] = useState(initialImpactValidation);
+  const [submitErrorMessage, setSubmitErrorMessage] = useState('');
+
+  const setValidation = (field, value) => {
+    setValidationStates(prev => ({ ...prev, [field]: value }));
+  };
+
+  const resetValidation = () => {
+    setValidationStates(initialImpactValidation);
+  };
+
+  const resetFormData = () => {
+    setFormData(initialImpactFormData);
+    resetValidation();
+    setSubmitErrorMessage('');
+  };
+
+  return (
+    <ImpactContext.Provider value={{
+      formData,
+      setFormData,
+      validationStates,
+      setValidation,
+      resetValidation,
+      submitErrorMessage,
+      setSubmitErrorMessage,
+      resetFormData
+    }}>
+      {children}
+    </ImpactContext.Provider>
+  );
+};
+
+export const useImpactContext = () => useContext(ImpactContext);
+
+// ====================== Process Context ======================
+const ProcessContext = createContext();
+
+const initialProcessFormData = {
+  date: getCurrentDate(),
+  disa: '',
+  partName: '',
+  datecode: '',
+  heatcode: '',
+  quantityOfMoulds: '',
+  metalCompositionC: '',
+  metalCompositionSi: '',
+  metalCompositionMn: '',
+  metalCompositionP: '',
+  metalCompositionS: '',
+  metalCompositionMgFL: '',
+  metalCompositionCu: '',
+  metalCompositionCr: '',
+  pouringTemperatureMin: '',
+  pouringTemperatureMax: '',
+  ppCode: '',
+  treatmentNo: '',
+  fcNo: '',
+  heatNo: '',
+  conNo: '',
+  correctiveAdditionC: '',
+  correctiveAdditionSi: '',
+  correctiveAdditionMn: '',
+  correctiveAdditionS: '',
+  correctiveAdditionCr: '',
+  correctiveAdditionCu: '',
+  correctiveAdditionSn: '',
+  tappingWt: '',
+  mg: '',
+  resMgConvertor: '',
+  recOfMg: '',
+  streamInoculant: '',
+  pTime: '',
+  remarks: ''
+};
+
+export const ProcessProvider = ({ children }) => {
+  const [formData, setFormData] = useState(initialProcessFormData);
+  const [pouringFromTime, setPouringFromTime] = useState({ hours: '', minutes: '' });
+  const [pouringToTime, setPouringToTime] = useState({ hours: '', minutes: '' });
+  const [tappingTime, setTappingTime] = useState({ hours: '', minutes: '' });
+  const [isPrimarySaved, setIsPrimarySaved] = useState(false);
+  const [entryCount, setEntryCount] = useState(0);
+
+  return (
+    <ProcessContext.Provider value={{
+      formData,
+      setFormData,
+      pouringFromTime,
+      setPouringFromTime,
+      pouringToTime,
+      setPouringToTime,
+      tappingTime,
+      setTappingTime,
+      isPrimarySaved,
+      setIsPrimarySaved,
+      entryCount,
+      setEntryCount
+    }}>
+      {children}
+    </ProcessContext.Provider>
+  );
+};
+
+export const useProcessContext = () => useContext(ProcessContext);
+
+// ====================== QcProduction Context ======================
+const QcProductionContext = createContext();
+
+const initialQcProductionFormData = {
+  date: '',
+  partName: '',
+  noOfMoulds: '',
+  cPercentMin: '',
+  cPercentMax: '',
+  siPercentMin: '',
+  siPercentMax: '',
+  mnPercentMin: '',
+  mnPercentMax: '',
+  pPercentMin: '',
+  pPercentMax: '',
+  sPercentMin: '',
+  sPercentMax: '',
+  mgPercentMin: '',
+  mgPercentMax: '',
+  cuPercentMin: '',
+  cuPercentMax: '',
+  crPercentMin: '',
+  crPercentMax: '',
+  nodularityMin: '',
+  nodularityMax: '',
+  graphiteTypeMin: '',
+  graphiteTypeMax: '',
+  pearliteFertiteMin: '',
+  pearliteFertiteMax: '',
+  hardnessBHNMin: '',
+  hardnessBHNMax: '',
+  tsMin: '',
+  tsMax: '',
+  ysMin: '',
+  ysMax: '',
+  elMin: '',
+  elMax: ''
+};
+
+const initialQcProductionValidation = {
+  date: null,
+  partName: null,
+  noOfMoulds: null,
+  cPercentMin: null,
+  cPercentMax: null,
+  siPercentMin: null,
+  siPercentMax: null,
+  mnPercentMin: null,
+  mnPercentMax: null,
+  pPercentMin: null,
+  pPercentMax: null,
+  sPercentMin: null,
+  sPercentMax: null,
+  mgPercentMin: null,
+  mgPercentMax: null,
+  cuPercentMin: null,
+  cuPercentMax: null,
+  crPercentMin: null,
+  crPercentMax: null,
+  nodularityMin: null,
+  nodularityMax: null,
+  graphiteTypeMin: null,
+  graphiteTypeMax: null,
+  pearliteFertiteMin: null,
+  pearliteFertiteMax: null,
+  hardnessBHNMin: null,
+  hardnessBHNMax: null,
+  tsMin: null,
+  tsMax: null,
+  ysMin: null,
+  ysMax: null,
+  elMin: null,
+  elMax: null
+};
+
+export const QcProductionProvider = ({ children }) => {
+  const [formData, setFormData] = useState(initialQcProductionFormData);
+  const [validationStates, setValidationStates] = useState(initialQcProductionValidation);
+  const [submitErrorMessage, setSubmitErrorMessage] = useState('');
+
+  const setValidation = (field, value) => {
+    setValidationStates(prev => ({ ...prev, [field]: value }));
+  };
+
+  const resetValidation = () => {
+    setValidationStates(initialQcProductionValidation);
+  };
+
+  const resetFormData = () => {
+    setFormData(initialQcProductionFormData);
+    resetValidation();
+    setSubmitErrorMessage('');
+  };
+
+  return (
+    <QcProductionContext.Provider value={{
+      formData,
+      setFormData,
+      validationStates,
+      setValidation,
+      resetValidation,
+      submitErrorMessage,
+      setSubmitErrorMessage,
+      resetFormData
+    }}>
+      {children}
+    </QcProductionContext.Provider>
+  );
+};
+
+export const useQcProductionContext = () => useContext(QcProductionContext);
+
+// ====================== MicroStructure Context ======================
+const MicroStructureContext = createContext();
+
+const initialMicroStructureFormData = {
+  date: '',
+  disa: '',
+  partName: '',
+  dateCode: '',
+  heatCode: '',
+  nodularity: '',
+  graphiteType: '',
+  countMin: '',
+  countMax: '',
+  sizeMin: '',
+  sizeMax: '',
+  ferriteMin: '',
+  ferriteMax: '',
+  pearliteMin: '',
+  pearliteMax: '',
+  carbideMin: '',
+  carbideMax: '',
+  remarks: ''
+};
+
+const initialMicroStructureValidation = {
+  date: null,
+  disa: null,
+  partName: null,
+  dateCode: null,
+  heatCode: null,
+  nodularity: null,
+  graphiteType: null,
+  countMin: null,
+  countMax: null,
+  sizeMin: null,
+  sizeMax: null,
+  ferriteMin: null,
+  ferriteMax: null,
+  pearliteMin: null,
+  pearliteMax: null,
+  carbideMin: null,
+  carbideMax: null,
+  remarks: null
+};
+
+export const MicroStructureProvider = ({ children }) => {
+  const [formData, setFormData] = useState(initialMicroStructureFormData);
+  const [validationStates, setValidationStates] = useState(initialMicroStructureValidation);
+  const [submitErrorMessage, setSubmitErrorMessage] = useState('');
+  const [isPrimarySaved, setIsPrimarySaved] = useState(false);
+  const [entryCount, setEntryCount] = useState(0);
+
+  const setValidation = (field, value) => {
+    setValidationStates(prev => ({ ...prev, [field]: value }));
+  };
+
+  const resetValidation = () => {
+    setValidationStates(initialMicroStructureValidation);
+  };
+
+  const resetFormData = () => {
+    setFormData(initialMicroStructureFormData);
+    resetValidation();
+    setSubmitErrorMessage('');
+  };
+
+  return (
+    <MicroStructureContext.Provider value={{
+      formData,
+      setFormData,
+      validationStates,
+      setValidation,
+      resetValidation,
+      submitErrorMessage,
+      setSubmitErrorMessage,
+      resetFormData,
+      isPrimarySaved,
+      setIsPrimarySaved,
+      entryCount,
+      setEntryCount
+    }}>
+      {children}
+    </MicroStructureContext.Provider>
+  );
+};
+
+export const useMicroStructureContext = () => useContext(MicroStructureContext);
+
+// ====================== App Components ======================
+
 const DepartmentRedirect = () => {
   const { user, isAdmin } = useContext(AuthContext);
 
@@ -56,11 +390,10 @@ const DepartmentRedirect = () => {
     'Melting': '/melting/melting-log-sheet',
     'Moulding': '/moulding/disamatic-product',
     'Sand Lab': '/sand-lab/sand-testing-record',
-    'All': '/admin' // Redirect "All" access users to Admin by default
+    'All': '/admin'
   }), []);
 
-  // Priority redirect for Admin role
-  if (isAdmin) return <Navigate to="/admin" replace />; 
+  if (isAdmin) return <Navigate to="/admin" replace />;
   const targetRoute = routeMap[user?.department] || '/micro-tensile';
   return <Navigate to={targetRoute} replace />;
 };
@@ -83,10 +416,9 @@ const App = () => {
   const { user, loading, logoutLoading } = useContext(AuthContext);
 
   if (loading) {
-    return null; // Show nothing while loading
+    return null;
   }
 
-  // Show logout loader
   if (logoutLoading) {
     return (
       <div className="logout-loader-overlay">
@@ -96,21 +428,21 @@ const App = () => {
   }
 
   return (
-    <BrowserRouter 
-      future={{ 
-        v7_startTransition: true, 
-        v7_relativeSplatPath: true 
+    <BrowserRouter
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true
       }}
     >
       <Routes>
-        
+
         {/* Public Routes */}
         <Route path="/login" element={!user ? <Login /> : <Navigate to="/" replace />} />
 
         {/* Private Routes */}
         <Route path="/" element={<ProtectedLayout />}>
           <Route index element={<DepartmentRedirect />} />
-          
+
           {/* Admin Route */}
           <Route path="admin" element={
             <DepartmentRouteGuard>
@@ -124,22 +456,22 @@ const App = () => {
              <Route path="report" element={<DepartmentRouteGuard><MicroTensileReport /></DepartmentRouteGuard>} />
           </Route>
 
-          <Route path="micro-structure">
+          <Route path="micro-structure" element={<MicroStructureProvider><Outlet /></MicroStructureProvider>}>
              <Route index element={<DepartmentRouteGuard><MicroStructure /></DepartmentRouteGuard>} />
              <Route path="report" element={<DepartmentRouteGuard><MicroStructureReport /></DepartmentRouteGuard>} />
           </Route>
 
-          <Route path="impact">
+          <Route path="impact" element={<ImpactProvider><Outlet /></ImpactProvider>}>
              <Route index element={<DepartmentRouteGuard><Impact /></DepartmentRouteGuard>} />
              <Route path="report" element={<DepartmentRouteGuard><ImpactReport /></DepartmentRouteGuard>} />
           </Route>
 
-          <Route path="process">
+          <Route path="process" element={<ProcessProvider><Outlet /></ProcessProvider>}>
              <Route index element={<DepartmentRouteGuard><Process /></DepartmentRouteGuard>} />
              <Route path="report" element={<DepartmentRouteGuard><ProcessReport /></DepartmentRouteGuard>} />
           </Route>
 
-          <Route path="qc-production-details">
+          <Route path="qc-production-details" element={<QcProductionProvider><Outlet /></QcProductionProvider>}>
              <Route index element={<DepartmentRouteGuard><QcProductionDetails /></DepartmentRouteGuard>} />
              <Route path="report" element={<DepartmentRouteGuard><QcProductionDetailsReport /></DepartmentRouteGuard>} />
           </Route>

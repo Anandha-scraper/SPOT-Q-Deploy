@@ -1,10 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const { 
-    getAllEntries, 
+const {
+    getAllEntries,
     createEntry,
     checkDateDisaEntries,
-    savePrimary
+    savePrimary,
+    getPartNames
 } = require('../controllers/Process');
 
 router.route('/')
@@ -16,5 +17,8 @@ router.route('/check')
 
 router.route('/save-primary')
     .post(savePrimary);
+
+router.route('/part-names')
+    .get(getPartNames);
 
 module.exports = router;

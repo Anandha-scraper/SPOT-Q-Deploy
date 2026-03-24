@@ -5,6 +5,7 @@ import { DisaDropdown, SubmitButton, LockPrimaryButton } from '../../Components/
 import Sakthi from '../../Components/Sakthi';
 import { InlineLoader } from '../../Components/Alert';
 import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
+import { useMicroStructureContext } from '../../../app.jsx';
 import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/MicroStructure/MicroStructure.css';
 
@@ -52,7 +53,6 @@ const MicroStructure = () => {
     },
     {
       field: 'Nodularity %',
-      required: true,
       type: 'Number',
       min: 0,
       max: 100,
@@ -60,38 +60,32 @@ const MicroStructure = () => {
     },
     {
       field: 'Graphite Type',
-      required: true,
       type: 'Text'
     },
     {
       field: 'Count Min',
-      required: true,
       type: 'Number',
       min: 0
     },
     {
       field: 'Count Max',
-      required: true,
       type: 'Number',
       min: 0
     },
     {
       field: 'Size Min',
-      required: true,
       type: 'Number',
       min: 0,
       unit: 'μm'
     },
     {
       field: 'Size Max',
-      required: true,
       type: 'Number',
       min: 0,
       unit: 'μm'
     },
     {
       field: 'Ferrite Min %',
-      required: true,
       type: 'Number',
       min: 0,
       max: 100,
@@ -99,7 +93,6 @@ const MicroStructure = () => {
     },
     {
       field: 'Ferrite Max %',
-      required: true,
       type: 'Number',
       min: 0,
       max: 100,
@@ -107,7 +100,6 @@ const MicroStructure = () => {
     },
     {
       field: 'Pearlite Min %',
-      required: true,
       type: 'Number',
       min: 0,
       max: 100,
@@ -115,7 +107,6 @@ const MicroStructure = () => {
     },
     {
       field: 'Pearlite Max %',
-      required: true,
       type: 'Number',
       min: 0,
       max: 100,
@@ -123,7 +114,6 @@ const MicroStructure = () => {
     },
     {
       field: 'Carbide Min %',
-      required: true,
       type: 'Number',
       min: 0,
       max: 100,
@@ -131,7 +121,6 @@ const MicroStructure = () => {
     },
     {
       field: 'Carbide Max %',
-      required: true,
       type: 'Number',
       min: 0,
       max: 100,
@@ -139,61 +128,245 @@ const MicroStructure = () => {
     },
     {
       field: 'Remarks',
-      required: true,
       type: 'Text'
     }
   ];
 
-  // ====================== State ======================
-  const [date, setDate] = useState(getCurrentDate());
-  const [disa, setDisa] = useState('');
-  const [partName, setPartName] = useState('');
-  const [dateCode, setDateCode] = useState('');
-  const [heatCode, setHeatCode] = useState('');
-  const [nodularity, setNodularity] = useState('');
-  const [graphiteType, setGraphiteType] = useState('');
-  const [countMin, setCountMin] = useState('');
-  const [countMax, setCountMax] = useState('');
-  const [sizeMin, setSizeMin] = useState('');
-  const [sizeMax, setSizeMax] = useState('');
-  const [ferriteMin, setFerriteMin] = useState('');
-  const [ferriteMax, setFerriteMax] = useState('');
-  const [pearliteMin, setPearliteMin] = useState('');
-  const [pearliteMax, setPearliteMax] = useState('');
-  const [carbideMin, setCarbideMin] = useState('');
-  const [carbideMax, setCarbideMax] = useState('');
-  const [remarks, setRemarks] = useState('');
+  // ====================== State from Context ======================
+  // Get form data and validation states from context to persist across Entry/Report navigation
+  const {
+    formData,
+    setFormData,
+    validationStates,
+    setValidation,
+    resetValidation,
+    submitErrorMessage,
+    setSubmitErrorMessage,
+    isPrimarySaved,
+    setIsPrimarySaved,
+    entryCount,
+    setEntryCount
+  } = useMicroStructureContext();
 
-  // Primary data states
-  const [isPrimarySaved, setIsPrimarySaved] = useState(false);
+  // Local UI states that don't need to persist
   const [savePrimaryLoading, setSavePrimaryLoading] = useState(false);
   const [checkingPrimary, setCheckingPrimary] = useState(false);
-  const [entryCount, setEntryCount] = useState(0);
   const [submitLoading, setSubmitLoading] = useState(false);
-  const [submitErrorMessage, setSubmitErrorMessage] = useState('');
   const [showSakthiLoader, setShowSakthiLoader] = useState(false);
   const [showCombinationFound, setShowCombinationFound] = useState(false);
   const [showCombinationAdded, setShowCombinationAdded] = useState(false);
   const [showPrimaryWarning, setShowPrimaryWarning] = useState(false);
   const [highlightPrimaryFields, setHighlightPrimaryFields] = useState(false);
 
-  // Validation states (null = neutral, false = invalid)
-  const [partNameValid, setPartNameValid] = useState(null);
-  const [dateCodeValid, setDateCodeValid] = useState(null);
-  const [heatCodeValid, setHeatCodeValid] = useState(null);
-  const [nodularityValid, setNodularityValid] = useState(null);
-  const [graphiteTypeValid, setGraphiteTypeValid] = useState(null);
-  const [countMinValid, setCountMinValid] = useState(null);
-  const [countMaxValid, setCountMaxValid] = useState(null);
-  const [sizeMinValid, setSizeMinValid] = useState(null);
-  const [sizeMaxValid, setSizeMaxValid] = useState(null);
-  const [ferriteMinValid, setFerriteMinValid] = useState(null);
-  const [ferriteMaxValid, setFerriteMaxValid] = useState(null);
-  const [pearliteMinValid, setPearliteMinValid] = useState(null);
-  const [pearliteMaxValid, setPearliteMaxValid] = useState(null);
-  const [carbideMinValid, setCarbideMinValid] = useState(null);
-  const [carbideMaxValid, setCarbideMaxValid] = useState(null);
-  const [remarksValid, setRemarksValid] = useState(null);
+  // Extract form field values from context for easier access
+  const date = formData.date;
+  const disa = formData.disa;
+  const partName = formData.partName;
+  const dateCode = formData.dateCode;
+  const heatCode = formData.heatCode;
+  const nodularity = formData.nodularity;
+  const graphiteType = formData.graphiteType;
+  const countMin = formData.countMin;
+  const countMax = formData.countMax;
+  const sizeMin = formData.sizeMin;
+  const sizeMax = formData.sizeMax;
+  const ferriteMin = formData.ferriteMin;
+  const ferriteMax = formData.ferriteMax;
+  const pearliteMin = formData.pearliteMin;
+  const pearliteMax = formData.pearliteMax;
+  const carbideMin = formData.carbideMin;
+  const carbideMax = formData.carbideMax;
+  const remarks = formData.remarks;
+
+  // Setters for form fields using context
+  const setDate = (value) => setFormData(prev => ({ ...prev, date: value }));
+  const setDisa = (value) => setFormData(prev => ({ ...prev, disa: value }));
+  const setPartName = (value) => setFormData(prev => ({ ...prev, partName: value }));
+  const setDateCode = (value) => setFormData(prev => ({ ...prev, dateCode: value }));
+  const setHeatCode = (value) => setFormData(prev => ({ ...prev, heatCode: value }));
+  const setNodularity = (value) => setFormData(prev => ({ ...prev, nodularity: value }));
+  const setGraphiteType = (value) => setFormData(prev => ({ ...prev, graphiteType: value }));
+  const setCountMin = (value) => setFormData(prev => ({ ...prev, countMin: value }));
+  const setCountMax = (value) => setFormData(prev => ({ ...prev, countMax: value }));
+  const setSizeMin = (value) => setFormData(prev => ({ ...prev, sizeMin: value }));
+  const setSizeMax = (value) => setFormData(prev => ({ ...prev, sizeMax: value }));
+  const setFerriteMin = (value) => setFormData(prev => ({ ...prev, ferriteMin: value }));
+  const setFerriteMax = (value) => setFormData(prev => ({ ...prev, ferriteMax: value }));
+  const setPearliteMin = (value) => setFormData(prev => ({ ...prev, pearliteMin: value }));
+  const setPearliteMax = (value) => setFormData(prev => ({ ...prev, pearliteMax: value }));
+  const setCarbideMin = (value) => setFormData(prev => ({ ...prev, carbideMin: value }));
+  const setCarbideMax = (value) => setFormData(prev => ({ ...prev, carbideMax: value }));
+  const setRemarks = (value) => setFormData(prev => ({ ...prev, remarks: value }));
+
+  // Extract validation states from context
+  const dateValid = validationStates.date;
+  const disaValid = validationStates.disa;
+  const partNameValid = validationStates.partName;
+  const dateCodeValid = validationStates.dateCode;
+  const heatCodeValid = validationStates.heatCode;
+  const nodularityValid = validationStates.nodularity;
+  const graphiteTypeValid = validationStates.graphiteType;
+  const countMinValid = validationStates.countMin;
+  const countMaxValid = validationStates.countMax;
+  const sizeMinValid = validationStates.sizeMin;
+  const sizeMaxValid = validationStates.sizeMax;
+  const ferriteMinValid = validationStates.ferriteMin;
+  const ferriteMaxValid = validationStates.ferriteMax;
+  const pearliteMinValid = validationStates.pearliteMin;
+  const pearliteMaxValid = validationStates.pearliteMax;
+  const carbideMinValid = validationStates.carbideMin;
+  const carbideMaxValid = validationStates.carbideMax;
+  const remarksValid = validationStates.remarks;
+
+  // Validation setters using context
+  const setDateValid = (value) => setValidation('date', value);
+  const setDisaValid = (value) => setValidation('disa', value);
+  const setPartNameValid = (value) => setValidation('partName', value);
+  const setDateCodeValid = (value) => setValidation('dateCode', value);
+  const setHeatCodeValid = (value) => setValidation('heatCode', value);
+  const setNodularityValid = (value) => setValidation('nodularity', value);
+  const setGraphiteTypeValid = (value) => setValidation('graphiteType', value);
+  const setCountMinValid = (value) => setValidation('countMin', value);
+  const setCountMaxValid = (value) => setValidation('countMax', value);
+  const setSizeMinValid = (value) => setValidation('sizeMin', value);
+  const setSizeMaxValid = (value) => setValidation('sizeMax', value);
+  const setFerriteMinValid = (value) => setValidation('ferriteMin', value);
+  const setFerriteMaxValid = (value) => setValidation('ferriteMax', value);
+  const setPearliteMinValid = (value) => setValidation('pearliteMin', value);
+  const setPearliteMaxValid = (value) => setValidation('pearliteMax', value);
+  const setCarbideMinValid = (value) => setValidation('carbideMin', value);
+  const setCarbideMaxValid = (value) => setValidation('carbideMax', value);
+  const setRemarksValid = (value) => setValidation('remarks', value);
+
+  // ====================== Field Mapping ======================
+  // Maps validation range field names to state variable names
+  const fieldMapping = {
+    'Date': 'date',
+    'DISA': 'disa',
+    'Part Name': 'partName',
+    'Date Code': 'dateCode',
+    'Heat Code': 'heatCode',
+    'Nodularity %': 'nodularity',
+    'Graphite Type': 'graphiteType',
+    'Count Min': 'countMin',
+    'Count Max': 'countMax',
+    'Size Min': 'sizeMin',
+    'Size Max': 'sizeMax',
+    'Ferrite Min %': 'ferriteMin',
+    'Ferrite Max %': 'ferriteMax',
+    'Pearlite Min %': 'pearliteMin',
+    'Pearlite Max %': 'pearliteMax',
+    'Carbide Min %': 'carbideMin',
+    'Carbide Max %': 'carbideMax',
+    'Remarks': 'remarks'
+  };
+
+  // ====================== Validation Setters ======================
+  // Maps state variable names to their validation setter functions
+  const validationSetters = {
+    'date': setDateValid,
+    'disa': setDisaValid,
+    'partName': setPartNameValid,
+    'dateCode': setDateCodeValid,
+    'heatCode': setHeatCodeValid,
+    'nodularity': setNodularityValid,
+    'graphiteType': setGraphiteTypeValid,
+    'countMin': setCountMinValid,
+    'countMax': setCountMaxValid,
+    'sizeMin': setSizeMinValid,
+    'sizeMax': setSizeMaxValid,
+    'ferriteMin': setFerriteMinValid,
+    'ferriteMax': setFerriteMaxValid,
+    'pearliteMin': setPearliteMinValid,
+    'pearliteMax': setPearliteMaxValid,
+    'carbideMin': setCarbideMinValid,
+    'carbideMax': setCarbideMaxValid,
+    'remarks': setRemarksValid
+  };
+
+  // ====================== Validation Functions ======================
+  /**
+   * Validates a single field based on validation rules
+   * Handles both single fields and range fields (min/max pairs)
+   */
+  const validateField = (rule, mappedField, stateData) => {
+    const fieldName = mappedField;
+    const value = stateData[fieldName];
+
+    // Check required fields
+    if (rule.required) {
+      if (!value || (typeof value === 'string' && value.trim() === '')) {
+        return { isValid: false, message: `${rule.field} is required` };
+      }
+    }
+
+    // If field is empty and not required, it's valid
+    if (!value || (typeof value === 'string' && value.trim() === '')) {
+      return { isValid: true };
+    }
+
+    // Type-specific validation
+    switch (rule.type) {
+      case 'Number':
+      case 'Integer':
+        const stringValue = String(value).trim();
+
+        // Check for invalid characters
+        const invalidNumberPattern = /[eE+]|\..*\.|--|\+\+/;
+        if (invalidNumberPattern.test(stringValue)) {
+          return { isValid: false, message: `${rule.field} must be a valid number` };
+        }
+
+        // Check for values ending with invalid characters
+        if (/[eE.+-]$/.test(stringValue)) {
+          return { isValid: false, message: `${rule.field} must be a valid number` };
+        }
+
+        const num = parseFloat(value);
+        if (isNaN(num) || !isFinite(num)) {
+          return { isValid: false, message: `${rule.field} must be a valid number` };
+        }
+
+        // Check min/max constraints
+        if (rule.min !== undefined && num < rule.min) {
+          return { isValid: false, message: `${rule.field} must be at least ${rule.min}` };
+        }
+        if (rule.max !== undefined && num > rule.max) {
+          return { isValid: false, message: `${rule.field} must be no more than ${rule.max}` };
+        }
+
+        // For Integer type, check if it's actually an integer
+        if (rule.type === 'Integer' && !Number.isInteger(num)) {
+          return { isValid: false, message: `${rule.field} must be a whole number` };
+        }
+        break;
+
+      case 'Text':
+        const textValue = String(value).trim();
+        if (textValue === '') {
+          return rule.required ? { isValid: false, message: `${rule.field} is required` } : { isValid: true };
+        }
+        break;
+
+      case 'Select':
+        if (rule.allowedValues && !rule.allowedValues.includes(value)) {
+          return { isValid: false, message: `${rule.field} must be one of: ${rule.allowedValues.join(', ')}` };
+        }
+        break;
+
+      case 'Date':
+        // Date validation - assuming value is in YYYY-MM-DD format
+        if (rule.required && (!value || value.trim() === '')) {
+          return { isValid: false, message: `${rule.field} is required` };
+        }
+        break;
+
+      default:
+        break;
+    }
+
+    return { isValid: true };
+  };
 
   // Refs for navigation
   const inputRefs = useRef({});
@@ -207,32 +380,36 @@ const MicroStructure = () => {
   ];
 
   // ====================== Effects ======================
-  
-  // Set current date and load previous DISA from database on mount
-  useEffect(() => {
-    const today = new Date();
-    const y = today.getFullYear();
-    const m = String(today.getMonth() + 1).padStart(2, '0');
-    const d = String(today.getDate()).padStart(2, '0');
-    
-    setDate(`${y}-${m}-${d}`);
 
-    // Fetch last used DISA from database
-    const fetchLastDisa = async () => {
-      try {
-        const response = await fetch(`${API_ENDPOINTS.microStructure}/last-disa`, {
-          method: 'GET',
-          credentials: 'include'
-        });
-        const data = await response.json();
-        if (data.success && data.lastDisa) {
-          setDisa(data.lastDisa);
+  // Set current date and load previous DISA from database on mount (only if not already set)
+  useEffect(() => {
+    // Only set date if not already set in context (preserves data when navigating back)
+    if (!date) {
+      const today = new Date();
+      const y = today.getFullYear();
+      const m = String(today.getMonth() + 1).padStart(2, '0');
+      const d = String(today.getDate()).padStart(2, '0');
+      setDate(`${y}-${m}-${d}`);
+    }
+
+    // Fetch last used DISA from database only if not already set
+    if (!disa) {
+      const fetchLastDisa = async () => {
+        try {
+          const response = await fetch(`${API_ENDPOINTS.microStructure}/last-disa`, {
+            method: 'GET',
+            credentials: 'include'
+          });
+          const data = await response.json();
+          if (data.success && data.lastDisa) {
+            setDisa(data.lastDisa);
+          }
+        } catch (error) {
+          console.error('Error fetching last DISA:', error);
         }
-      } catch (error) {
-        console.error('Error fetching last DISA:', error);
-      }
-    };
-    fetchLastDisa();
+      };
+      fetchLastDisa();
+    }
   }, []);
   
   // Check if date+disa combination exists in database
@@ -405,84 +582,62 @@ const MicroStructure = () => {
   const handleDateChange = (e) => {
     setDate(e.target.value);
     setIsPrimarySaved(false);
-    
+
     // Reset all form fields except date and disa
-    setPartName('');
-    setDateCode('');
-    setHeatCode('');
-    setNodularity('');
-    setGraphiteType('');
-    setCountMin('');
-    setCountMax('');
-    setSizeMin('');
-    setSizeMax('');
-    setFerriteMin('');
-    setFerriteMax('');
-    setPearliteMin('');
-    setPearliteMax('');
-    setCarbideMin('');
-    setCarbideMax('');
-    setRemarks('');
-    
-    // Reset all validation states
-    setPartNameValid(null);
-    setDateCodeValid(null);
-    setHeatCodeValid(null);
-    setNodularityValid(null);
-    setGraphiteTypeValid(null);
-    setCountMinValid(null);
-    setCountMaxValid(null);
-    setSizeMinValid(null);
-    setSizeMaxValid(null);
-    setFerriteMinValid(null);
-    setFerriteMaxValid(null);
-    setPearliteMinValid(null);
-    setPearliteMaxValid(null);
-    setCarbideMinValid(null);
-    setCarbideMaxValid(null);
-    setRemarksValid(null);
+    setFormData(prev => ({
+      ...prev,
+      date: e.target.value,
+      partName: '',
+      dateCode: '',
+      heatCode: '',
+      nodularity: '',
+      graphiteType: '',
+      countMin: '',
+      countMax: '',
+      sizeMin: '',
+      sizeMax: '',
+      ferriteMin: '',
+      ferriteMax: '',
+      pearliteMin: '',
+      pearliteMax: '',
+      carbideMin: '',
+      carbideMax: '',
+      remarks: ''
+    }));
+
+    // Reset all validation states using context
+    resetValidation();
     setSubmitErrorMessage('');
   };
 
   const handleDisaChange = (e) => {
     setDisa(e.target.value);
     setIsPrimarySaved(false);
-    
+
     // Reset all form fields except date and disa
-    setPartName('');
-    setDateCode('');
-    setHeatCode('');
-    setNodularity('');
-    setGraphiteType('');
-    setCountMin('');
-    setCountMax('');
-    setSizeMin('');
-    setSizeMax('');
-    setFerriteMin('');
-    setFerriteMax('');
-    setPearliteMin('');
-    setPearliteMax('');
-    setCarbideMin('');
-    setCarbideMax('');
-    setRemarks('');
-    
-    // Reset all validation states
-    setPartNameValid(null);
-    setDateCodeValid(null);
-    setHeatCodeValid(null);
-    setNodularityValid(null);
-    setGraphiteTypeValid(null);
-    setCountMinValid(null);
-    setCountMaxValid(null);
-    setSizeMinValid(null);
-    setSizeMaxValid(null);
-    setFerriteMinValid(null);
-    setFerriteMaxValid(null);
-    setPearliteMinValid(null);
-    setPearliteMaxValid(null);
-    setCarbideMinValid(null);
-    setCarbideMaxValid(null);
-    setRemarksValid(null);
+    setFormData(prev => ({
+      ...prev,
+      disa: e.target.value,
+      partName: '',
+      dateCode: '',
+      heatCode: '',
+      nodularity: '',
+      graphiteType: '',
+      countMin: '',
+      countMax: '',
+      sizeMin: '',
+      sizeMax: '',
+      ferriteMin: '',
+      ferriteMax: '',
+      pearliteMin: '',
+      pearliteMax: '',
+      carbideMin: '',
+      carbideMax: '',
+      remarks: ''
+    }));
+
+    // Reset all validation states using context
+    resetValidation();
     setSubmitErrorMessage('');
   };
   
@@ -648,158 +803,75 @@ const MicroStructure = () => {
    */
   const handleSubmit = async () => {
     let hasErrors = false;
-    // AUTO-NAVIGATION: Track the first field that fails validation (see comment block above)
     let firstErrorField = null;
 
-    // Validate Part Name
-    if (!partName || !partName.trim()) {
-      setPartNameValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'partName';
-    } else {
-      setPartNameValid(null);
-    }
+    // Clear any previous error messages
+    setSubmitErrorMessage('');
 
-    // Validate Date Code
-    if (!dateCode || !dateCode.trim()) {
-      setDateCodeValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'dateCode';
-    } else {
-      setDateCodeValid(null);
-    }
+    // Create state data object for validation
+    const stateData = {
+      date,
+      disa,
+      partName,
+      dateCode,
+      heatCode,
+      nodularity,
+      graphiteType,
+      countMin,
+      countMax,
+      sizeMin,
+      sizeMax,
+      ferriteMin,
+      ferriteMax,
+      pearliteMin,
+      pearliteMax,
+      carbideMin,
+      carbideMax,
+      remarks
+    };
 
-    // Validate Heat Code
-    if (!heatCode || !heatCode.trim()) {
-      setHeatCodeValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'heatCode';
-    } else {
-      setHeatCodeValid(null);
-    }
+    // Dynamic validation based on validationRanges
+    for (const rule of validationRanges) {
+      const mappedField = fieldMapping[rule.field];
 
-    // Validate Nodularity % (0-100)
-    if (!validatePercentage(nodularity)) {
-      setNodularityValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'nodularity';
-    } else {
-      setNodularityValid(null);
-    }
+      // Skip if no field mapping found
+      if (!mappedField) continue;
 
-    // Validate Graphite Type
-    if (!graphiteType || !graphiteType.trim()) {
-      setGraphiteTypeValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'graphiteType';
-    } else {
-      setGraphiteTypeValid(null);
-    }
+      // Validate using dynamic system
+      const result = validateField(rule, mappedField, stateData);
 
-    // Validate Count range
-    const countRange = validateRange(countMin, countMax, false);
-    if (!countRange.minValid) {
-      setCountMinValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'countMin';
-    } else {
-      setCountMinValid(null);
-    }
-    if (!countRange.maxValid) {
-      setCountMaxValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'countMax';
-    } else {
-      setCountMaxValid(null);
-    }
+      // Get the validation setter for this field
+      const setter = validationSetters[mappedField];
 
-    // Validate Size range
-    const sizeRange = validateRange(sizeMin, sizeMax, false);
-    if (!sizeRange.minValid) {
-      setSizeMinValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'sizeMin';
-    } else {
-      setSizeMinValid(null);
-    }
-    if (!sizeRange.maxValid) {
-      setSizeMaxValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'sizeMax';
-    } else {
-      setSizeMaxValid(null);
-    }
-
-    // Validate Ferrite % range (0-100)
-    const ferriteRange = validateRange(ferriteMin, ferriteMax, true);
-    if (!ferriteRange.minValid) {
-      setFerriteMinValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'ferriteMin';
-    } else {
-      setFerriteMinValid(null);
-    }
-    if (!ferriteRange.maxValid) {
-      setFerriteMaxValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'ferriteMax';
-    } else {
-      setFerriteMaxValid(null);
-    }
-
-    // Validate Pearlite % range (0-100)
-    const pearliteRange = validateRange(pearliteMin, pearliteMax, true);
-    if (!pearliteRange.minValid) {
-      setPearliteMinValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'pearliteMin';
-    } else {
-      setPearliteMinValid(null);
-    }
-    if (!pearliteRange.maxValid) {
-      setPearliteMaxValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'pearliteMax';
-    } else {
-      setPearliteMaxValid(null);
-    }
-
-    // Validate Carbide % range (0-100)
-    const carbideRange = validateRange(carbideMin, carbideMax, true);
-    if (!carbideRange.minValid) {
-      setCarbideMinValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'carbideMin';
-    } else {
-      setCarbideMinValid(null);
-    }
-    if (!carbideRange.maxValid) {
-      setCarbideMaxValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'carbideMax';
-    } else {
-      setCarbideMaxValid(null);
-    }
-
-    // Validate Remarks
-    if (!remarks || !remarks.trim()) {
-      setRemarksValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'remarks';
-    } else {
-      setRemarksValid(null);
+      if (!result.isValid) {
+        hasErrors = true;
+        if (setter) {
+          setter(false); // Set validation state to invalid
+        }
+        if (!firstErrorField) {
+          firstErrorField = mappedField;
+        }
+        // Store first error message for display
+        if (!submitErrorMessage && result.message) {
+          setSubmitErrorMessage(result.message);
+        }
+      } else {
+        if (setter) {
+          setter(null); // Set validation state to neutral
+        }
+      }
     }
 
     if (hasErrors) {
-      setSubmitErrorMessage('Enter data in correct format');
-      
+      if (!submitErrorMessage) {
+        setSubmitErrorMessage('Enter data in correct format');
+      }
+
       // AUTO-NAVIGATION: Focus on the first field that failed validation
-      // This happens immediately (synchronously) because firstErrorField 
-      // is a plain variable, not state. Works on FIRST submit click.
       if (firstErrorField) {
         inputRefs.current[firstErrorField]?.focus();
       }
-      
+
       return;
     }
 
@@ -871,6 +943,8 @@ const MicroStructure = () => {
         setRemarks('');
 
         // Reset validation states
+        setDateValid(null);
+        setDisaValid(null);
         setPartNameValid(null);
         setDateCodeValid(null);
         setHeatCodeValid(null);
@@ -976,11 +1050,11 @@ const MicroStructure = () => {
               max={getCurrentDate()}
               name="date"
               style={{
-                border: highlightPrimaryFields ? '2px solid #ef4444' : '2px solid #cbd5e1',
+                border: (highlightPrimaryFields || dateValid === false) ? '2px solid #ef4444' : '2px solid #cbd5e1',
                 width: '100%',
                 borderRadius: '8px',
                 fontSize: '0.875rem',
-                backgroundColor: highlightPrimaryFields ? '#fee2e2' : '#fff',
+                backgroundColor: (highlightPrimaryFields || dateValid === false) ? '#fee2e2' : '#fff',
                 transition: 'all 0.3s ease'
               }}
             />
@@ -994,8 +1068,8 @@ const MicroStructure = () => {
               onKeyDown={e => handleKeyDown(e, 'disa')}
               name="disa"
               style={{
-                border: highlightPrimaryFields ? '2px solid #ef4444' : undefined,
-                backgroundColor: highlightPrimaryFields ? '#fee2e2' : undefined,
+                border: (highlightPrimaryFields || disaValid === false) ? '2px solid #ef4444' : undefined,
+                backgroundColor: (highlightPrimaryFields || disaValid === false) ? '#fee2e2' : undefined,
                 transition: 'all 0.3s ease'
               }}
             />

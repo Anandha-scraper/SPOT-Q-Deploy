@@ -110,10 +110,27 @@ import Sakthi from '../../Components/Sakthi';
 import { InlineLoader } from '../../Components/Alert';
 import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import { API_ENDPOINTS } from '../../config/api';
+import { useProcessContext } from '../../../app.jsx';
 import '../../styles/PageStyles/Process/Process.css';
 
 export default function ProcessControl() {
   const { isOpen, openModal, closeModal } = useInfoModal();
+
+  // Get shared state from context (persists when navigating between Entry and Report)
+  const {
+    formData,
+    setFormData,
+    pouringFromTime,
+    setPouringFromTime,
+    pouringToTime,
+    setPouringToTime,
+    tappingTime,
+    setTappingTime,
+    isPrimarySaved,
+    setIsPrimarySaved,
+    entryCount,
+    setEntryCount
+  } = useProcessContext();
 
   // VALIDATION RANGES CONFIGURATION
   // ================================
@@ -165,7 +182,6 @@ export default function ProcessControl() {
     },
     {
       field: 'Metal Composition - C',
-      required: true,
       type: 'Number',
       min: 0,
       max: 100,
@@ -243,7 +259,7 @@ export default function ProcessControl() {
     {
       field: 'F/C No.',
       type: 'Select',
-      allowedValues: ['I', 'II', 'III', 'IV', 'V', 'VI']
+      allowedValues: ['1', '2', '3', '4','H1','H2']
     },
     {
       field: 'Heat No',
@@ -385,31 +401,10 @@ export default function ProcessControl() {
 
 
 
-  const [formData, setFormData] = useState({
-    date: '', disa: '', partName: '', datecode: '', heatcode: '', quantityOfMoulds: '', metalCompositionC: '', metalCompositionSi: '',
-    metalCompositionMn: '', metalCompositionP: '', metalCompositionS: '', metalCompositionMgFL: '',
-    metalCompositionCr: '', metalCompositionCu: '', 
-    pouringTemperatureMin: '',
-    pouringTemperatureMax: '',
-    ppCode: '', treatmentNo: '', fcNo: '', heatNo: '', conNo: '', 
-    correctiveAdditionC: '',
-    correctiveAdditionSi: '', correctiveAdditionMn: '', correctiveAdditionS: '', correctiveAdditionCr: '',
-    correctiveAdditionCu: '', correctiveAdditionSn: '', tappingWt: '', mg: '', resMgConvertor: '',
-    recOfMg: '', streamInoculant: '', pTime: '', remarks: ''
-  });
-
-  // Time states using Time objects from HeroUI
-  const [pouringFromTime, setPouringFromTime] = useState(null);
-  const [pouringToTime, setPouringToTime] = useState(null);
-  const [tappingTime, setTappingTime] = useState(null);
-
-
   const inputRefs = useRef({});
   const primarySectionRef = useRef(null);
   const [submitLoading, setSubmitLoading] = useState(false);
-  const [isPrimarySaved, setIsPrimarySaved] = useState(false);
   const [savePrimaryLoading, setSavePrimaryLoading] = useState(false);
-  const [entryCount, setEntryCount] = useState(0);
   const [showSakthi, setShowSakthi] = useState(false);
   const [showCombinationFound, setShowCombinationFound] = useState(false);
   const [showCombinationAdded, setShowCombinationAdded] = useState(false);
@@ -468,6 +463,12 @@ export default function ProcessControl() {
 
   // Submit error message state
   const [submitErrorMessage, setSubmitErrorMessage] = useState('');
+
+  // Part name dropdown states
+  const [partNameSuggestions, setPartNameSuggestions] = useState([]);
+  const [showPartNameDropdown, setShowPartNameDropdown] = useState(false);
+  const [filteredPartNames, setFilteredPartNames] = useState([]);
+  const partNameDropdownRef = useRef(null);
 
   // Validation state setters mapping
   const validationSetters = {
@@ -649,17 +650,49 @@ export default function ProcessControl() {
     return { isValid: true };
   };
 
-  // Set current date and load previous DISA on mount as default
+  // Set current date on mount only if date is not already set (preserves context data)
   useEffect(() => {
-    const today = new Date();
-    const y = today.getFullYear();
-    const m = String(today.getMonth() + 1).padStart(2, '0');
-    const d = String(today.getDate()).padStart(2, '0');
-    
-    setFormData(prev => ({
-      ...prev,
-      date: `${y}-${m}-${d}`
-    }));
+    if (!formData.date) {
+      const today = new Date();
+      const y = today.getFullYear();
+      const m = String(today.getMonth() + 1).padStart(2, '0');
+      const d = String(today.getDate()).padStart(2, '0');
+
+      setFormData(prev => ({
+        ...prev,
+        date: `${y}-${m}-${d}`
+      }));
+    }
+  }, []);
+
+  // Fetch part names from database on mount
+  useEffect(() => {
+    const fetchPartNames = async () => {
+      try {
+        const response = await fetch(`${API_ENDPOINTS.process}/part-names`, {
+          method: 'GET',
+          credentials: 'include'
+        });
+        const data = await response.json();
+        if (data.success) {
+          setPartNameSuggestions(data.data);
+        }
+      } catch (error) {
+        console.error('Error fetching part names:', error);
+      }
+    };
+    fetchPartNames();
+  }, []);
+
+  // Handle click outside part name dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (partNameDropdownRef.current && !partNameDropdownRef.current.contains(event.target)) {
+        setShowPartNameDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   // Check if date+disa combination exists in database
@@ -978,6 +1011,25 @@ export default function ProcessControl() {
       return;
     }
 
+    // Handle Part Name - only allow uppercase letters, numbers, and common separators
+    if (name === 'partName') {
+      // Convert to uppercase and keep only allowed characters (A-Z, 0-9, -, _, space)
+      const sanitizedValue = value.toUpperCase().replace(/[^A-Z0-9\-_ ]/g, '');
+      setFormData({...formData, [name]: sanitizedValue});
+      // Filter suggestions based on input - limit to 2 suggestions
+      if (sanitizedValue) {
+        const filtered = partNameSuggestions.filter(pn =>
+          pn.toUpperCase().includes(sanitizedValue)
+        ).slice(0, 2);
+        setFilteredPartNames(filtered);
+        setShowPartNameDropdown(filtered.length > 0);
+      } else {
+        setFilteredPartNames([]);
+        setShowPartNameDropdown(false);
+      }
+      return;
+    }
+
     // Handle PP Code and Treatment No - only allow integers (no decimals)
     if (name === 'ppCode' || name === 'treatmentNo') {
       // Remove any non-digit characters (including decimal points)
@@ -995,6 +1047,29 @@ export default function ProcessControl() {
     if (value && value.length === 1) {
       // Add leading zero if single digit
       setFormData(prev => ({...prev, [fieldName]: '0' + value}));
+    }
+  };
+
+  // Handle part name selection from dropdown
+  const handlePartNameSelect = (partName) => {
+    setFormData(prev => ({...prev, partName}));
+    setShowPartNameDropdown(false);
+    setPartNameValid(null);
+    // Move focus to next field
+    inputRefs.current.datecode?.focus();
+  };
+
+  // Handle part name input focus - only show suggestions when there's input
+  const handlePartNameFocus = () => {
+    if (formData.partName) {
+      const filtered = partNameSuggestions.filter(pn =>
+        pn.toUpperCase().includes(formData.partName.toUpperCase())
+      ).slice(0, 2);
+      setFilteredPartNames(filtered);
+      setShowPartNameDropdown(filtered.length > 0);
+    } else {
+      setFilteredPartNames([]);
+      setShowPartNameDropdown(false);
     }
   };
 
@@ -1424,7 +1499,11 @@ export default function ProcessControl() {
         
         // Reset error states
         setSubmitErrorMessage('');
-        
+
+        // Reset part name dropdown state
+        setShowPartNameDropdown(false);
+        setFilteredPartNames([]);
+
         // Increment entry count
         setEntryCount(prev => prev + 1);
         
@@ -1592,7 +1671,7 @@ export default function ProcessControl() {
             {/* Divider line to separate primary data from other inputs */}
             <div style={{ gridColumn: '1 / -1', marginTop: '1rem', marginBottom: '1rem', paddingTop: '1rem', borderTop: '2px solid #e2e8f0' }}></div>
 
-            <div className="process-form-group">
+            <div className="process-form-group" ref={partNameDropdownRef} style={{ position: 'relative' }}>
               <label>Part Name </label>
               <input
                 ref={el => inputRefs.current.partName = el}
@@ -1600,11 +1679,54 @@ export default function ProcessControl() {
                 name="partName"
                 value={formData.partName}
                 onChange={handleChange}
-                onKeyDown={e => handleKeyDown(e, 'partName')}
-                placeholder="e.g., ABC-123"
+                onFocus={handlePartNameFocus}
+                onKeyDown={e => {
+                  if (e.key === 'Escape') {
+                    setShowPartNameDropdown(false);
+                  } else if (e.key === 'Enter' && showPartNameDropdown && filteredPartNames.length > 0) {
+                    e.preventDefault();
+                    handlePartNameSelect(filteredPartNames[0]);
+                  } else {
+                    handleKeyDown(e, 'partName');
+                  }
+                }}
+                placeholder="CAPITAL LETTERS & NUMBERS"
                 disabled={!isPrimarySaved}
                 className={getInputClassName('partName', partNameValid)}
+                autoComplete="off"
               />
+              {showPartNameDropdown && filteredPartNames.length > 0 && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  right: 0,
+                  backgroundColor: 'white',
+                  border: '1px solid #ccc',
+                  borderRadius: '4px',
+                  maxHeight: '150px',
+                  overflowY: 'auto',
+                  zIndex: 1000,
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+                }}>
+                  {filteredPartNames.map((pn, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => handlePartNameSelect(pn)}
+                      style={{
+                        padding: '8px 12px',
+                        cursor: 'pointer',
+                        borderBottom: idx < filteredPartNames.length - 1 ? '1px solid #eee' : 'none',
+                        backgroundColor: 'white'
+                      }}
+                      onMouseEnter={e => e.target.style.backgroundColor = '#f0f0f0'}
+                      onMouseLeave={e => e.target.style.backgroundColor = 'white'}
+                    >
+                      {pn}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="process-form-group">
@@ -1881,16 +2003,16 @@ export default function ProcessControl() {
                   value={formData.fcNo} 
                   onChange={handleChange} 
                   onKeyDown={e => handleKeyDown(e, 'fcNo')}
-                  disabled={!isPrimarySaved}
+                  disabled={!isPrimarySaved}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
                   className={getInputClassName('fcNo', fcNoValid)}
                 >
                   <option value="">Select F/C No.</option>
-                  <option value="I">I</option>
-                  <option value="II">II</option>
-                  <option value="III">III</option>
-                  <option value="IV">IV</option>
-                  <option value="V">V</option>
-                  <option value="VI">VI</option>
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>                                                                                                                                                                                                                                                                                                                                                    
+                  <option value="H1">H1</option>
+                  <option value="H2">H2</option>
                 </select>
               </div>
               <div className="process-form-group" style={{ flex: '1', minWidth: '130px' }}>
