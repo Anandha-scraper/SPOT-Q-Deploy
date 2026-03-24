@@ -1,3 +1,107 @@
+/*
+ * =====================================================================================
+ * DYNAMIC FORM VALIDATION SYSTEM - TECHNICAL REFERENCE
+ * =====================================================================================
+ *
+ * This component implements a comprehensive dynamic validation system that can be
+ * adapted to any form. The system consists of three core components working together:
+ *
+ * 1. VALIDATION RANGES - Configuration-driven field definitions
+ * 2. FIELD MAPPING - Links display names to form data property names
+ * 3. VALIDATION SETTERS - Maps form fields to their validation state setters
+ * 4. DYNAMIC VALIDATION FUNCTION - Processes rules and validates fields
+ *
+ * =====================================================================================
+ * IMPLEMENTATION GUIDE FOR OTHER PAGES:
+ * =====================================================================================
+ *
+ * STEP 1: Define validationRanges array
+ * -------------------------------------
+ * const validationRanges = [
+ *   {
+ *     field: 'Display Name',        // Exact label shown to user
+ *     required: true/false,         // Whether field is required
+ *     type: 'Text|Number|Select|Integer|Date|Time Range|Number Range',
+ *     min: 0,                      // Optional: minimum value for numbers
+ *     max: 100,                    // Optional: maximum value for numbers
+ *     unit: '%',                   // Optional: display unit
+ *     pattern: 'regex or example', // Optional: validation pattern
+ *     allowedValues: ['A','B','C'] // Required for Select type
+ *   }
+ * ];
+ *
+ * STEP 2: Create fieldMapping object
+ * ----------------------------------
+ * const fieldMapping = {
+ *   'Display Name': 'formDataPropertyName',           // Single field
+ *   'Temperature Range': ['minTemp', 'maxTemp']       // Range fields (array)
+ * };
+ *
+ * STEP 3: Set up useState for all validation states
+ * -----------------------------------------------
+ * const [fieldNameValid, setFieldNameValid] = useState(null);
+ * // null = neutral, false = invalid (red border), true = valid (not used)
+ *
+ * STEP 4: Create validationSetters mapping (AFTER useState declarations)
+ * -------------------------------------------------------------------
+ * const validationSetters = {
+ *   'formDataPropertyName': setFieldNameValid,
+ *   'anotherField': setAnotherFieldValid
+ * };
+ *
+ * STEP 5: Implement validateField function (copy from this file)
+ * ------------------------------------------------------------
+ * This handles single fields, range fields, and different validation types.
+ *
+ * STEP 6: Add validation in submit handler
+ * ---------------------------------------
+ * for (const rule of validationRanges) {
+ *   const mappedFields = fieldMapping[rule.field];
+ *   const result = validateField(rule, mappedFields, formData);
+ *   const setter = Array.isArray(mappedFields) ?
+ *     setRangeFieldValid : validationSetters[mappedFields];
+ *   if (setter) {
+ *     setter(result.isValid ? null : false);
+ *   }
+ * }
+ *
+ * STEP 7: Add getInputClassName function
+ * -------------------------------------
+ * const getInputClassName = (fieldName, validationState) => {
+ *   return validationState === false ? 'invalid-input' : '';
+ * };
+ *
+ * STEP 8: Apply validation classes to inputs
+ * ----------------------------------------
+ * <input className={getInputClassName('fieldName', fieldNameValid)} />
+ *
+ * =====================================================================================
+ * KEY PATTERNS:
+ * =====================================================================================
+ *
+ * • Field names in validationRanges must EXACTLY match display labels
+ * • validationSetters object must be defined AFTER all useState declarations
+ * • Use null for neutral state, false for invalid (red border)
+ * • Range fields use arrays in fieldMapping: ['minField', 'maxField']
+ * • Always reset validation states to null when user starts typing
+ * • Special cases (custom time/date fields) need separate handling in submit
+ *
+ * =====================================================================================
+ * VALIDATION STATES:
+ * =====================================================================================
+ *
+ * null  = Neutral/default state (no border color)
+ * false = Invalid state (red border) - shown after submit when field fails validation
+ * true  = Valid state (green border) - NOT USED, kept for backwards compatibility
+ *
+ * The validation state changes:
+ * - On submit: Set to false if invalid, null if valid
+ * - On user input: Reset to null (neutral) in handleChange
+ * - On focus/blur: Remains null during input, only changes after submit attempts
+ *
+ * =====================================================================================
+ */
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Save } from 'lucide-react';
 import { SubmitButton } from '../../Components/Buttons';
@@ -34,7 +138,6 @@ const Tensile = () => {
     },
     {
       field: 'Item',
-      required: true,
       type: 'Text',
       pattern: 'e.g., Cast Iron Bar'
     },
@@ -176,10 +279,16 @@ const Tensile = () => {
   // Check if date is selected (for locking other inputs)
   const isDateSelected = formData.dateOfInspection && formData.dateOfInspection.trim() !== '';
 
-  /* 
+  /*
    * VALIDATION STATES
    * null = neutral/default (no border color)
    * false = invalid (red border) - shown after submit when field is empty/invalid
+   * true = valid (green border) - NOT USED, kept for backwards compatibility
+   *
+   * The validation state changes:
+   * - On submit: Set to false if invalid, null if valid
+   * - On user input: Reset to null (neutral) in handleChange
+   * - On focus/blur: Remains null during input, only changes after submit attempts
    */
   const [dateValid, setDateValid] = useState(null);
   const [itemValid, setItemValid] = useState(null);
@@ -217,10 +326,18 @@ const Tensile = () => {
   const inputRefs = useRef({});
   const submitButtonRef = useRef(null);
 
+  // Field order for navigation (Enter key progression)
+  const fieldOrder = ['dateOfInspection', 'item', 'dateCode', 'heatCode', 'dia', 'lo', 'li',
+                     'breakingLoad', 'yieldLoad', 'uts', 'ys', 'elongation', 'testedBy', 'remarks'];
+
   /*
    * Returns the appropriate CSS class for an input field based on validation state:
    * - Red border (invalid-input) when field is invalid/empty after submit
    * - Neutral (no color) otherwise
+   *
+   * Flow:
+   * 1. After submit, if invalid -> red border (invalid-input)
+   * 2. When user starts typing/entering data -> resets to neutral via handleChange
    *
    * @param {string} fieldName - The name of the field
    * @param {boolean|null} validationState - null=neutral, false=invalid
@@ -290,6 +407,21 @@ const Tensile = () => {
     switch (rule.type) {
       case 'Number':
       case 'Integer':
+        // Enhanced number validation to catch edge cases that type="number" allows
+        const stringValue = String(value).trim();
+
+        // Check for invalid characters that browsers allow in number inputs
+        // but aren't valid for our use case
+        const invalidNumberPattern = /[eE+]|\..*\.|--|\+\+/; // e, E, +, multiple dots, multiple signs
+        if (invalidNumberPattern.test(stringValue)) {
+          return { isValid: false, message: `${rule.field} must be a valid number` };
+        }
+
+        // Additional check for values ending with invalid characters
+        if (/[eE.+-]$/.test(stringValue)) {
+          return { isValid: false, message: `${rule.field} must be a valid number` };
+        }
+
         const num = parseFloat(value);
         if (isNaN(num) || !isFinite(num)) {
           return { isValid: false, message: `${rule.field} must be a valid number` };
@@ -358,6 +490,7 @@ const Tensile = () => {
   /*
    * Handle input change
    * When user starts typing, reset validation state to null (neutral)
+   * This provides immediate feedback that they are addressing validation errors
    */
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -380,18 +513,16 @@ const Tensile = () => {
     }));
   };
 
-  const handleKeyDown = (e) => {
+  const handleKeyDown = (e, fieldName) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      const form = e.target.form;
-      const inputs = Array.from(form.querySelectorAll('input:not([disabled]), textarea'));
-      const currentIndex = inputs.indexOf(e.target);
-      const nextInput = inputs[currentIndex + 1];
+      const idx = fieldOrder.indexOf(fieldName);
 
-      if (nextInput) {
-        nextInput.focus();
-      } else {
+      // If on last field (remarks), move to submit button
+      if (fieldName === 'remarks') {
         submitButtonRef.current?.focus();
+      } else if (idx < fieldOrder.length - 1) {
+        inputRefs.current[fieldOrder[idx + 1]]?.focus();
       }
     }
   };
@@ -415,6 +546,53 @@ const Tensile = () => {
     }
   };
 
+  /*
+   * Handle form submission with validation
+   *
+   * Validation Flow:
+   * 1. Check each required field for empty/invalid values
+   * 2. If invalid, set validation state to false (shows red border)
+   * 3. If valid, set validation state to null (neutral, no color)
+   * 4. If any errors exist, show error message and stop submission
+   * 5. On successful submission, reset all validation states to null
+   *
+   * ============================================================
+   * AUTO-NAVIGATION TO FIRST ERROR PATTERN:
+   * ============================================================
+   * This pattern ensures the cursor automatically focuses on the
+   * FIRST error field immediately when the user clicks Submit.
+   *
+   * HOW IT WORKS:
+   * 1. Initialize a tracking variable BEFORE validation loop:
+   *    let firstErrorField = null;
+   *
+   * 2. In EACH validation check, set firstErrorField ONLY if it's
+   *    still null (this captures only the first error):
+   *    if (!formData.fieldName || validation_fails) {
+   *      setFieldValid(false);
+   *      hasErrors = true;
+   *      if (!firstErrorField) firstErrorField = 'fieldName'; // Capture first error
+   *    }
+   *
+   * 3. AFTER all validations, focus immediately using the tracking variable:
+   *    if (hasErrors) {
+   *      if (firstErrorField) {
+   *        inputRefs.current[firstErrorField]?.focus();
+   *      }
+   *      return;
+   *    }
+   *
+   * WHY THIS WORKS ON FIRST CLICK:
+   * - Uses a plain variable (not state) to track synchronously
+   * - Doesn't depend on state updates (which are async)
+   * - Focus happens immediately in the same execution cycle
+   *
+   * TO IMPLEMENT IN ANOTHER PAGE:
+   * - Add: let firstErrorField = null; at start of submit handler
+   * - Add: if (!firstErrorField) firstErrorField = 'refName'; in each validation
+   * - Add: if (firstErrorField) inputRefs.current[firstErrorField]?.focus(); before return
+   * ============================================================
+   */
   const handleSubmit = async () => {
     let hasErrors = false;
     let firstErrorField = null;
@@ -555,21 +733,8 @@ const Tensile = () => {
           testedBy: ''
         });
 
-        // Reset validation states
-        setDateValid(null);
-        setItemValid(null);
-        setDateCodeValid(null);
-        setHeatCodeValid(null);
-        setDiaValid(null);
-        setLoValid(null);
-        setLiValid(null);
-        setBreakingLoadValid(null);
-        setYieldLoadValid(null);
-        setUtsValid(null);
-        setYsValid(null);
-        setElongationValid(null);
-        setTestedByValid(null);
-        setRemarksValid(null);
+        // Reset validation states using dynamic system
+        Object.values(validationSetters).forEach(setter => setter(null));
         setSubmitErrorMessage('');
 
         setTimeout(() => {
@@ -615,7 +780,7 @@ const Tensile = () => {
             name="dateOfInspection"
             value={formData.dateOfInspection}
             onChange={handleChange}
-            onKeyDown={handleKeyDown}
+            onKeyDown={e => handleKeyDown(e, 'dateOfInspection')}
             max={new Date().toISOString().split('T')[0]}
             style={{
               border: dateValid === false ? '2px solid #ef4444' : '2px solid #cbd5e1',
@@ -636,7 +801,7 @@ const Tensile = () => {
             name="item"
             value={formData.item}
             onChange={handleChange}
-            onKeyDown={handleKeyDown}
+            onKeyDown={e => handleKeyDown(e, 'item')}
             placeholder="e.g: Steel Rod"
             autoComplete="off"
             disabled={!isDateSelected}
@@ -652,7 +817,7 @@ const Tensile = () => {
             name="dateCode"
             value={formData.dateCode}
             onChange={handleChange}
-            onKeyDown={handleKeyDown}
+            onKeyDown={e => handleKeyDown(e, 'dateCode')}
             placeholder="e.g: 6F25"
             autoComplete="off"
             disabled={!isDateSelected}
@@ -668,7 +833,7 @@ const Tensile = () => {
             name="heatCode"
             value={formData.heatCode}
             onChange={handleChange}
-            onKeyDown={handleKeyDown}
+            onKeyDown={e => handleKeyDown(e, 'heatCode')}
             placeholder="Enter number only"
             autoComplete="off"
             disabled={!isDateSelected}
@@ -684,7 +849,7 @@ const Tensile = () => {
             name="dia"
             value={formData.dia}
             onChange={handleChange}
-            onKeyDown={handleKeyDown}            onBlur={handleNumericBlur}            step="0.01"
+            onKeyDown={e => handleKeyDown(e, 'dia')}            onBlur={handleNumericBlur}            step="0.01"
             placeholder="e.g: 10.5"
             autoComplete="off"
             disabled={!isDateSelected}
@@ -700,7 +865,7 @@ const Tensile = () => {
             name="lo"
             value={formData.lo}
             onChange={handleChange}
-            onKeyDown={handleKeyDown}            onBlur={handleNumericBlur}            step="0.01"
+            onKeyDown={e => handleKeyDown(e, 'lo')}            onBlur={handleNumericBlur}            step="0.01"
             placeholder="e.g: 50.0"
             autoComplete="off"
             disabled={!isDateSelected}
@@ -716,7 +881,7 @@ const Tensile = () => {
             name="li"
             value={formData.li}
             onChange={handleChange}
-            onKeyDown={handleKeyDown}            onBlur={handleNumericBlur}            step="0.01"
+            onKeyDown={e => handleKeyDown(e, 'li')}            onBlur={handleNumericBlur}            step="0.01"
             placeholder="e.g: 52.5"
             autoComplete="off"
             disabled={!isDateSelected}
@@ -732,7 +897,7 @@ const Tensile = () => {
             name="breakingLoad"
             value={formData.breakingLoad}
             onChange={handleChange}
-            onKeyDown={handleKeyDown}            onBlur={handleNumericBlur}            step="0.01"
+            onKeyDown={e => handleKeyDown(e, 'breakingLoad')}            onBlur={handleNumericBlur}            step="0.01"
             placeholder="e.g: 45.5"
             autoComplete="off"
             disabled={!isDateSelected}
@@ -748,7 +913,7 @@ const Tensile = () => {
             name="yieldLoad"
             value={formData.yieldLoad}
             onChange={handleChange}
-            onKeyDown={handleKeyDown}            onBlur={handleNumericBlur}            step="0.01"
+            onKeyDown={e => handleKeyDown(e, 'yieldLoad')}            onBlur={handleNumericBlur}            step="0.01"
             placeholder="e.g: 38.2"
             autoComplete="off"
             disabled={!isDateSelected}
@@ -764,7 +929,7 @@ const Tensile = () => {
             name="uts"
             value={formData.uts}
             onChange={handleChange}
-            onKeyDown={handleKeyDown}            onBlur={handleNumericBlur}            step="0.01"
+            onKeyDown={e => handleKeyDown(e, 'uts')}            onBlur={handleNumericBlur}            step="0.01"
             placeholder="e.g: 550"
             autoComplete="off"
             disabled={!isDateSelected}
@@ -780,7 +945,7 @@ const Tensile = () => {
             name="ys"
             value={formData.ys}
             onChange={handleChange}
-            onKeyDown={handleKeyDown}
+            onKeyDown={e => handleKeyDown(e, 'ys')}
             onBlur={handleNumericBlur}
             step="0.01"
             placeholder="e.g: 460"
@@ -798,7 +963,7 @@ const Tensile = () => {
             name="elongation"
             value={formData.elongation}
             onChange={handleChange}
-            onKeyDown={handleKeyDown}
+            onKeyDown={e => handleKeyDown(e, 'elongation')}
             onBlur={handleNumericBlur}
             step="0.01"
             placeholder="e.g: 18.5"
@@ -816,7 +981,7 @@ const Tensile = () => {
             name="testedBy"
             value={formData.testedBy}
             onChange={handleChange}
-            onKeyDown={handleKeyDown}
+            onKeyDown={e => handleKeyDown(e, 'testedBy')}
             placeholder="e.g: John Doe"
             autoComplete="off"
             disabled={!isDateSelected}
@@ -832,7 +997,7 @@ const Tensile = () => {
             name="remarks"
             value={formData.remarks}
             onChange={handleChange}
-            onKeyDown={handleKeyDown}
+            onKeyDown={e => handleKeyDown(e, 'remarks')}
             placeholder="Enter any additional notes..."
             maxLength={200}
             autoComplete="off"
