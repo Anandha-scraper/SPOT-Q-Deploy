@@ -532,6 +532,14 @@ export default function ProcessControl() {
       const [minField, maxField] = mappedFields;
       const minValue = formData[minField];
       const maxValue = formData[maxField];
+      const minInput = inputRefs?.current?.[minField];
+      const maxInput = inputRefs?.current?.[maxField];
+
+      // Check if browser considers input intuitively invalid (e.g. typing 'e' in type "number")
+      if ((minInput && minInput.validity && minInput.validity.badInput) || 
+          (maxInput && maxInput.validity && maxInput.validity.badInput)) {
+        return { isValid: false, message: `${rule.field} must contain valid numbers` };
+      }
 
       // For range fields, check if both values exist when required
       if (rule.required) {
@@ -560,6 +568,13 @@ export default function ProcessControl() {
     // Handle single fields
     const fieldName = mappedFields;
     const value = formData[fieldName];
+    const inputElement = inputRefs?.current?.[fieldName];
+
+    // Check if the browser considers the input intuitively invalid (e.g. 'e' pushed to type "number")
+    // This catches invalid strings that are reflected as empty in 'value'
+    if (inputElement && inputElement.validity && inputElement.validity.badInput) {
+      return { isValid: false, message: `${rule.field} must be a valid ${rule.type.toLowerCase()}` };
+    }
 
     // Check required fields
     if (rule.required) {
