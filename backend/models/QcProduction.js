@@ -92,9 +92,13 @@ const QcProductionSchema = new mongoose.Schema({
     },
 
     nodularity: {
-        type: String,
-        required: true,
-        trim: true
+        type: Number,
+        required: true
+    },
+
+    noduleCount: {
+        type: Number,
+        required: true
     },
 
     graphiteTypeFrom: {
@@ -106,10 +110,14 @@ const QcProductionSchema = new mongoose.Schema({
         default: 0
     },
 
-    pearliteFerrite: { 
-        type: String,
-        required: true,
-        trim: true
+    pearlite: {
+        type: Number,
+        required: true
+    },
+
+    ferrite: {
+        type: Number,
+        required: true
     },
 
     hardnessBHNFrom: { 
@@ -121,21 +129,20 @@ const QcProductionSchema = new mongoose.Schema({
         default: 0
     },
 
-    ts: { 
+    ts: [{
+        type: Number,
+        required: true
+    }],
+    ys: [{
         type: String,
         required: true,
         trim: true
-    },
-    ys: { 
+    }],
+    el: [{
         type: String,
         required: true,
         trim: true
-    },
-    el: { 
-        type: String,
-        required: true,
-        trim: true
-    }
+    }]
 }, {
     timestamps: true,
     collection: 'qc_production_details'

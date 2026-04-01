@@ -551,6 +551,16 @@
 	transform: scale(0.95);
 }
 
+/* Small version for dynamic inputs */
+.minus-button.small {
+	padding: 0.15rem;
+}
+
+.minus-button.small svg {
+	width: 12px;
+	height: 12px;
+}
+
 /* ==================== Submit Button Styles ==================== */
 .submit-button-wrapper {
 	display: inline-block;

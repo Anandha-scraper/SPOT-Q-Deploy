@@ -251,12 +251,19 @@ const QcProductionDetailsReport = () => {
               align: 'center',
               render: (item) => formatRangeDisplay(item.crPercent)
             },
-            { 
-              key: 'nodularity', 
-              label: 'Nodularity', 
-              width: '150px', 
+            {
+              key: 'nodularity',
+              label: 'Nodularity',
+              width: '150px',
               align: 'center',
               render: (item) => formatRangeDisplay(item.nodularity)
+            },
+            {
+              key: 'noduleCount',
+              label: 'Nodule count',
+              width: '120px',
+              align: 'center',
+              render: (item) => item.noduleCount || '--'
             },
             { 
               key: 'graphiteType', 
@@ -265,12 +272,19 @@ const QcProductionDetailsReport = () => {
               align: 'center',
               render: (item) => formatRangeDisplay(item.graphiteType)
             },
-            { 
-              key: 'pearliteFerrite', 
-              label: 'Pearlite Ferrite', 
-              width: '160px', 
+            {
+              key: 'pearlite',
+              label: 'Pearlite',
+              width: '120px',
               align: 'center',
-              render: (item) => formatRangeDisplay(item.pearliteFerrite)
+              render: (item) => item.pearlite || '--'
+            },
+            {
+              key: 'ferrite',
+              label: 'Ferrite',
+              width: '120px',
+              align: 'center',
+              render: (item) => item.ferrite || '--'
             },
             { 
               key: 'hardnessBHN', 

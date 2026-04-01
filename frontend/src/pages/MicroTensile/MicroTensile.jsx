@@ -34,7 +34,6 @@ const MicroTensile = () => {
     },
     {
       field: 'Item (Optional)',
-      required: false,
       type: 'Text',
       pattern: 'e.g., 343/34/56'
     },
@@ -52,21 +51,18 @@ const MicroTensile = () => {
     },
     {
       field: 'Bar Dia',
-      required: true,
       type: 'Number',
       unit: 'mm',
       pattern: 'e.g., 6.0'
     },
     {
       field: 'Gauge Length',
-      required: true,
       type: 'Number',
       unit: 'mm',
       pattern: 'e.g., 30.0'
     },
     {
       field: 'Max Load',
-      required: true,
       type: 'Number',
       min: 0,
       unit: 'Kgs or KN',
@@ -74,7 +70,6 @@ const MicroTensile = () => {
     },
     {
       field: 'Yield Load',
-      required: true,
       type: 'Number',
       min: 0,
       unit: 'Kgs or KN',
@@ -82,7 +77,6 @@ const MicroTensile = () => {
     },
     {
       field: 'Tensile Strength',
-      required: true,
       type: 'Number',
       min: 0,
       unit: 'Kg/mm² or MPa',
@@ -90,7 +84,6 @@ const MicroTensile = () => {
     },
     {
       field: 'Yield Strength',
-      required: true,
       type: 'Number',
       min: 0,
       unit: 'Kg/mm² or MPa',
@@ -98,7 +91,6 @@ const MicroTensile = () => {
     },
     {
       field: 'Elongation',
-      required: true,
       type: 'Number',
       min: 0,
       max: 100,
@@ -107,16 +99,33 @@ const MicroTensile = () => {
     },
     {
       field: 'Remarks',
-      required: false,
       type: 'Text'
     },
     {
       field: 'Tested By',
-      required: false,
       type: 'Text',
       pattern: 'e.g., John Smith'
     }
   ];
+
+  // ====================== Field Mapping ======================
+  const fieldMapping = {
+    'Date': 'date',
+    'DISA': 'disa',
+    'Item': 'item',
+    'Item (Optional)': 'itemSecond',
+    'Date Code': 'dateCode',
+    'Heat Code': 'heatCode',
+    'Bar Dia': 'barDia',
+    'Gauge Length': 'gaugeLength',
+    'Max Load': 'maxLoad',
+    'Yield Load': 'yieldLoad',
+    'Tensile Strength': 'tensileStrength',
+    'Yield Strength': 'yieldStrength',
+    'Elongation': 'elongation',
+    'Remarks': 'remarks',
+    'Tested By': 'testedBy'
+  };
 
   const inputRefs = useRef({});
   const primarySectionRef = useRef(null);
@@ -166,6 +175,73 @@ const MicroTensile = () => {
   const [elongationValid, setElongationValid] = useState(null);
   const [remarksValid, setRemarksValid] = useState(null);
   const [testedByValid, setTestedByValid] = useState(null);
+
+  const validationSetters = {
+    'item': setItemValid,
+    'itemSecond': setItemSecondValid,
+    'dateCode': setDateCodeValid,
+    'heatCode': setHeatCodeValid,
+    'barDia': setBarDiaValid,
+    'gaugeLength': setGaugeLengthValid,
+    'maxLoad': setMaxLoadValid,
+    'yieldLoad': setYieldLoadValid,
+    'tensileStrength': setTensileStrengthValid,
+    'yieldStrength': setYieldStrengthValid,
+    'elongation': setElongationValid,
+    'remarks': setRemarksValid,
+    'testedBy': setTestedByValid
+  };
+
+  const validateField = (rule, mappedFields, formData) => {
+    if (Array.isArray(mappedFields)) return { isValid: true };
+    const fieldName = mappedFields;
+    const value = formData[fieldName];
+    const inputElement = inputRefs?.current?.[fieldName];
+
+    if (inputElement && inputElement.validity && inputElement.validity.badInput) {
+      return { isValid: false, message: `${rule.field} must be a valid ${rule.type.toLowerCase()}` };
+    }
+
+    if (rule.required) {
+      if (!value || (typeof value === 'string' && value.trim() === '')) {
+        return { isValid: false, message: `${rule.field} is required` };
+      }
+    }
+
+    if (!value || (typeof value === 'string' && value.trim() === '')) {
+      return { isValid: true };
+    }
+
+    switch (rule.type) {
+      case 'Number':
+        const stringValue = String(value).trim();
+        const invalidNumberPattern = /[eE+]|\..*\.|--|\+\+/;
+        if (invalidNumberPattern.test(stringValue)) return { isValid: false };
+        if (/[eE.+-]$/.test(stringValue)) return { isValid: false };
+        const num = parseFloat(value);
+        if (isNaN(num) || !isFinite(num)) return { isValid: false };
+        if (rule.min !== undefined && num <= rule.min && rule.field !== 'Elongation') {
+          // Micro tensile originally required > 0 for most number fields, some strictly > 0 and elongation >= 0.
+          if (rule.min === 0 && num === 0) return { isValid: false }; // Strict > 0 previously implemented
+          if (num < rule.min) return { isValid: false };
+        } else if (rule.min !== undefined && num < rule.min) {
+           return { isValid: false }; // For elongation
+        }
+        if (rule.max !== undefined && num > rule.max) return { isValid: false };
+        break;
+
+      case 'Text':
+        const textValue = String(value).trim();
+        if (rule.field === 'Date Code') {
+          const dateCodePattern = /^[0-9][A-Z][0-9]{2}$/;
+          if (!dateCodePattern.test(textValue)) return { isValid: false };
+        }
+        break;
+      default:
+        break;
+    }
+    return { isValid: true };
+  };
 
   // Field order for keyboard navigation
   const fieldOrder = ['date', 'disa', 'item', 'itemSecond', 'dateCode', 'heatCode', 'barDia', 'gaugeLength',
@@ -666,132 +742,34 @@ const MicroTensile = () => {
     // Clear any previous error
     setSubmitError('');
 
-    // Validate required fields with validation states
-    // Validate all required fields
     let hasErrors = false;
-    // AUTO-NAVIGATION: Track the first field that fails validation (see comment block above)
     let firstErrorField = null;
-    
-    const dateCodePattern = /^[0-9][A-Z][0-9]{2}$/;
 
-    // Validate Item
-    if (!formData.item || !formData.item.trim()) {
-      setItemValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'item';
-    } else {
-      setItemValid(null);
-    }
+    for (const rule of validationRanges) {
+      if (rule.field === 'Date' || rule.field === 'DISA') continue; // Handled by primary save
 
-    // Validate Date Code
-    if (!formData.dateCode || !formData.dateCode.trim() || !dateCodePattern.test(formData.dateCode)) {
-      setDateCodeValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'dateCode';
-    } else {
-      setDateCodeValid(null);
-    }
+      const mappedField = fieldMapping[rule.field];
+      const validationSetter = validationSetters[mappedField];
 
-    // Validate Heat Code
-    if (!formData.heatCode || !formData.heatCode.trim()) {
-      setHeatCodeValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'heatCode';
-    } else {
-      setHeatCodeValid(null);
-    }
+      if (!mappedField || !validationSetter) continue;
 
-    // Validate Bar Dia
-    if (!formData.barDia || isNaN(formData.barDia) || parseFloat(formData.barDia) <= 0) {
-      setBarDiaValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'barDia';
-    } else {
-      setBarDiaValid(null);
-    }
+      const result = validateField(rule, mappedField, formData);
 
-    // Validate Gauge Length
-    if (!formData.gaugeLength || isNaN(formData.gaugeLength) || parseFloat(formData.gaugeLength) <= 0) {
-      setGaugeLengthValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'gaugeLength';
-    } else {
-      setGaugeLengthValid(null);
-    }
-
-    // Validate Max Load
-    if (!formData.maxLoad || isNaN(formData.maxLoad) || parseFloat(formData.maxLoad) <= 0) {
-      setMaxLoadValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'maxLoad';
-    } else {
-      setMaxLoadValid(null);
-    }
-
-    // Validate Yield Load
-    if (!formData.yieldLoad || isNaN(formData.yieldLoad) || parseFloat(formData.yieldLoad) <= 0) {
-      setYieldLoadValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'yieldLoad';
-    } else {
-      setYieldLoadValid(null);
-    }
-
-    // Validate Tensile Strength
-    if (!formData.tensileStrength || isNaN(formData.tensileStrength) || parseFloat(formData.tensileStrength) <= 0) {
-      setTensileStrengthValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'tensileStrength';
-    } else {
-      setTensileStrengthValid(null);
-    }
-
-    // Validate Yield Strength
-    if (!formData.yieldStrength || isNaN(formData.yieldStrength) || parseFloat(formData.yieldStrength) <= 0) {
-      setYieldStrengthValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'yieldStrength';
-    } else {
-      setYieldStrengthValid(null);
-    }
-
-    // Validate Elongation
-    if (!formData.elongation || isNaN(formData.elongation) || parseFloat(formData.elongation) < 0 || parseFloat(formData.elongation) > 100) {
-      setElongationValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'elongation';
-    } else {
-      setElongationValid(null);
-    }
-
-    // Validate Remarks
-    if (!formData.remarks || !formData.remarks.trim()) {
-      setRemarksValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'remarks';
-    } else {
-      setRemarksValid(null);
-    }
-
-    // Validate Tested By
-    if (!formData.testedBy || !formData.testedBy.trim()) {
-      setTestedByValid(false);
-      hasErrors = true;
-      if (!firstErrorField) firstErrorField = 'testedBy';
-    } else {
-      setTestedByValid(null);
+      if (!result.isValid) {
+        validationSetter(false);
+        hasErrors = true;
+        if (!firstErrorField) firstErrorField = mappedField;
+      } else {
+        validationSetter(null);
+      }
     }
 
     if (hasErrors) {
       setSubmitError('Enter data in correct Format');
       
-      // AUTO-NAVIGATION: Focus on the first field that failed validation
-      // This happens immediately (synchronously) because firstErrorField 
-      // is a plain variable, not state. Works on FIRST submit click.
       if (firstErrorField) {
         inputRefs.current[firstErrorField]?.focus();
       }
-      
       return;
     }
 

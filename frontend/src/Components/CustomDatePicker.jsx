@@ -20,6 +20,14 @@ const CustomDatePicker = forwardRef(({ value, onChange, max, style, name, onKeyD
   useImperativeHandle(ref, () => ({
     focus: () => {
       inputRef.current?.focus();
+    },
+    open: () => {
+      if (!disabled) {
+        setIsOpen(true);
+      }
+    },
+    close: () => {
+      setIsOpen(false);
     }
   }));
 

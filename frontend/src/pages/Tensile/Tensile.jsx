@@ -138,6 +138,7 @@ const Tensile = () => {
     },
     {
       field: 'Item',
+      required:true,
       type: 'Text',
       pattern: 'e.g., Cast Iron Bar'
     },
@@ -155,15 +156,14 @@ const Tensile = () => {
     },
     {
       field: 'Dia',
-      required: true,
       type: 'Number',
       min: 0,
+      max:10,
       unit: 'mm',
       pattern: 'e.g., 12.5'
     },
     {
       field: 'Lo',
-      required: true,
       type: 'Number',
       min: 0,
       unit: 'mm',
@@ -171,7 +171,6 @@ const Tensile = () => {
     },
     {
       field: 'Li',
-      required: true,
       type: 'Number',
       min: 0,
       unit: 'mm',
@@ -179,7 +178,6 @@ const Tensile = () => {
     },
     {
       field: 'Breaking Load',
-      required: true,
       type: 'Number',
       min: 0,
       unit: 'kN',
@@ -187,7 +185,6 @@ const Tensile = () => {
     },
     {
       field: 'Yield Load',
-      required: true,
       type: 'Number',
       min: 0,
       unit: 'kN',
@@ -195,7 +192,6 @@ const Tensile = () => {
     },
     {
       field: 'UTS',
-      required: true,
       type: 'Number',
       min: 0,
       unit: 'N/mm²',
@@ -203,7 +199,6 @@ const Tensile = () => {
     },
     {
       field: 'YS',
-      required: true,
       type: 'Number',
       min: 0,
       unit: 'N/mm²',
@@ -211,7 +206,6 @@ const Tensile = () => {
     },
     {
       field: 'Elongation',
-      required: true,
       type: 'Number',
       min: 0,
       max: 100,
@@ -220,13 +214,11 @@ const Tensile = () => {
     },
     {
       field: 'Tested By',
-      required: true,
       type: 'Text',
       pattern: 'e.g., John Doe'
     },
     {
       field: 'Remarks',
-      required: true,
       type: 'Text'
     }
   ];
@@ -618,7 +610,6 @@ const Tensile = () => {
           setter(false);
           hasErrors = true;
           if (!firstErrorField) firstErrorField = mappedFields;
-          if (result.message) setSubmitErrorMessage(result.message);
         } else {
           setter(null);
         }
@@ -627,9 +618,7 @@ const Tensile = () => {
 
     // Handle error state
     if (hasErrors) {
-      if (!submitErrorMessage) {
-        setSubmitErrorMessage('Enter data in correct Format');
-      }
+      setSubmitErrorMessage('Fill required Field in Correct format');
 
       // AUTO-NAVIGATION: Focus on the first field that failed validation
       // This happens immediately (synchronously) because firstErrorField
@@ -1009,11 +998,13 @@ const Tensile = () => {
 
       <div className="tensile-submit-container">
         {submitErrorMessage && (
-          <InlineLoader 
-            message={submitErrorMessage}
-            variant="danger"
-            size="medium"
-          />
+          <div style={{ flex: 1, marginRight: '0.5rem' }}>
+            <InlineLoader
+              message={submitErrorMessage}
+              variant="danger"
+              size="medium"
+            />
+          </div>
         )}
         <div className="tensile-submit-right">
           <SubmitButton

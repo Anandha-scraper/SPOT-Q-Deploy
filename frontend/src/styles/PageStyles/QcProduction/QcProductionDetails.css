@@ -107,7 +107,9 @@
 }
 
 .qcproduction-form-group label {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   font-size: 0.875rem;
   font-weight: 600;
   color: #334155;
@@ -124,6 +126,53 @@
   font-size: 0.875rem;
   transition: all 0.3s ease;
   background: white;
+}
+
+/* Dynamic Input Groups (TS, YS, EL) - Full row */
+.qcproduction-dynamic-group {
+  grid-column: 1 / -1;
+}
+
+.qcproduction-dynamic-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.qcproduction-dynamic-label label {
+  margin-bottom: 0;
+}
+
+.qcproduction-dynamic-inputs {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.qcproduction-dynamic-input-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.qcproduction-dynamic-input-item input {
+  width: 70px !important;
+  min-width: 70px;
+  max-width: 70px;
+  padding: 0.625rem 0.5rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.qcproduction-range-separator {
+  color: #64748b;
+  font-weight: 500;
+  font-size: 0.875rem;
+  margin: 0 2px;
 }
 
 /* Validation styles */
@@ -413,6 +462,15 @@
 
   .qcproduction-range-input input {
     width: 100%;
+  }
+
+  .qcproduction-dynamic-inputs {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .qcproduction-dynamic-input-item input {
+    width: 80px;
   }
 
   .qcproduction-submit-container {

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Save, Loader2, FileText } from 'lucide-react';
-import { SubmitButton } from '../../Components/Buttons';
+import { SubmitButton, PlusButton, MinusButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { InlineLoader } from '../../Components/Alert';
 import Sakthi from '../../Components/Sakthi';
@@ -35,7 +35,6 @@ const QcProductionDetails = () => {
     },
     {
       field: 'C % (Carbon)',
-      required: true,
       type: 'Number Range',
       min: 0,
       max: 100,
@@ -43,7 +42,6 @@ const QcProductionDetails = () => {
     },
     {
       field: 'Si % (Silicon)',
-      required: true,
       type: 'Number Range',
       min: 0,
       max: 100,
@@ -51,7 +49,6 @@ const QcProductionDetails = () => {
     },
     {
       field: 'Mn % (Manganese)',
-      required: true,
       type: 'Number Range',
       min: 0,
       max: 100,
@@ -59,7 +56,6 @@ const QcProductionDetails = () => {
     },
     {
       field: 'P % (Phosphorus)',
-      required: true,
       type: 'Number Range',
       min: 0,
       max: 100,
@@ -67,7 +63,6 @@ const QcProductionDetails = () => {
     },
     {
       field: 'S % (Sulfur)',
-      required: true,
       type: 'Number Range',
       min: 0,
       max: 100,
@@ -75,7 +70,6 @@ const QcProductionDetails = () => {
     },
     {
       field: 'Mg % (Magnesium)',
-      required: true,
       type: 'Number Range',
       min: 0,
       max: 100,
@@ -83,7 +77,6 @@ const QcProductionDetails = () => {
     },
     {
       field: 'Cu % (Copper)',
-      required: true,
       type: 'Number Range',
       min: 0,
       max: 100,
@@ -91,7 +84,6 @@ const QcProductionDetails = () => {
     },
     {
       field: 'Cr % (Chromium)',
-      required: true,
       type: 'Number Range',
       min: 0,
       max: 100,
@@ -99,49 +91,55 @@ const QcProductionDetails = () => {
     },
     {
       field: 'Nodularity',
-      required: true,
-      type: 'Number Range',
+      type: 'Number',
+      min: 0
+    },
+    {
+      field: 'Nodule count',
+      type: 'Number',
       min: 0
     },
     {
       field: 'Graphite Type',
-      required: true,
       type: 'Number Range',
       min: 0
     },
     {
-      field: 'Pearlite Ferrite',
-      required: true,
-      type: 'Number Range',
+      field: 'Pearlite',
+      type: 'Number',
+      min: 0
+    },
+    {
+      field: 'Ferrite',
+      type: 'Number',
       min: 0
     },
     {
       field: 'Hardness BHN',
-      required: true,
       type: 'Number Range',
       min: 0,
       unit: 'BHN'
     },
     {
       field: 'TS (Tensile Strength)',
-      required: true,
-      type: 'Number Range',
-      min: 0,
-      unit: 'MPa'
+      type: 'Dynamic Array',
+      min: 10,
+      unit: 'MPa',
+      required: false
     },
     {
       field: 'YS (Yield Strength)',
-      required: true,
-      type: 'Number Range',
-      min: 0,
-      unit: 'MPa'
+      type: 'Dynamic Range Array',
+      min: 10,
+      unit: 'MPa',
+      required: false
     },
     {
       field: 'EL (Elongation)',
-      required: true,
-      type: 'Number Range',
-      min: 0,
-      unit: '%'
+      type: 'Dynamic Range Array',
+      min: 10,
+      unit: '%',
+      required: false
     }
   ];
 
@@ -195,13 +193,15 @@ const QcProductionDetails = () => {
     'Mg % (Magnesium)': ['mgPercentMin', 'mgPercentMax'],
     'Cu % (Copper)': ['cuPercentMin', 'cuPercentMax'],
     'Cr % (Chromium)': ['crPercentMin', 'crPercentMax'],
-    'Nodularity': ['nodularityMin', 'nodularityMax'],
+    'Nodularity': 'nodularity',
+    'Nodule count': 'noduleCount',
     'Graphite Type': ['graphiteTypeMin', 'graphiteTypeMax'],
-    'Pearlite Ferrite': ['pearliteFertiteMin', 'pearliteFertiteMax'],
+    'Pearlite': 'pearlite',
+    'Ferrite': 'ferrite',
     'Hardness BHN': ['hardnessBHNMin', 'hardnessBHNMax'],
-    'TS (Tensile Strength)': ['tsMin', 'tsMax'],
-    'YS (Yield Strength)': ['ysMin', 'ysMax'],
-    'EL (Elongation)': ['elMin', 'elMax']
+    'TS (Tensile Strength)': 'tsValues',
+    'YS (Yield Strength)': 'ysValues',
+    'EL (Elongation)': 'elValues'
   };
 
   // ====================== Validation Setters ======================
@@ -226,20 +226,117 @@ const QcProductionDetails = () => {
     'cuPercentMax': (val) => setValidation('cuPercentMax', val),
     'crPercentMin': (val) => setValidation('crPercentMin', val),
     'crPercentMax': (val) => setValidation('crPercentMax', val),
-    'nodularityMin': (val) => setValidation('nodularityMin', val),
-    'nodularityMax': (val) => setValidation('nodularityMax', val),
+    'nodularity': (val) => setValidation('nodularity', val),
+    'noduleCount': (val) => setValidation('noduleCount', val),
     'graphiteTypeMin': (val) => setValidation('graphiteTypeMin', val),
     'graphiteTypeMax': (val) => setValidation('graphiteTypeMax', val),
-    'pearliteFertiteMin': (val) => setValidation('pearliteFertiteMin', val),
-    'pearliteFertiteMax': (val) => setValidation('pearliteFertiteMax', val),
+    'pearlite': (val) => setValidation('pearlite', val),
+    'ferrite': (val) => setValidation('ferrite', val),
     'hardnessBHNMin': (val) => setValidation('hardnessBHNMin', val),
     'hardnessBHNMax': (val) => setValidation('hardnessBHNMax', val),
-    'tsMin': (val) => setValidation('tsMin', val),
-    'tsMax': (val) => setValidation('tsMax', val),
-    'ysMin': (val) => setValidation('ysMin', val),
-    'ysMax': (val) => setValidation('ysMax', val),
-    'elMin': (val) => setValidation('elMin', val),
-    'elMax': (val) => setValidation('elMax', val)
+    'tsValues': (val) => setValidation('tsValues', val),
+    'ysValues': (val) => setValidation('ysValues', val),
+    'elValues': (val) => setValidation('elValues', val)
+  };
+
+  // ====================== Dynamic Input Handlers for TS, YS, EL ======================
+  const addTsValue = () => {
+    if (formData.tsValues.length >= 4) return;
+    setFormData(prev => ({
+      ...prev,
+      tsValues: [...prev.tsValues, { value: '' }]
+    }));
+    setValidation('tsValues', null);
+  };
+
+  const removeTsValue = (index) => {
+    if (formData.tsValues.length > 1) {
+      setFormData(prev => ({
+        ...prev,
+        tsValues: prev.tsValues.filter((_, i) => i !== index)
+      }));
+      setValidation('tsValues', null);
+    }
+  };
+
+  const handleTsChange = (index, value) => {
+    // Filter numeric input
+    const filteredValue = value.replace(/[^0-9.]/g, '');
+    const parts = filteredValue.split('.');
+    const finalValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : filteredValue;
+    
+    setFormData(prev => ({
+      ...prev,
+      tsValues: prev.tsValues.map((item, i) => 
+        i === index ? { value: finalValue } : item
+      )
+    }));
+  };
+
+  const addYsValue = () => {
+    if (formData.ysValues.length >= 4) return;
+    setFormData(prev => ({
+      ...prev,
+      ysValues: [...prev.ysValues, { min: '', max: '' }]
+    }));
+    setValidation('ysValues', null);
+  };
+
+  const removeYsValue = (index) => {
+    if (formData.ysValues.length > 1) {
+      setFormData(prev => ({
+        ...prev,
+        ysValues: prev.ysValues.filter((_, i) => i !== index)
+      }));
+      setValidation('ysValues', null);
+    }
+  };
+
+  const handleYsChange = (index, field, value) => {
+    // Filter numeric input
+    const filteredValue = value.replace(/[^0-9.]/g, '');
+    const parts = filteredValue.split('.');
+    const finalValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : filteredValue;
+    
+    setFormData(prev => {
+      const newYsValues = prev.ysValues.map((item, i) => 
+        i === index ? { ...item, [field]: finalValue } : item
+      );
+      return { ...prev, ysValues: newYsValues };
+    });
+  };
+
+  const addElValue = () => {
+    if (formData.elValues.length >= 4) return;
+    setFormData(prev => ({
+      ...prev,
+      elValues: [...prev.elValues, { min: '', max: '' }]
+    }));
+    setValidation('elValues', null);
+  };
+
+  const removeElValue = (index) => {
+    if (formData.elValues.length > 1) {
+      setFormData(prev => ({
+        ...prev,
+        elValues: prev.elValues.filter((_, i) => i !== index)
+      }));
+      setValidation('elValues', null);
+    }
+  };
+
+  const handleElChange = (index, field, value) => {
+    // Filter numeric input
+    const filteredValue = value.replace(/[^0-9.]/g, '');
+    const parts = filteredValue.split('.');
+    const finalValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : filteredValue;
+    
+    setFormData(prev => {
+      const newElValues = prev.elValues.map((item, i) => 
+        i === index ? { ...item, [field]: finalValue } : item
+      );
+      return { ...prev, elValues: newElValues };
+    });
   };
 
   // Refs for navigation and auto-focus on first error
@@ -379,6 +476,73 @@ const QcProductionDetails = () => {
         }
         break;
 
+      case 'Dynamic Array':
+        // Validate array of single values (TS)
+        // If not required and all values are empty, skip validation
+        if (rule.required === false) {
+          const hasAnyValue = Array.isArray(value) && value.some(item => item.value && item.value.trim() !== '');
+          if (!hasAnyValue) {
+            break; // Skip validation, not required
+          }
+        }
+        if (!Array.isArray(value) || value.length === 0) {
+          return { isValid: false, message: `${rule.field} requires at least one value` };
+        }
+        for (let i = 0; i < value.length; i++) {
+          // Skip empty entries if not required
+          if (rule.required === false && (!value[i].value || value[i].value.trim() === '')) {
+            continue;
+          }
+          if (!value[i].value || value[i].value.trim() === '') {
+            return { isValid: false, message: `${rule.field} value ${i + 1} is required` };
+          }
+          const numVal = parseFloat(value[i].value);
+          if (isNaN(numVal) || !isFinite(numVal)) {
+            return { isValid: false, message: `${rule.field} value ${i + 1} must be a valid number` };
+          }
+          if (rule.min !== undefined && numVal < rule.min) {
+            return { isValid: false, message: `${rule.field} value ${i + 1} must be at least ${rule.min}` };
+          }
+        }
+        break;
+
+      case 'Dynamic Range Array':
+        // Validate array of min/max ranges (YS, EL)
+        // If not required and all values are empty, skip validation
+        if (rule.required === false) {
+          const hasAnyValue = Array.isArray(value) && value.some(item => 
+            (item.min && item.min.trim() !== '') || (item.max && item.max.trim() !== '')
+          );
+          if (!hasAnyValue) {
+            break; // Skip validation, not required
+          }
+        }
+        if (!Array.isArray(value) || value.length === 0) {
+          return { isValid: false, message: `${rule.field} requires at least one value` };
+        }
+        for (let i = 0; i < value.length; i++) {
+          const item = value[i];
+          // Skip empty entries if not required
+          if (rule.required === false && (!item.min || item.min.trim() === '') && (!item.max || item.max.trim() === '')) {
+            continue;
+          }
+          if (!item.min || item.min.trim() === '' || !item.max || item.max.trim() === '') {
+            return { isValid: false, message: `${rule.field} value ${i + 1} min and max are required` };
+          }
+          const minVal = parseFloat(item.min);
+          const maxVal = parseFloat(item.max);
+          if (isNaN(minVal) || isNaN(maxVal) || !isFinite(minVal) || !isFinite(maxVal)) {
+            return { isValid: false, message: `${rule.field} value ${i + 1} must contain valid numbers` };
+          }
+          if (maxVal !== 0 && minVal >= maxVal) {
+            return { isValid: false, message: `${rule.field} value ${i + 1} min must be less than max` };
+          }
+          if (rule.min !== undefined && (minVal < rule.min || maxVal < rule.min)) {
+            return { isValid: false, message: `${rule.field} value ${i + 1} must be at least ${rule.min}` };
+          }
+        }
+        break;
+
       default:
         // For any other types, just check if it's not empty when required
         break;
@@ -432,11 +596,13 @@ const QcProductionDetails = () => {
       'mgPercentMin', 'mgPercentMax',
       'cuPercentMin', 'cuPercentMax',
       'crPercentMin', 'crPercentMax',
-      'nodularityMin', 'nodularityMax',
+      'nodularity',
+      'noduleCount',
       'graphiteTypeMin', 'graphiteTypeMax',
-      'pearliteFertiteMin', 'pearliteFertiteMax',
+      'pearlite',
+      'ferrite',
       'hardnessBHNMin', 'hardnessBHNMax',
-      'tsMin', 'tsMax',
+      'ts',
       'ysMin', 'ysMax',
       'elMin', 'elMax'
     ];
@@ -482,11 +648,8 @@ const QcProductionDetails = () => {
       'mgPercentMin': 'mgPercentMax', 'mgPercentMax': 'mgPercentMin',
       'cuPercentMin': 'cuPercentMax', 'cuPercentMax': 'cuPercentMin',
       'crPercentMin': 'crPercentMax', 'crPercentMax': 'crPercentMin',
-      'nodularityMin': 'nodularityMax', 'nodularityMax': 'nodularityMin',
       'graphiteTypeMin': 'graphiteTypeMax', 'graphiteTypeMax': 'graphiteTypeMin',
-      'pearliteFertiteMin': 'pearliteFertiteMax', 'pearliteFertiteMax': 'pearliteFertiteMin',
       'hardnessBHNMin': 'hardnessBHNMax', 'hardnessBHNMax': 'hardnessBHNMin',
-      'tsMin': 'tsMax', 'tsMax': 'tsMin',
       'ysMin': 'ysMax', 'ysMax': 'ysMin',
       'elMin': 'elMax', 'elMax': 'elMin'
     };
@@ -601,18 +764,111 @@ const QcProductionDetails = () => {
     }
   };
 
+  // Find the nearest input in a given direction based on visual position
+  const findNearestInput = (currentInput, inputs, direction) => {
+    const currentRect = currentInput.getBoundingClientRect();
+    const currentCenterX = currentRect.left + currentRect.width / 2;
+    const currentCenterY = currentRect.top + currentRect.height / 2;
+
+    let bestMatch = null;
+    let bestScore = Infinity;
+
+    inputs.forEach((input) => {
+      if (input === currentInput) return;
+
+      const rect = input.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+
+      const deltaX = centerX - currentCenterX;
+      const deltaY = centerY - currentCenterY;
+
+      let isValidDirection = false;
+      let score = Infinity;
+
+      switch (direction) {
+        case 'ArrowUp':
+          // Must be above (negative Y) and prioritize closest X alignment
+          if (deltaY < -10) {
+            isValidDirection = true;
+            score = Math.abs(deltaY) + Math.abs(deltaX) * 0.5;
+          }
+          break;
+        case 'ArrowDown':
+          // Must be below (positive Y) and prioritize closest X alignment
+          if (deltaY > 10) {
+            isValidDirection = true;
+            score = Math.abs(deltaY) + Math.abs(deltaX) * 0.5;
+          }
+          break;
+        case 'ArrowLeft':
+          // Must be to the left, prefer same row (small deltaY)
+          if (deltaX < -5) {
+            isValidDirection = true;
+            // Heavily penalize different rows to prefer same-row navigation
+            const rowPenalty = Math.abs(deltaY) > 30 ? Math.abs(deltaY) * 10 : 0;
+            score = Math.abs(deltaX) + rowPenalty;
+          }
+          break;
+        case 'ArrowRight':
+          // Must be to the right, prefer same row (small deltaY)
+          if (deltaX > 5) {
+            isValidDirection = true;
+            // Heavily penalize different rows to prefer same-row navigation
+            const rowPenalty = Math.abs(deltaY) > 30 ? Math.abs(deltaY) * 10 : 0;
+            score = Math.abs(deltaX) + rowPenalty;
+          }
+          break;
+      }
+
+      if (isValidDirection && score < bestScore) {
+        bestScore = score;
+        bestMatch = input;
+      }
+    });
+
+    return bestMatch;
+  };
+
   const handleKeyDown = (e) => {
+    const form = e.target.form;
+    const inputs = Array.from(form.querySelectorAll('input, textarea'));
+    const currentIndex = inputs.indexOf(e.target);
+
     if (e.key === 'Enter') {
       e.preventDefault();
-      const form = e.target.form;
-      const inputs = Array.from(form.querySelectorAll('input, textarea'));
-      const currentIndex = inputs.indexOf(e.target);
       const nextInput = inputs[currentIndex + 1];
 
       if (nextInput) {
         nextInput.focus();
       } else {
         // Last input - focus submit button
+        if (submitButtonRef.current) {
+          submitButtonRef.current.focus();
+        }
+      }
+      return;
+    }
+
+    // Arrow key navigation using visual position
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+      e.preventDefault();
+
+      // Close date picker if navigating away from it
+      if (e.target.classList.contains('date-input') && inputRefs.current.date) {
+        inputRefs.current.date.close();
+      }
+
+      const targetInput = findNearestInput(e.target, inputs, e.key);
+
+      if (targetInput) {
+        targetInput.focus();
+        // If navigating to date picker, open it automatically
+        if (targetInput.classList.contains('date-input') && inputRefs.current.date) {
+          inputRefs.current.date.open();
+        }
+      } else if (e.key === 'ArrowDown') {
+        // If no input below, focus submit button
         if (submitButtonRef.current) {
           submitButtonRef.current.focus();
         }
@@ -624,6 +880,19 @@ const QcProductionDetails = () => {
     if (e.key === 'Enter') {
       e.preventDefault();
       handleSubmit();
+      return;
+    }
+
+    // Arrow key navigation from submit button back to form
+    if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+      e.preventDefault();
+      const form = document.querySelector('.qcproduction-form-grid');
+      if (form) {
+        const inputs = Array.from(form.querySelectorAll('input, textarea'));
+        if (inputs.length > 0) {
+          inputs[inputs.length - 1].focus(); // Focus last input
+        }
+      }
     }
   };
 
@@ -702,7 +971,6 @@ const QcProductionDetails = () => {
           if (maxSetter) maxSetter(false);
           hasErrors = true;
           if (!firstErrorField) firstErrorField = minField;
-          if (result.message) setSubmitErrorMessage(result.message);
         } else {
           if (minSetter) minSetter(null);
           if (maxSetter) maxSetter(null);
@@ -715,9 +983,184 @@ const QcProductionDetails = () => {
             setter(false);
             hasErrors = true;
             if (!firstErrorField) firstErrorField = mappedFields;
-            if (result.message) setSubmitErrorMessage(result.message);
           } else {
             setter(null);
+          }
+        }
+      }
+    }
+
+    // ====================== Special Validation for Dynamic Arrays (TS, YS, EL) ======================
+    // Validate each item in TS, YS, EL arrays and set individual item validation states
+    
+    // Validate TS (Tensile Strength) - Dynamic Array
+    const tsRule = validationRanges.find(r => r.field === 'TS (Tensile Strength)');
+    if (tsRule && formData.tsValues && Array.isArray(formData.tsValues)) {
+      for (let i = 0; i < formData.tsValues.length; i++) {
+        const item = formData.tsValues[i];
+        const fieldKey = `ts_${i}`;
+        
+        // Skip validation if empty and not required
+        if (tsRule.required === false && (!item.value || item.value.trim() === '')) {
+          setValidation(fieldKey, null);
+          continue;
+        }
+        
+        // Check if empty
+        if (!item.value || item.value.trim() === '') {
+          setValidation(fieldKey, false);
+          hasErrors = true;
+          if (!firstErrorField) firstErrorField = fieldKey;
+          continue;
+        }
+        
+        // Check if valid number
+        const numVal = parseFloat(item.value);
+        if (isNaN(numVal) || !isFinite(numVal)) {
+          setValidation(fieldKey, false);
+          hasErrors = true;
+          if (!firstErrorField) firstErrorField = fieldKey;
+          continue;
+        }
+        
+        // Check minimum constraint
+        if (tsRule.min !== undefined && numVal < tsRule.min) {
+          setValidation(fieldKey, false);
+          hasErrors = true;
+          if (!firstErrorField) firstErrorField = fieldKey;
+        } else {
+          setValidation(fieldKey, null);
+        }
+      }
+    }
+    
+    // Validate YS (Yield Strength) - Dynamic Range Array
+    const ysRule = validationRanges.find(r => r.field === 'YS (Yield Strength)');
+    if (ysRule && formData.ysValues && Array.isArray(formData.ysValues)) {
+      for (let i = 0; i < formData.ysValues.length; i++) {
+        const item = formData.ysValues[i];
+        const minKey = `ysMin_${i}`;
+        const maxKey = `ysMax_${i}`;
+        
+        // Skip validation if both empty and not required
+        if (ysRule.required === false && (!item.min || item.min.trim() === '') && (!item.max || item.max.trim() === '')) {
+          setValidation(minKey, null);
+          setValidation(maxKey, null);
+          continue;
+        }
+        
+        let minIsInvalid = false;
+        let maxIsInvalid = false;
+        
+        // Validate min if filled
+        if (item.min && item.min.trim() !== '') {
+          const minVal = parseFloat(item.min);
+          if (isNaN(minVal) || !isFinite(minVal) || (ysRule.min !== undefined && minVal < ysRule.min)) {
+            minIsInvalid = true;
+            setValidation(minKey, false);
+            hasErrors = true;
+            if (!firstErrorField) firstErrorField = minKey;
+          } else {
+            setValidation(minKey, null);
+          }
+        } else {
+          setValidation(minKey, null);
+        }
+        
+        // Validate max if filled
+        if (item.max && item.max.trim() !== '') {
+          const maxVal = parseFloat(item.max);
+          if (isNaN(maxVal) || !isFinite(maxVal) || (ysRule.min !== undefined && maxVal < ysRule.min)) {
+            maxIsInvalid = true;
+            setValidation(maxKey, false);
+            hasErrors = true;
+            if (!firstErrorField) firstErrorField = maxKey;
+          } else {
+            setValidation(maxKey, null);
+          }
+        } else {
+          setValidation(maxKey, null);
+        }
+        
+        // If both are filled, check min < max constraint
+        if (item.min && item.min.trim() !== '' && item.max && item.max.trim() !== '') {
+          const minVal = parseFloat(item.min);
+          const maxVal = parseFloat(item.max);
+          if (!isNaN(minVal) && !isNaN(maxVal) && isFinite(minVal) && isFinite(maxVal)) {
+            if (maxVal !== 0 && minVal >= maxVal) {
+              minIsInvalid = true;
+              maxIsInvalid = true;
+              setValidation(minKey, false);
+              setValidation(maxKey, false);
+              hasErrors = true;
+              if (!firstErrorField) firstErrorField = minKey;
+            }
+          }
+        }
+      }
+    }
+    
+    // Validate EL (Elongation) - Dynamic Range Array
+    const elRule = validationRanges.find(r => r.field === 'EL (Elongation)');
+    if (elRule && formData.elValues && Array.isArray(formData.elValues)) {
+      for (let i = 0; i < formData.elValues.length; i++) {
+        const item = formData.elValues[i];
+        const minKey = `elMin_${i}`;
+        const maxKey = `elMax_${i}`;
+        
+        // Skip validation if both empty and not required
+        if (elRule.required === false && (!item.min || item.min.trim() === '') && (!item.max || item.max.trim() === '')) {
+          setValidation(minKey, null);
+          setValidation(maxKey, null);
+          continue;
+        }
+        
+        let minIsInvalid = false;
+        let maxIsInvalid = false;
+        
+        // Validate min if filled
+        if (item.min && item.min.trim() !== '') {
+          const minVal = parseFloat(item.min);
+          if (isNaN(minVal) || !isFinite(minVal) || (elRule.min !== undefined && minVal < elRule.min)) {
+            minIsInvalid = true;
+            setValidation(minKey, false);
+            hasErrors = true;
+            if (!firstErrorField) firstErrorField = minKey;
+          } else {
+            setValidation(minKey, null);
+          }
+        } else {
+          setValidation(minKey, null);
+        }
+        
+        // Validate max if filled
+        if (item.max && item.max.trim() !== '') {
+          const maxVal = parseFloat(item.max);
+          if (isNaN(maxVal) || !isFinite(maxVal) || (elRule.min !== undefined && maxVal < elRule.min)) {
+            maxIsInvalid = true;
+            setValidation(maxKey, false);
+            hasErrors = true;
+            if (!firstErrorField) firstErrorField = maxKey;
+          } else {
+            setValidation(maxKey, null);
+          }
+        } else {
+          setValidation(maxKey, null);
+        }
+        
+        // If both are filled, check min < max constraint
+        if (item.min && item.min.trim() !== '' && item.max && item.max.trim() !== '') {
+          const minVal = parseFloat(item.min);
+          const maxVal = parseFloat(item.max);
+          if (!isNaN(minVal) && !isNaN(maxVal) && isFinite(minVal) && isFinite(maxVal)) {
+            if (maxVal !== 0 && minVal >= maxVal) {
+              minIsInvalid = true;
+              maxIsInvalid = true;
+              setValidation(minKey, false);
+              setValidation(maxKey, false);
+              hasErrors = true;
+              if (!firstErrorField) firstErrorField = minKey;
+            }
           }
         }
       }
@@ -780,13 +1223,15 @@ const QcProductionDetails = () => {
         mgPercent: formatRange(formData.mgPercentMin, formData.mgPercentMax),
         cuPercent: formatRange(formData.cuPercentMin, formData.cuPercentMax),
         crPercent: formatRange(formData.crPercentMin, formData.crPercentMax),
-        nodularity: formatRange(formData.nodularityMin, formData.nodularityMax),
+        nodularity: formData.nodularity,
+        noduleCount: formData.noduleCount,
         graphiteType: formatRange(formData.graphiteTypeMin, formData.graphiteTypeMax),
-        pearliteFerrite: formatRange(formData.pearliteFertiteMin, formData.pearliteFertiteMax),
+        pearlite: formData.pearlite,
+        ferrite: formData.ferrite,
         hardnessBHN: formatRange(formData.hardnessBHNMin, formData.hardnessBHNMax),
-        ts: formatRange(formData.tsMin, formData.tsMax),
-        ys: formatRange(formData.ysMin, formData.ysMax),
-        el: formatRange(formData.elMin, formData.elMax)
+        ts: formData.tsValues.map(item => parseFloat(item.value)),
+        ys: formData.ysValues.map(item => formatRange(item.min, item.max)),
+        el: formData.elValues.map(item => formatRange(item.min, item.max))
       };
       
       const response = await fetch(API_ENDPOINTS.qcReports, { 
@@ -1201,33 +1646,32 @@ const QcProductionDetails = () => {
 
             <div className="qcproduction-form-group">
               <label>Nodularity</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <input
-                  ref={(el) => inputRefs.current.nodularityMin = el}
-                  type="text"
-                  name="nodularityMin"
-                  value={formData.nodularityMin}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Min"
-                  className={getInputClassName(validationStates.nodularityMin)}
-                  style={{ flex: 1, maxWidth: '100px' }}
-                />
-                <span style={{ color: '#64748b', fontWeight: '500' }}>-</span>
-                <input
-                  ref={(el) => inputRefs.current.nodularityMax = el}
-                  type="text"
-                  name="nodularityMax"
-                  value={formData.nodularityMax}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Max"
-                  className={getInputClassName(validationStates.nodularityMax)}
-                  style={{ flex: 1, maxWidth: '100px' }}
-                />
-              </div>
+              <input
+                ref={(el) => inputRefs.current.nodularity = el}
+                type="text"
+                name="nodularity"
+                value={formData.nodularity}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                onKeyDown={handleKeyDown}
+                placeholder="Enter nodularity value"
+                className={getInputClassName(validationStates.nodularity)}
+              />
+            </div>
+
+            <div className="qcproduction-form-group">
+              <label>Nodule count</label>
+              <input
+                ref={(el) => inputRefs.current.noduleCount = el}
+                type="text"
+                name="noduleCount"
+                value={formData.noduleCount}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                onKeyDown={handleKeyDown}
+                placeholder="Enter nodule count"
+                className={getInputClassName(validationStates.noduleCount)}
+              />
             </div>
 
             <div className="qcproduction-form-group">
@@ -1262,34 +1706,33 @@ const QcProductionDetails = () => {
             </div>
 
             <div className="qcproduction-form-group">
-              <label>Pearlite Ferrite</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <input
-                  ref={(el) => inputRefs.current.pearliteFertiteMin = el}
-                  type="text"
-                  name="pearliteFertiteMin"
-                  value={formData.pearliteFertiteMin}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Min"
-                  className={getInputClassName(validationStates.pearliteFertiteMin)}
-                  style={{ flex: 1, maxWidth: '100px' }}
-                />
-                <span style={{ color: '#64748b', fontWeight: '500' }}>-</span>
-                <input
-                  ref={(el) => inputRefs.current.pearliteFertiteMax = el}
-                  type="text"
-                  name="pearliteFertiteMax"
-                  value={formData.pearliteFertiteMax}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Max"
-                  className={getInputClassName(validationStates.pearliteFertiteMax)}
-                  style={{ flex: 1, maxWidth: '100px' }}
-                />
-              </div>
+              <label>Pearlite</label>
+              <input
+                ref={(el) => inputRefs.current.pearlite = el}
+                type="text"
+                name="pearlite"
+                value={formData.pearlite}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                onKeyDown={handleKeyDown}
+                placeholder="Enter pearlite value"
+                className={getInputClassName(validationStates.pearlite)}
+              />
+            </div>
+
+            <div className="qcproduction-form-group">
+              <label>Ferrite</label>
+              <input
+                ref={(el) => inputRefs.current.ferrite = el}
+                type="text"
+                name="ferrite"
+                value={formData.ferrite}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                onKeyDown={handleKeyDown}
+                placeholder="Enter ferrite value"
+                className={getInputClassName(validationStates.ferrite)}
+              />
             </div>
 
             <div className="qcproduction-form-group">
@@ -1323,96 +1766,101 @@ const QcProductionDetails = () => {
               </div>
             </div>
 
-            <div className="qcproduction-form-group">
-              <label>TS (Tensile Strength)</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <input
-                  ref={(el) => inputRefs.current.tsMin = el}
-                  type="text"
-                  name="tsMin"
-                  value={formData.tsMin}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Min"
-                  className={getInputClassName(validationStates.tsMin)}
-                  style={{ flex: 1, maxWidth: '100px' }}
-                />
-                <span style={{ color: '#64748b', fontWeight: '500' }}>-</span>
-                <input
-                  ref={(el) => inputRefs.current.tsMax = el}
-                  type="text"
-                  name="tsMax"
-                  value={formData.tsMax}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Max"
-                  className={getInputClassName(validationStates.tsMax)}
-                  style={{ flex: 1, maxWidth: '100px' }}
-                />
+            {/* TS (Tensile Strength) - Dynamic inputs displayed horizontally */}
+            <div className="qcproduction-form-group qcproduction-dynamic-group">
+              <div className="qcproduction-dynamic-label">
+                <label>TS (Tensile Strength)</label>
+                <PlusButton onClick={addTsValue} title="Add TS value" disabled={formData.tsValues?.length >= 4} />
+              </div>
+              <div className="qcproduction-dynamic-inputs">
+                {formData.tsValues && formData.tsValues.map((item, index) => (
+                  <div key={index} className="qcproduction-dynamic-input-item">
+                    <input
+                      ref={(el) => inputRefs.current[`ts_${index}`] = el}
+                      type="text"
+                      value={item.value}
+                      onChange={(e) => handleTsChange(index, e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder={`TS ${index + 1}`}
+                      className={getInputClassName(validationStates[`ts_${index}`])}
+                    />
+                    {formData.tsValues.length > 1 && (
+                      <MinusButton onClick={() => removeTsValue(index)} title="Remove TS value" small />
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
 
-            <div className="qcproduction-form-group">
-              <label>YS (Yield Strength)</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <input
-                  ref={(el) => inputRefs.current.ysMin = el}
-                  type="text"
-                  name="ysMin"
-                  value={formData.ysMin}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Min"
-                  className={getInputClassName(validationStates.ysMin)}
-                  style={{ flex: 1, maxWidth: '100px' }}
-                />
-                <span style={{ color: '#64748b', fontWeight: '500' }}>-</span>
-                <input
-                  ref={(el) => inputRefs.current.ysMax = el}
-                  type="text"
-                  name="ysMax"
-                  value={formData.ysMax}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Max"
-                  className={getInputClassName(validationStates.ysMax)}
-                  style={{ flex: 1, maxWidth: '100px' }}
-                />
+            {/* YS (Yield Strength) - Dynamic inputs displayed horizontally */}
+            <div className="qcproduction-form-group qcproduction-dynamic-group">
+              <div className="qcproduction-dynamic-label">
+                <label>YS (Yield Strength)</label>
+                <PlusButton onClick={addYsValue} title="Add YS value" disabled={formData.ysValues?.length >= 4} />
+              </div>
+              <div className="qcproduction-dynamic-inputs">
+                {formData.ysValues && formData.ysValues.map((item, index) => (
+                  <div key={index} className="qcproduction-dynamic-input-item">
+                    <input
+                      ref={(el) => inputRefs.current[`ysMin_${index}`] = el}
+                      type="text"
+                      value={item.min}
+                      onChange={(e) => handleYsChange(index, 'min', e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder="Min"
+                      className={getInputClassName(validationStates[`ysMin_${index}`])}
+                    />
+                    <span className="qcproduction-range-separator">-</span>
+                    <input
+                      ref={(el) => inputRefs.current[`ysMax_${index}`] = el}
+                      type="text"
+                      value={item.max}
+                      onChange={(e) => handleYsChange(index, 'max', e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder="Max"
+                      className={getInputClassName(validationStates[`ysMax_${index}`])}
+                    />
+                    {formData.ysValues.length > 1 && (
+                      <MinusButton onClick={() => removeYsValue(index)} title="Remove YS value" small />
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
 
-            <div className="qcproduction-form-group">
-              <label>EL (Elongation)</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <input
-                  ref={(el) => inputRefs.current.elMin = el}
-                  type="text"
-                  name="elMin"
-                  value={formData.elMin}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Min"
-                  className={getInputClassName(validationStates.elMin)}
-                  style={{ flex: 1, maxWidth: '100px' }}
-                />
-                <span style={{ color: '#64748b', fontWeight: '500' }}>-</span>
-                <input
-                  ref={(el) => inputRefs.current.elMax = el}
-                  type="text"
-                  name="elMax"
-                  value={formData.elMax}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Max"
-                  className={getInputClassName(validationStates.elMax)}
-                  style={{ flex: 1, maxWidth: '100px' }}
-                />
+            {/* EL (Elongation) - Dynamic inputs displayed horizontally */}
+            <div className="qcproduction-form-group qcproduction-dynamic-group">
+              <div className="qcproduction-dynamic-label">
+                <label>EL (Elongation)</label>
+                <PlusButton onClick={addElValue} title="Add EL value" disabled={formData.elValues?.length >= 4} />
+              </div>
+              <div className="qcproduction-dynamic-inputs">
+                {formData.elValues && formData.elValues.map((item, index) => (
+                  <div key={index} className="qcproduction-dynamic-input-item">
+                    <input
+                      ref={(el) => inputRefs.current[`elMin_${index}`] = el}
+                      type="text"
+                      value={item.min}
+                      onChange={(e) => handleElChange(index, 'min', e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder="Min"
+                      className={getInputClassName(validationStates[`elMin_${index}`])}
+                    />
+                    <span className="qcproduction-range-separator">-</span>
+                    <input
+                      ref={(el) => inputRefs.current[`elMax_${index}`] = el}
+                      type="text"
+                      value={item.max}
+                      onChange={(e) => handleElChange(index, 'max', e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder="Max"
+                      className={getInputClassName(validationStates[`elMax_${index}`])}
+                    />
+                    {formData.elValues.length > 1 && (
+                      <MinusButton onClick={() => removeElValue(index)} title="Remove EL value" small />
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
       </form>

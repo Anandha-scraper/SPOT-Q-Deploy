@@ -1,103 +1,122 @@
 /*
  * =====================================================================================
- * DYNAMIC FORM VALIDATION SYSTEM - TECHNICAL REFERENCE
+ * DYNAMIC FORM VALIDATION SYSTEM - COMPREHENSIVE TECHNICAL ARCHITECTURE
  * =====================================================================================
  *
- * This component implements a comprehensive dynamic validation system that can be
- * adapted to any form. The system consists of three core components working together:
+ * VALIDATION ARCHITECTURE OVERVIEW:
+ * This implements a declarative, rule-based validation engine using the Strategy Pattern
+ * with React hooks for state management and dependency injection for validation setters.
  *
- * 1. VALIDATION RANGES - Configuration-driven field definitions
- * 2. FIELD MAPPING - Links display names to form data property names
- * 3. VALIDATION SETTERS - Maps form fields to their validation state setters
- * 4. DYNAMIC VALIDATION FUNCTION - Processes rules and validates fields
+ * CORE DESIGN PATTERNS:
+ * 1. STRATEGY PATTERN - validateField() delegates to type-specific validation strategies
+ * 2. OBSERVER PATTERN - useState hooks observe form state changes, trigger re-renders
+ * 3. DEPENDENCY INJECTION - validationSetters object injects state setters into validator
+ * 4. DECORATOR PATTERN - getInputClassName() decorates inputs with validation styles
+ * 5. FACTORY PATTERN - validationRanges config factory creates validation rules
  *
  * =====================================================================================
- * IMPLEMENTATION GUIDE FOR OTHER PAGES:
+ * VALIDATION RULE ENGINE SPECIFICATION
  * =====================================================================================
  *
- * STEP 1: Define validationRanges array
- * -------------------------------------
- * const validationRanges = [
- *   {
- *     field: 'Display Name',        // Exact label shown to user
- *     required: true/false,         // Whether field is required
- *     type: 'Text|Number|Select|Integer|Date|Time Range|Number Range',
- *     min: 0,                      // Optional: minimum value for numbers
- *     max: 100,                    // Optional: maximum value for numbers
- *     unit: '%',                   // Optional: display unit
- *     pattern: 'regex or example', // Optional: validation pattern
- *     allowedValues: ['A','B','C'] // Required for Select type
- *   }
- * ];
- *
- * STEP 2: Create fieldMapping object
- * ----------------------------------
- * const fieldMapping = {
- *   'Display Name': 'formDataPropertyName',           // Single field
- *   'Temperature Range': ['minTemp', 'maxTemp']       // Range fields (array)
- * };
- *
- * STEP 3: Set up useState for all validation states
- * -----------------------------------------------
- * const [fieldNameValid, setFieldNameValid] = useState(null);
- * // null = neutral, false = invalid (red border), true = valid (not used)
- *
- * STEP 4: Create validationSetters mapping (AFTER useState declarations)
- * -------------------------------------------------------------------
- * const validationSetters = {
- *   'formDataPropertyName': setFieldNameValid,
- *   'anotherField': setAnotherFieldValid
- * };
- *
- * STEP 5: Implement validateField function (copy from this file)
- * ------------------------------------------------------------
- * This handles single fields, range fields, and different validation types.
- *
- * STEP 6: Add validation in submit handler
- * ---------------------------------------
- * for (const rule of validationRanges) {
- *   const mappedFields = fieldMapping[rule.field];
- *   const result = validateField(rule, mappedFields, formData);
- *   const setter = Array.isArray(mappedFields) ?
- *     setRangeFieldValid : validationSetters[mappedFields];
- *   if (setter) {
- *     setter(result.isValid ? null : false);
- *   }
+ * RULE SCHEMA (validationRanges):
+ * {
+ *   field: string,              // UI label (acts as primary key for field mapping)
+ *   required: boolean,          // Mandatory field validation flag
+ *   type: ValidationTypeEnum,   // Type-specific validation strategy selector
+ *   min?: number,              // Boundary validation (inclusive lower bound)
+ *   max?: number,              // Boundary validation (inclusive upper bound)
+ *   unit?: string,             // User-facing unit display (non-functional)
+ *   pattern?: string,          // Example/regex pattern (documentation only)
+ *   allowedValues?: string[]   // Enum constraint for Select type (whitelist approach)
  * }
  *
- * STEP 7: Add getInputClassName function
- * -------------------------------------
- * const getInputClassName = (fieldName, validationState) => {
- *   return validationState === false ? 'invalid-input' : '';
- * };
- *
- * STEP 8: Apply validation classes to inputs
- * ----------------------------------------
- * <input className={getInputClassName('fieldName', fieldNameValid)} />
- *
- * =====================================================================================
- * KEY PATTERNS:
- * =====================================================================================
- *
- * • Field names in validationRanges must EXACTLY match display labels
- * • validationSetters object must be defined AFTER all useState declarations
- * • Use null for neutral state, false for invalid (red border)
- * • Range fields use arrays in fieldMapping: ['minField', 'maxField']
- * • Always reset validation states to null when user starts typing
- * • Special cases (custom time/date fields) need separate handling in submit
+ * SUPPORTED VALIDATION TYPES:
+ * - Text: String validation with sanitization
+ * - Number: Float validation with boundary checks + NaN/Infinity guards
+ * - Integer: Number validation + integer constraint
+ * - Select: Enum validation against allowedValues whitelist
+ * - Date: ISO date format validation
+ * - Time Range: Bi-directional range validation (min < max constraint)
+ * - Number Range: Numeric range validation with cross-field dependencies
  *
  * =====================================================================================
- * VALIDATION STATES:
+ * FIELD MAPPING STRATEGY
  * =====================================================================================
  *
- * null  = Neutral/default state (no border color)
- * false = Invalid state (red border) - shown after submit when field fails validation
- * true  = Valid state (green border) - NOT USED, kept for backwards compatibility
+ * MAPPING PATTERNS:
+ * fieldMapping = {
+ *   'UI_LABEL': 'formData_property',           // 1:1 mapping (single field)
+ *   'RANGE_LABEL': ['minField', 'maxField']   // 1:2 mapping (range fields)
+ * }
  *
- * The validation state changes:
- * - On submit: Set to false if invalid, null if valid
- * - On user input: Reset to null (neutral) in handleChange
- * - On focus/blur: Remains null during input, only changes after submit attempts
+ * MAPPING RESOLUTION FLOW:
+ * 1. UI label → fieldMapping lookup → formData property name(s)
+ * 2. Array check determines single vs range field validation strategy
+ * 3. Range fields get bidirectional validation (min < max + individual constraints)
+ *
+ * =====================================================================================
+ * STATE MANAGEMENT ARCHITECTURE
+ * =====================================================================================
+ *
+ * VALIDATION STATE ENUM:
+ * - null:  Pristine/neutral state (no visual feedback)
+ * - false: Invalid state (error styling applied via CSS classes)
+ * - true:  Valid state (DEPRECATED - not used, kept for compatibility)
+ *
+ * STATE TRANSITION MODEL:
+ * User Input → handleChange() → setState(null)           // Reset to neutral
+ * Form Submit → validation → setState(false|null)       // Apply validation result
+ * Field Focus → no state change                         // Preserve validation state
+ *
+ * VALIDATION SETTERS INJECTION:
+ * validationSetters object maps formData properties to useState setter functions,
+ * enabling the validation engine to update component state without tight coupling.
+ *
+ * =====================================================================================
+ * VALIDATION EXECUTION FLOW
+ * =====================================================================================
+ *
+ * SUBMIT VALIDATION PIPELINE:
+ * 1. Iterate validationRanges[] (rule-based validation)
+ * 2. Resolve field mapping (UI label → formData property)
+ * 3. Execute validateField() with strategy pattern
+ * 4. Inject validation result into component state via setters
+ * 5. Aggregate validation results for submit decision
+ * 6. Apply CSS classes for visual feedback
+ *
+ * FIELD VALIDATION ALGORITHM:
+ * validateField(rule, mappedFields, formData) → {isValid, message}
+ * - Range validation: Array.isArray() check → bidirectional validation
+ * - Single validation: browser validity API + custom rules + type strategies
+ * - Error aggregation: first error wins, short-circuit evaluation
+ *
+ * INPUT SANITIZATION PATTERNS:
+ * - Number inputs: NaN/Infinity guards, scientific notation filtering
+ * - Text inputs: Character whitelist filtering (alphanumeric + specific symbols)
+ * - Date inputs: ISO format normalization
+ * - Integer inputs: decimal truncation validation
+ *
+ * =====================================================================================
+ * IMPLEMENTATION REFERENCE FOR OTHER PAGES
+ * =====================================================================================
+ *
+ * 1. CONFIGURE VALIDATION RULES:
+ * const validationRanges = [...] // Copy rule schema from above
+ *
+ * 2. DEFINE FIELD MAPPING:
+ * const fieldMapping = {...} // Map UI labels to formData properties
+ *
+ * 3. SETUP VALIDATION STATE:
+ * const [fieldValid, setFieldValid] = useState(null); // Per field state
+ *
+ * 4. CREATE SETTER INJECTION MAP:
+ * const validationSetters = {'property': setFieldValid} // After useState
+ *
+ * 5. IMPLEMENT VALIDATION PIPELINE:
+ * // Copy validateField function + submit validation loop from this file
+ *
+ * 6. APPLY VISUAL FEEDBACK:
+ * className={getInputClassName('field', fieldValidState)} // CSS decoration
  *
  * =====================================================================================
  */
@@ -132,18 +151,30 @@ export default function ProcessControl() {
     setEntryCount
   } = useProcessContext();
 
-  // VALIDATION RANGES CONFIGURATION
-  // ================================
-  // Each field configuration supports:
-  // - required: true/false (default: false if not specified)
-  // - type: 'Text', 'Number', 'Integer', 'Select', 'Date', etc.
-  // - min/max: for numeric validation
-  // - unit: display unit for the field
-  // - allowedValues: array for Select type fields
+  // =====================================================================================
+  // VALIDATION RULE CONFIGURATION MATRIX
+  // =====================================================================================
   //
-  // DEFAULT VALUE BEHAVIOR:
-  // - If required: true -> field must be filled, validation error if empty
-  // - If required: false OR not specified -> empty fields are stored as "-" in database
+  // RULE SCHEMA IMPLEMENTATION:
+  // Each validation rule follows a declarative configuration pattern where:
+  // - field: Acts as primary key for UI-to-data mapping resolution
+  // - required: Boolean flag triggering mandatory validationConstraintError
+  // - type: Enum selector for validation strategy dispatch
+  // - min/max: Boundary constraints with inclusive validation logic
+  // - allowedValues: Enumeration constraint using whitelist validation pattern
+  //
+  // VALIDATION BEHAVIOR MATRIX:
+  // required:true  + empty value  → ValidationError (user feedback required)
+  // required:false + empty value  → auto-populate with "-" (database normalization)
+  // required:false + valid value  → store actual value (data preservation)
+  //
+  // TYPE-SPECIFIC VALIDATION STRATEGIES:
+  // - Text: UTF-8 string validation with character sanitization
+  // - Number: IEEE-754 float validation + boundary constraint checking
+  // - Integer: Number validation + modulo-1 constraint (integer verification)
+  // - Select: Enumeration validation using Array.includes() whitelist check
+  // - Date: ISO-8601 format validation with browser Date API integration
+  // - Time Range/Number Range: Cross-field validation with min<max constraint
   const validationRanges = [
     {
       field: 'Date',
@@ -362,6 +393,27 @@ export default function ProcessControl() {
     }
   ];
 
+  // =====================================================================================
+  // FIELD MAPPING RESOLUTION MATRIX - UI LABEL TO FORM DATA BINDING
+  // =====================================================================================
+  //
+  // MAPPING ARCHITECTURE:
+  // This implements a key-value lookup table for decoupling UI presentation layer
+  // from data persistence layer. Enables internationalization and UI refactoring
+  // without breaking data model contracts.
+  //
+  // MAPPING STRATEGIES:
+  // 1. SINGLE FIELD MAPPING: 'UI Label' → 'formDataProperty' (1:1 relationship)
+  // 2. RANGE FIELD MAPPING: 'Range Label' → ['minField', 'maxField'] (1:2 relationship)
+  //
+  // RESOLUTION ALGORITHM:
+  // fieldMapping[uiLabel] → string|array → validateField() strategy dispatch
+  // - typeof string: Single field validation pathway
+  // - typeof array: Range validation pathway with cross-field constraints
+  //
+  // VALIDATION INTEGRATION:
+  // UI validation rules reference fieldMapping keys for property resolution,
+  // enabling dynamic form validation without hardcoded field references.
   const fieldMapping = {
     'Date': 'date',
     'DISA': 'disa',
@@ -411,13 +463,30 @@ export default function ProcessControl() {
   const [showPrimaryWarning, setShowPrimaryWarning] = useState(false);
   const [highlightPrimaryFields, setHighlightPrimaryFields] = useState(false);
 
-  /* 
-   * VALIDATION STATES
-   * null = neutral/default (no border color)
-   * true = valid (green border) - NOT USED, kept for backwards compatibility
-   * false = invalid (red border) - shown after submit when field is empty/invalid
-   */
-  // Basic fields
+  // =====================================================================================
+  // VALIDATION STATE MANAGEMENT - REACT HOOKS PATTERN
+  // =====================================================================================
+  //
+  // STATE ARCHITECTURE:
+  // Each form field maintains independent validation state using React useState hook.
+  // This follows the Single Responsibility Principle - each state manages one field's
+  // validation status without coupling to other field states.
+  //
+  // STATE ENUMERATION:
+  // - null:  PRISTINE/NEUTRAL (no validation feedback, default state)
+  // - false: INVALID (triggers error CSS classes, user feedback required)
+  // - true:  VALID (legacy state, preserved for backward compatibility, unused)
+  //
+  // STATE LIFECYCLE:
+  // Initial → null (component mount)
+  // User Input → null (handleChange resets to neutral)
+  // Submit Validation → false|null (validation result determines final state)
+  //
+  // REACT OPTIMIZATION:
+  // Individual useState hooks prevent unnecessary re-renders across unrelated fields.
+  // Each setter function has stable identity, enabling React.memo optimizations.
+
+  // Basic field validation states
   const [dateValid, setDateValid] = useState(null);
   const [disaValid, setDisaValid] = useState(null);
   const [partNameValid, setPartNameValid] = useState(null);
@@ -470,7 +539,28 @@ export default function ProcessControl() {
   const [filteredPartNames, setFilteredPartNames] = useState([]);
   const partNameDropdownRef = useRef(null);
 
-  // Validation state setters mapping
+  // =====================================================================================
+  // VALIDATION SETTERS DEPENDENCY INJECTION MAP
+  // =====================================================================================
+  //
+  // DEPENDENCY INJECTION PATTERN:
+  // This object implements the Dependency Injection pattern by mapping form data
+  // property names to their corresponding React state setter functions. This enables
+  // the validation engine to update component state without direct coupling to hooks.
+  //
+  // ARCHITECTURAL BENEFITS:
+  // - LOOSE COUPLING: Validation logic doesn't need direct references to setters
+  // - EXTENSIBILITY: New fields can be added without modifying validation core logic
+  // - TESTABILITY: Setters can be mocked/stubbed for unit testing
+  // - CONSISTENCY: Centralized mapping ensures uniform validation behavior
+  //
+  // CRITICAL ORDERING CONSTRAINT:
+  // This object MUST be declared AFTER all useState hook declarations to ensure
+  // setter functions exist in scope before being referenced in this mapping.
+  //
+  // LOOKUP ALGORITHM:
+  // formDataProperty → validationSetters[property] → setState function
+  // Used by validation engine to inject validation results into component state.
   const validationSetters = {
     'date': setDateValid,
     'disa': setDisaValid,
@@ -507,18 +597,21 @@ export default function ProcessControl() {
     'remarks': setRemarksValid
   };
 
-  /*
-   * Returns the appropriate CSS class for an input field based on validation state:
-   * - Red border (invalid-input) when field is invalid/empty after submit
-   * - Neutral (no color) otherwise
-   * 
-   * Flow:
-   * 1. After submit, if invalid -> red border (invalid-input)
-   * 2. When user starts typing/entering data -> resets to neutral via handleChange
-   * 
-   * @param {string} fieldName - The name of the field
-   * @param {boolean|null} validationState - null=neutral, false=invalid
-   */
+  // =====================================================================================
+  // CSS DECORATOR FUNCTION - DYNAMIC CLASS APPLICATION
+  // =====================================================================================
+  //
+  // DECORATOR PATTERN IMPLEMENTATION:
+  // This function implements the Decorator pattern by conditionally applying CSS classes
+  // to input elements based on validation state, enabling visual feedback without
+  // modifying the core input component structure.
+  //
+  // STATE-TO-CLASS MAPPING:
+  // validationState === false → 'invalid-input' CSS class (error styling)
+  // validationState !== false → '' (neutral/default styling)
+  //
+  // VISUAL FEEDBACK PIPELINE:
+  // Validation Error → setState(false) → getInputClassName() → 'invalid-input' CSS
   const getInputClassName = (fieldName, validationState) => {
     // Show red border if invalid (validationState === false)
     if (validationState === false) return 'invalid-input';
@@ -526,6 +619,30 @@ export default function ProcessControl() {
     return '';
   };
 
+  // =====================================================================================
+  // FIELD VALIDATION STRATEGY ENGINE - CORE VALIDATION LOGIC
+  // =====================================================================================
+  //
+  // STRATEGY PATTERN IMPLEMENTATION:
+  // This function implements the Strategy pattern by dispatching validation logic
+  // based on field type and structure (single vs range fields). Each validation
+  // type follows a specific strategy while maintaining consistent return interface.
+  //
+  // VALIDATION ALGORITHMS:
+  // 1. RANGE FIELD STRATEGY: Array.isArray() check → bidirectional validation
+  // 2. SINGLE FIELD STRATEGY: Type-specific validation + boundary constraints
+  // 3. BROWSER API INTEGRATION: Uses inputElement.validity for native validation
+  // 4. CUSTOM VALIDATION: Implements business rules beyond HTML5 validation
+  //
+  // RETURN INTERFACE:
+  // { isValid: boolean, message?: string }
+  // - isValid: Core validation result (true/false)
+  // - message: Human-readable error description for user feedback
+  //
+  // ERROR HANDLING STRATEGY:
+  // - FAIL-FAST: Return first validation error encountered
+  // - EARLY-EXIT: Skip further validation on first failure
+  // - DESCRIPTIVE ERRORS: Provide specific error messages for each failure type
   const validateField = (rule, mappedFields, formData) => {
     // Handle range fields (arrays)
     if (Array.isArray(mappedFields)) {
@@ -1217,6 +1334,36 @@ export default function ProcessControl() {
     }
   };
 
+  // =====================================================================================
+  // FORM SUBMISSION VALIDATION PIPELINE - ORCHESTRATION LAYER
+  // =====================================================================================
+  //
+  // PIPELINE ARCHITECTURE:
+  // This function orchestrates the complete form validation and submission workflow
+  // using an iterator pattern over validation rules with fail-fast error handling.
+  //
+  // VALIDATION EXECUTION FLOW:
+  // 1. ERROR STATE INITIALIZATION: Reset validation state + error accumulators
+  // 2. RULE ITERATION: Process each validationRanges rule via for-of loop
+  // 3. FIELD MAPPING RESOLUTION: UI label → formData property transformation
+  // 4. VALIDATION STRATEGY DISPATCH: Route to appropriate validation function
+  // 5. STATE INJECTION: Apply validation results via dependency-injected setters
+  // 6. ERROR AGGREGATION: Collect failures + focus management for UX
+  // 7. SUBMISSION DECISION: Proceed only if all validations pass
+  // 8. API INTEGRATION: Execute form submission to backend endpoint
+  //
+  // ERROR HANDLING PATTERNS:
+  // - FAIL-FAST: Stop processing on first critical error
+  // - ERROR ACCUMULATION: Collect all validation errors for batch feedback
+  // - FOCUS MANAGEMENT: Auto-focus first invalid field for keyboard accessibility
+  // - USER FEEDBACK: Display descriptive error messages via UI components
+  //
+  // ASYNC OPERATION FLOW:
+  // Client Validation → API Request → Server Response → UI State Update → User Feedback
+  //
+  // ACCESSIBILITY FOCUS PATTERN IMPLEMENTATION:
+  // Track first error field synchronously (not via React state) for immediate focus:
+  // let firstErrorField = null; → capture first error → inputRefs.current[field]?.focus()
   /*
    * Handle form submission with validation
    * 
@@ -1337,7 +1484,6 @@ export default function ProcessControl() {
           setter(false);
           hasErrors = true;
           if (!firstErrorField) firstErrorField = Array.isArray(mappedFields) ? mappedFields[0] : mappedFields;
-          if (result.message) setSubmitErrorMessage(result.message);
         } else {
           setter(null);
         }
@@ -1346,9 +1492,7 @@ export default function ProcessControl() {
 
     // Handle error state
     if (hasErrors) {
-      if (!submitErrorMessage) {
-        setSubmitErrorMessage('Enter data in correct Format');
-      }
+      setSubmitErrorMessage('Fill required Field in Correct format');
 
       // Auto-focus on first error field
       if (firstErrorField) {
@@ -2297,19 +2441,22 @@ export default function ProcessControl() {
       <div className="process-submit-container" style={{ justifyContent: 'flex-end', alignItems: 'center', gap: '1rem' }}>
         {/* Error message display near submit button */}
         {submitErrorMessage && (
-          <InlineLoader 
-            message={submitErrorMessage}
-            variant="danger"
-            size="medium"
-          />
+          <div style={{ flex: 1, marginRight: '0.5rem' }}>
+            <InlineLoader
+              message={submitErrorMessage}
+              variant="danger"
+              size="medium"
+            />
+          </div>
         )}
-        <SubmitButton
-          ref={el => inputRefs.current.submitBtn = el}
-          onClick={handleSubmit}
-          disabled={submitLoading || !isPrimarySaved}
-          type="button"
-          onKeyDown={handleSubmitKeyDown}
-        >
+        <div>
+          <SubmitButton
+            ref={el => inputRefs.current.submitBtn = el}
+            onClick={handleSubmit}
+            disabled={submitLoading || !isPrimarySaved}
+            type="button"
+            onKeyDown={handleSubmitKeyDown}
+          >
           {submitLoading ? (
             <>
               <Loader2 size={18} className="animate-spin" />
@@ -2319,6 +2466,7 @@ export default function ProcessControl() {
             'Submit Entry'
           )}
         </SubmitButton>
+        </div>
       </div>
     </>
   );

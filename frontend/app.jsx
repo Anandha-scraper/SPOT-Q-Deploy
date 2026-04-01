@@ -197,20 +197,17 @@ const initialQcProductionFormData = {
   cuPercentMax: '',
   crPercentMin: '',
   crPercentMax: '',
-  nodularityMin: '',
-  nodularityMax: '',
+  nodularity: '',
+  noduleCount: '',
   graphiteTypeMin: '',
   graphiteTypeMax: '',
-  pearliteFertiteMin: '',
-  pearliteFertiteMax: '',
+  pearlite: '',
+  ferrite: '',
   hardnessBHNMin: '',
   hardnessBHNMax: '',
-  tsMin: '',
-  tsMax: '',
-  ysMin: '',
-  ysMax: '',
-  elMin: '',
-  elMax: ''
+  tsValues: [{ value: '' }],
+  ysValues: [{ min: '', max: '' }],
+  elValues: [{ min: '', max: '' }]
 };
 
 const initialQcProductionValidation = {
@@ -233,20 +230,17 @@ const initialQcProductionValidation = {
   cuPercentMax: null,
   crPercentMin: null,
   crPercentMax: null,
-  nodularityMin: null,
-  nodularityMax: null,
+  nodularity: null,
+  noduleCount: null,
   graphiteTypeMin: null,
   graphiteTypeMax: null,
-  pearliteFertiteMin: null,
-  pearliteFertiteMax: null,
+  pearlite: null,
+  ferrite: null,
   hardnessBHNMin: null,
   hardnessBHNMax: null,
-  tsMin: null,
-  tsMax: null,
-  ysMin: null,
-  ysMax: null,
-  elMin: null,
-  elMax: null
+  tsValues: null,
+  ysValues: null,
+  elValues: null
 };
 
 export const QcProductionProvider = ({ children }) => {

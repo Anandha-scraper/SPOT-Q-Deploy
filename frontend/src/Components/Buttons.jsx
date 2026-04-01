@@ -100,15 +100,15 @@ export const PlusButton = ({ onClick, disabled = false, title = "Add entry" }) =
   </button>
 );
 
-export const MinusButton = ({ onClick, disabled = false, title = "Remove entry" }) => (
+export const MinusButton = ({ onClick, disabled = false, title = "Remove entry", small = false }) => (
   <button
     type="button"
     onClick={onClick}
     disabled={disabled}
-    className="minus-button"
+    className={`minus-button${small ? ' small' : ''}`}
     title={title}
   >
-    <Minus size={14} />
+    <Minus size={small ? 10 : 14} />
   </button>
 );
 
