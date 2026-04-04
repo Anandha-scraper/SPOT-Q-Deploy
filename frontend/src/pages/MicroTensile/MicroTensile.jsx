@@ -548,6 +548,72 @@ const MicroTensile = () => {
     setErrors(prev => ({ ...prev, [name]: false }));
   };
 
+  // Find the nearest input in a given direction based on visual position
+  const findNearestInput = (currentInput, inputs, direction) => {
+    const currentRect = currentInput.getBoundingClientRect();
+    const currentCenterX = currentRect.left + currentRect.width / 2;
+    const currentCenterY = currentRect.top + currentRect.height / 2;
+
+    let bestMatch = null;
+    let bestScore = Infinity;
+
+    inputs.forEach((input) => {
+      if (input === currentInput) return;
+
+      const rect = input.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+
+      const deltaX = centerX - currentCenterX;
+      const deltaY = centerY - currentCenterY;
+
+      let isValidDirection = false;
+      let score = Infinity;
+
+      switch (direction) {
+        case 'ArrowUp':
+          // Must be above (negative Y) and prioritize closest X alignment
+          if (deltaY < -10) {
+            isValidDirection = true;
+            score = Math.abs(deltaY) + Math.abs(deltaX) * 0.5;
+          }
+          break;
+        case 'ArrowDown':
+          // Must be below (positive Y) and prioritize closest X alignment
+          if (deltaY > 10) {
+            isValidDirection = true;
+            score = Math.abs(deltaY) + Math.abs(deltaX) * 0.5;
+          }
+          break;
+        case 'ArrowLeft':
+          // Must be to the left, prefer same row (small deltaY)
+          if (deltaX < -5) {
+            isValidDirection = true;
+            // Heavily penalize different rows to prefer same-row navigation
+            const rowPenalty = Math.abs(deltaY) > 30 ? Math.abs(deltaY) * 10 : 0;
+            score = Math.abs(deltaX) + rowPenalty;
+          }
+          break;
+        case 'ArrowRight':
+          // Must be to the right, prefer same row (small deltaY)
+          if (deltaX > 5) {
+            isValidDirection = true;
+            // Heavily penalize different rows to prefer same-row navigation
+            const rowPenalty = Math.abs(deltaY) > 30 ? Math.abs(deltaY) * 10 : 0;
+            score = Math.abs(deltaX) + rowPenalty;
+          }
+          break;
+      }
+
+      if (isValidDirection && score < bestScore) {
+        bestScore = score;
+        bestMatch = input;
+      }
+    });
+
+    return bestMatch;
+  };
+
   // Format decimal values for numeric fields
   const formatDecimalValue = (fieldName) => {
     const value = formData[fieldName];
@@ -624,6 +690,10 @@ const MicroTensile = () => {
   };
 
   const handleKeyDown = (e, field) => {
+    const form = document.querySelector('.microtensile-form-grid');
+    const inputs = form ? Array.from(form.querySelectorAll('input, textarea, select')) : [];
+    const currentIndex = inputs.indexOf(e.target);
+
     if (e.key === 'Enter') {
       e.preventDefault();
 
@@ -634,9 +704,11 @@ const MicroTensile = () => {
 
         // If empty, move to next field
         if (!currentValue || currentValue.trim() === '') {
-          const idx = fieldOrder.indexOf(field);
-          if (idx < fieldOrder.length - 1) {
-            inputRefs.current[fieldOrder[idx + 1]]?.focus();
+          const nextInput = inputs[currentIndex + 1];
+          if (nextInput) {
+            nextInput.focus();
+          } else if (inputRefs.current.submitBtn) {
+            inputRefs.current.submitBtn.focus();
           }
           return;
         }
@@ -656,9 +728,11 @@ const MicroTensile = () => {
 
         // If has 2 slashes and valid format, or ends with slash after 2nd number, move to next field
         if (isValid || (slashCount === 2 && parts.length === 3)) {
-          const idx = fieldOrder.indexOf(field);
-          if (idx < fieldOrder.length - 1) {
-            inputRefs.current[fieldOrder[idx + 1]]?.focus();
+          const nextInput = inputs[currentIndex + 1];
+          if (nextInput) {
+            nextInput.focus();
+          } else if (inputRefs.current.submitBtn) {
+            inputRefs.current.submitBtn.focus();
           }
           return;
         }
@@ -682,11 +756,31 @@ const MicroTensile = () => {
         }
       }
 
-      const idx = fieldOrder.indexOf(field);
-      if (idx < fieldOrder.length - 1) {
-        inputRefs.current[fieldOrder[idx + 1]]?.focus();
+      const nextInput = inputs[currentIndex + 1];
+      if (nextInput) {
+        nextInput.focus();
       } else {
-        handleSubmit();
+        // Last input - focus submit button
+        if (inputRefs.current.submitBtn) {
+          inputRefs.current.submitBtn.focus();
+        }
+      }
+      return;
+    }
+
+    // Arrow key navigation using visual position
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+      e.preventDefault();
+
+      const targetInput = findNearestInput(e.target, inputs, e.key);
+
+      if (targetInput) {
+        targetInput.focus();
+      } else if (e.key === 'ArrowDown') {
+        // If no input below, focus submit button
+        if (inputRefs.current.submitBtn) {
+          inputRefs.current.submitBtn.focus();
+        }
       }
     }
   };
@@ -872,6 +966,22 @@ const MicroTensile = () => {
       alert('Failed to create entry: ' + error.message);
     } finally {
       setSubmitLoading(false);
+    }
+  };
+
+  const handleSubmitButtonKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
+      handleSubmit();
+      return;
+    }
+
+    // Block all arrow keys on submit button
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
     }
   };
 
@@ -1227,8 +1337,10 @@ const MicroTensile = () => {
           />
         )}
         <SubmitButton
+            ref={el => inputRefs.current.submitBtn = el}
             onClick={handleSubmit}
             disabled={!isPrimarySaved || submitLoading}
+            onKeyDown={handleSubmitButtonKeyDown}
           >
             {submitLoading ? (
               <>

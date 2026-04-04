@@ -879,20 +879,16 @@ const QcProductionDetails = () => {
   const handleSubmitButtonKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
+      e.stopPropagation();
       handleSubmit();
       return;
     }
 
-    // Arrow key navigation from submit button back to form
-    if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+    // Block all arrow keys on submit button
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
       e.preventDefault();
-      const form = document.querySelector('.qcproduction-form-grid');
-      if (form) {
-        const inputs = Array.from(form.querySelectorAll('input, textarea'));
-        if (inputs.length > 0) {
-          inputs[inputs.length - 1].focus(); // Focus last input
-        }
-      }
+      e.stopPropagation();
+      return;
     }
   };
 

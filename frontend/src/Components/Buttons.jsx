@@ -115,9 +115,9 @@ export const MinusButton = ({ onClick, disabled = false, title = "Remove entry",
 
 // Submit , Reset , Lock Primary Buttons
 
-export const SubmitButton = forwardRef(({ onClick, disabled = false, children, type = 'button' }, ref) => (
+export const SubmitButton = forwardRef(({ onClick, disabled = false, children, type = 'button', onKeyDown }, ref) => (
   <div className="submit-button-wrapper">
-    <button ref={ref} onClick={onClick} type={type} disabled={disabled} title={children || 'Submit'}>
+    <button ref={ref} onClick={onClick} onKeyDown={onKeyDown} type={type} disabled={disabled} title={children || 'Submit'}>
       <Save size={18} />
       {children || 'Submit'}
     </button>

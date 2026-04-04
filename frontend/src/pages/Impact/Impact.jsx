@@ -440,19 +440,112 @@ const Impact = () => {
   };
 
 
+  // ====================== Arrow Navigation Helpers ======================
+  /**
+   * Finds the nearest input element in a given direction using visual position
+   * Uses getBoundingClientRect to calculate visual center and distance
+   * Implements directional scoring: vertical movement prioritizes same row,
+   * horizontal movement prioritizes same row with smaller penalties
+   */
+  const findNearestInput = (currentInput, inputs, direction) => {
+    const currentRect = currentInput.getBoundingClientRect();
+    const currentCenterX = currentRect.left + currentRect.width / 2;
+    const currentCenterY = currentRect.top + currentRect.height / 2;
+
+    let bestMatch = null;
+    let bestScore = Infinity;
+
+    inputs.forEach((input) => {
+      if (input === currentInput) return;
+
+      const rect = input.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+
+      const deltaX = centerX - currentCenterX;
+      const deltaY = centerY - currentCenterY;
+
+      let isValidDirection = false;
+      let score = Infinity;
+
+      switch (direction) {
+        case 'ArrowUp':
+          // Must be above (negative Y) and prioritize closest X alignment
+          if (deltaY < -10) {
+            isValidDirection = true;
+            score = Math.abs(deltaY) + Math.abs(deltaX) * 0.5;
+          }
+          break;
+        case 'ArrowDown':
+          // Must be below (positive Y) and prioritize closest X alignment
+          if (deltaY > 10) {
+            isValidDirection = true;
+            score = Math.abs(deltaY) + Math.abs(deltaX) * 0.5;
+          }
+          break;
+        case 'ArrowLeft':
+          // Must be to the left, prefer same row (small deltaY)
+          if (deltaX < -5) {
+            isValidDirection = true;
+            // Heavily penalize different rows to prefer same-row navigation
+            const rowPenalty = Math.abs(deltaY) > 30 ? Math.abs(deltaY) * 10 : 0;
+            score = Math.abs(deltaX) + rowPenalty;
+          }
+          break;
+        case 'ArrowRight':
+          // Must be to the right, prefer same row (small deltaY)
+          if (deltaX > 5) {
+            isValidDirection = true;
+            // Heavily penalize different rows to prefer same-row navigation
+            const rowPenalty = Math.abs(deltaY) > 30 ? Math.abs(deltaY) * 10 : 0;
+            score = Math.abs(deltaX) + rowPenalty;
+          }
+          break;
+      }
+
+      if (isValidDirection && score < bestScore) {
+        bestScore = score;
+        bestMatch = input;
+      }
+    });
+
+    return bestMatch;
+  };
+
   // ====================== Enter Key Navigation ======================
   const handleKeyDown = (e) => {
+    const form = e.target.form;
+    if (!form) return;
+    
+    const inputs = Array.from(form.querySelectorAll('input, textarea'));
+    const currentIndex = inputs.indexOf(e.target);
+
     if (e.key === 'Enter') {
       e.preventDefault();
-      const form = e.target.form;
-      const inputs = Array.from(form.querySelectorAll('input, textarea'));
-      const currentIndex = inputs.indexOf(e.target);
       const nextInput = inputs[currentIndex + 1];
 
       if (nextInput) {
         nextInput.focus();
       } else {
         if (submitButtonRef.current) submitButtonRef.current.focus();
+      }
+      return;
+    }
+
+    // Arrow key navigation using visual position
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const targetInput = findNearestInput(e.target, inputs, e.key);
+
+      if (targetInput) {
+        targetInput.focus();
+      } else if (e.key === 'ArrowDown') {
+        // If no input below, focus submit button
+        if (submitButtonRef.current) {
+          submitButtonRef.current.focus();
+        }
       }
     }
   };
@@ -461,7 +554,16 @@ const Impact = () => {
   const handleSubmitButtonKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
+      e.stopPropagation();
       handleSubmit();
+      return;
+    }
+
+    // Block all arrow keys on submit button
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
     }
   };
 
@@ -729,23 +831,13 @@ const Impact = () => {
 
         {/* OBSERVED VALUES - Dynamic Number Inputs */}
         <div className="impact-form-group" style={{ gridColumn: '1 / -1' }}>
-          <label>Observed Values</label>
-          <div style={{
-            display: 'flex',
-            flexFlow: 'row wrap',
-            gap: '1rem',
-            alignItems: 'center',
-            width: '100%'
-          }}>
+          <div className="impact-dynamic-label">
+            <label>Observed Values</label>
+            <PlusButton onClick={addObservedValue} title="Add another value" />
+          </div>
+          <div className="impact-dynamic-inputs">
             {observedValues.map((observedValue, index) => (
-              <div
-                key={observedValue.id}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.4rem'
-                }}
-              >
+              <div key={observedValue.id} className="impact-dynamic-input-item">
                 <input
                   ref={(el) => inputRefs.current[`observedValue_${observedValue.id}`] = el}
                   type="number"
@@ -757,36 +849,14 @@ const Impact = () => {
                   onKeyDown={handleKeyDown}
                   placeholder={`Value ${index + 1}`}
                   autoComplete="off"
-                  style={{
-                    width: '100px',
-                    padding: '0.5rem 0.75rem',
-                    border: (validationStates.observedValues === false && isObservedValueInvalid(observedValue.value)) 
-                              ? '2px solid #ef4444' 
-                              : '2px solid #cbd5e1',
-                    borderRadius: '8px',
-                    fontSize: '0.875rem',
-                    backgroundColor: '#fff',
-                    display: 'inline-block'
-                  }}
+                  className={validationStates.observedValues === false && isObservedValueInvalid(observedValue.value) ? 'invalid-input' : ''}
                 />
-                <div style={{
-                  display: 'inline-flex',
-                  gap: '0.2rem',
-                  alignItems: 'center'
-                }}>
-                  {observedValues.length > 1 && (
-                    <MinusButton
-                      onClick={() => removeObservedValue(observedValue.id)}
-                      title={`Remove value ${index + 1}`}
-                    />
-                  )}
-                  {index === observedValues.length - 1 && (
-                    <PlusButton
-                      onClick={addObservedValue}
-                      title="Add another value"
-                    />
-                  )}
-                </div>
+                {observedValues.length > 1 && (
+                  <MinusButton
+                    onClick={() => removeObservedValue(observedValue.id)}
+                    title={`Remove value ${index + 1}`}
+                  />
+                )}
               </div>
             ))}
           </div>

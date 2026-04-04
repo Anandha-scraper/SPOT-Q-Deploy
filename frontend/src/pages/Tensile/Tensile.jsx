@@ -505,7 +505,97 @@ const Tensile = () => {
     }));
   };
 
+  /**
+   * Find the nearest input field in a given direction using visual positioning
+   * Calculates visual distance between element centers and directional alignment
+   * @param {string} currentFieldName - The field name of the currently focused element
+   * @param {string} direction - One of 'up', 'down', 'left', 'right'
+   * @returns {string|null} - The field name of the nearest input, or null if none found
+   */
+  const findNearestInput = (currentFieldName, direction) => {
+    const currentEl = inputRefs.current[currentFieldName];
+    if (!currentEl) return null;
+
+    const currentRect = currentEl.getBoundingClientRect();
+    const currentCenter = {
+      x: currentRect.left + currentRect.width / 2,
+      y: currentRect.top + currentRect.height / 2
+    };
+
+    let nearest = null;
+    let nearestScore = Infinity;
+
+    // Check all input fields to find the nearest one
+    for (const field of fieldOrder) {
+      if (field === currentFieldName) continue;
+
+      const el = inputRefs.current[field];
+      if (!el) continue;
+
+      const rect = el.getBoundingClientRect();
+      const center = {
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2
+      };
+
+      const deltaX = center.x - currentCenter.x;
+      const deltaY = center.y - currentCenter.y;
+      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+      let score = Infinity;
+
+      switch (direction) {
+        case 'up':
+          if (deltaY < -10) {
+            score = distance + Math.abs(deltaX) * 0.5;
+          }
+          break;
+        case 'down':
+          if (deltaY > 10) {
+            score = distance + Math.abs(deltaX) * 0.5;
+          }
+          break;
+        case 'left':
+          if (deltaX < -5) {
+            const rowPenalty = Math.abs(deltaY) > 30 ? 10 * Math.abs(deltaY) : 0;
+            score = distance + rowPenalty;
+          }
+          break;
+        case 'right':
+          if (deltaX > 5) {
+            const rowPenalty = Math.abs(deltaY) > 30 ? 10 * Math.abs(deltaY) : 0;
+            score = distance + rowPenalty;
+          }
+          break;
+      }
+
+      if (score < nearestScore) {
+        nearestScore = score;
+        nearest = field;
+      }
+    }
+
+    return nearest;
+  };
+
   const handleKeyDown = (e, fieldName) => {
+    // Arrow key navigation - spatial movement through form
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+      e.preventDefault();
+      const directionMap = {
+        'ArrowUp': 'up',
+        'ArrowDown': 'down',
+        'ArrowLeft': 'left',
+        'ArrowRight': 'right'
+      };
+      const nextField = findNearestInput(fieldName, directionMap[e.key]);
+      if (nextField) {
+        inputRefs.current[nextField]?.focus();
+      }
+      return;
+    }
+
+    // Enter key - sequential navigation
     if (e.key === 'Enter') {
       e.preventDefault();
       const idx = fieldOrder.indexOf(fieldName);
@@ -532,6 +622,14 @@ const Tensile = () => {
   };
 
   const handleSubmitKeyDown = (e) => {
+    // Block arrow keys on submit button
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+
+    // Handle Enter key for submit
     if (e.key === 'Enter') {
       e.preventDefault();
       handleSubmit();

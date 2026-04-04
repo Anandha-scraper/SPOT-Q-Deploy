@@ -720,16 +720,112 @@ const MicroStructure = () => {
     setDateCodeValid(null);
   };
 
+  // ====================== Arrow Navigation Helpers ======================
+  /**
+   * Finds the nearest input element in a given direction using visual position
+   * Uses getBoundingClientRect to calculate visual center and distance
+   * Implements directional scoring: vertical movement prioritizes same row,
+   * horizontal movement prioritizes same row with smaller penalties
+   */
+  const findNearestInput = (currentInput, inputs, direction) => {
+    const currentRect = currentInput.getBoundingClientRect();
+    const currentCenterX = currentRect.left + currentRect.width / 2;
+    const currentCenterY = currentRect.top + currentRect.height / 2;
+
+    let bestMatch = null;
+    let bestScore = Infinity;
+
+    inputs.forEach((input) => {
+      if (input === currentInput) return;
+
+      const rect = input.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+
+      const deltaX = centerX - currentCenterX;
+      const deltaY = centerY - currentCenterY;
+
+      let isValidDirection = false;
+      let score = Infinity;
+
+      switch (direction) {
+        case 'ArrowUp':
+          // Must be above (negative Y) and prioritize closest X alignment
+          if (deltaY < -10) {
+            isValidDirection = true;
+            score = Math.abs(deltaY) + Math.abs(deltaX) * 0.5;
+          }
+          break;
+        case 'ArrowDown':
+          // Must be below (positive Y) and prioritize closest X alignment
+          if (deltaY > 10) {
+            isValidDirection = true;
+            score = Math.abs(deltaY) + Math.abs(deltaX) * 0.5;
+          }
+          break;
+        case 'ArrowLeft':
+          // Must be to the left, prefer same row (small deltaY)
+          if (deltaX < -5) {
+            isValidDirection = true;
+            // Heavily penalize different rows to prefer same-row navigation
+            const rowPenalty = Math.abs(deltaY) > 30 ? Math.abs(deltaY) * 10 : 0;
+            score = Math.abs(deltaX) + rowPenalty;
+          }
+          break;
+        case 'ArrowRight':
+          // Must be to the right, prefer same row (small deltaY)
+          if (deltaX > 5) {
+            isValidDirection = true;
+            // Heavily penalize different rows to prefer same-row navigation
+            const rowPenalty = Math.abs(deltaY) > 30 ? Math.abs(deltaY) * 10 : 0;
+            score = Math.abs(deltaX) + rowPenalty;
+          }
+          break;
+      }
+
+      if (isValidDirection && score < bestScore) {
+        bestScore = score;
+        bestMatch = input;
+      }
+    });
+
+    return bestMatch;
+  };
+
   const handleKeyDown = (e, field) => {
+    // Get all inputs - search from document since there's no form wrapper
+    const inputs = Array.from(document.querySelectorAll('input[name], textarea[name], select[name]'));
+    const currentIndex = inputs.indexOf(e.target);
+
     if (e.key === 'Enter') {
       e.preventDefault();
-      const idx = fieldOrder.indexOf(field);
-      
-      if (field === 'remarks') {
-        inputRefs.current.submitBtn?.focus();
-      } else if (idx < fieldOrder.length - 1) {
-        const nextField = fieldOrder[idx + 1];
-        inputRefs.current[nextField]?.focus();
+      const nextInput = inputs[currentIndex + 1];
+
+      if (nextInput) {
+        nextInput.focus();
+      } else {
+        // Last input - focus submit button
+        if (inputRefs.current.submitBtn) {
+          inputRefs.current.submitBtn.focus();
+        }
+      }
+      return;
+    }
+
+    // Arrow key navigation using visual position
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const targetInput = findNearestInput(e.target, inputs, e.key);
+
+      if (targetInput) {
+        targetInput.focus();
+      } else if (e.key === 'ArrowDown') {
+        // If no input below, focus submit button
+        if (inputRefs.current.submitBtn) {
+          inputRefs.current.submitBtn.focus();
+        }
       }
     }
   };
@@ -1043,7 +1139,16 @@ const MicroStructure = () => {
   const handleSubmitKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
+      e.stopPropagation();
       handleSubmit();
+      return;
+    }
+
+    // Block all arrow keys on submit button
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
     }
   };
 

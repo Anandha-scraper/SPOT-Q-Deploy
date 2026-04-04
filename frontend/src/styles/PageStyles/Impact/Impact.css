@@ -208,6 +208,37 @@
   min-height: 80px;
 }
 
+/* ==================== Dynamic Input Layout - Observed Values ==================== */
+.impact-dynamic-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  gap: 1rem;
+}
+
+.impact-dynamic-label label {
+  margin-bottom: 0;
+  flex: 0 0 auto;
+}
+
+.impact-dynamic-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.impact-dynamic-input-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.impact-dynamic-input-item input {
+  flex: 1;
+  min-width: 0;
+}
+
 /* ==================== Button Styles ==================== */
 .impact-submit-container {
   margin-top: 2rem;
